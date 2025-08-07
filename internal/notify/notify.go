@@ -2,6 +2,7 @@ package notify
 
 import (
 	"fmt"
+	"log"
 	"os/exec"
 )
 
@@ -17,12 +18,18 @@ func (Desktop) RecordingChanged(on bool) {
 	if on {
 		state = "Started"
 	}
-	exec.Command("notify-send", "-a", "Hyprvoice",
-		fmt.Sprintf("Hyprvoice: %s Recording", state)).Run()
+	cmd := exec.Command("notify-send", "-a", "Hyprvoice",
+		fmt.Sprintf("Hyprvoice: %s Recording", state))
+	if err := cmd.Run(); err != nil {
+		log.Printf("Failed to send notification: %v", err)
+	}
 }
 
 func (Desktop) Error(msg string) {
-	exec.Command("notify-send", "-a", "Hyprvoice", "-u", "critical", msg).Run()
+	cmd := exec.Command("notify-send", "-a", "Hyprvoice", "-u", "critical", msg)
+	if err := cmd.Run(); err != nil {
+		log.Printf("Failed to send error notification: %v", err)
+	}
 }
 
 // Nop is a Notifier that does absolutely nothing.

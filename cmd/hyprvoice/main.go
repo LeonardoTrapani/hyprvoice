@@ -5,6 +5,7 @@ import (
 
 	"github.com/leonardotrapani/hyprvoice/internal/bus"
 	"github.com/leonardotrapani/hyprvoice/internal/hotkeydaemon"
+	"github.com/leonardotrapani/hyprvoice/internal/notify"
 	"github.com/spf13/cobra"
 )
 
@@ -32,7 +33,7 @@ func serveCmd() *cobra.Command {
 		Use:   "serve",
 		Short: "Run the hotkey daemon",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return (hotkeydaemon.New(nil)).Run()
+			return (hotkeydaemon.New(notify.Desktop{})).Run()
 		},
 	}
 }
@@ -44,9 +45,9 @@ func toggleCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			resp, err := bus.SendCommand('t')
 			if err != nil {
-				return fmt.Errorf("failed to toggle: %w", err)
+				return fmt.Errorf("failed to toggle recording: %w", err)
 			}
-			fmt.Print(resp) // print STATUS line
+			fmt.Print(resp)
 			return nil
 		},
 	}
@@ -61,7 +62,7 @@ func statusCmd() *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("failed to get status: %w", err)
 			}
-			fmt.Print(resp) // print STATUS line
+			fmt.Print(resp)
 			return nil
 		},
 	}
@@ -76,7 +77,7 @@ func versionCmd() *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("failed to get version: %w", err)
 			}
-			fmt.Print(resp) // print STATUS proto= line
+			fmt.Print(resp)
 			return nil
 		},
 	}
@@ -91,7 +92,7 @@ func stopCmd() *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("failed to stop daemon: %w", err)
 			}
-			fmt.Print(resp) // print OK quitting
+			fmt.Print(resp)
 			return nil
 		},
 	}
