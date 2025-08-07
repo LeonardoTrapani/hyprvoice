@@ -15,12 +15,22 @@ import (
 	"github.com/leonardotrapani/hyprvoice/internal/notify"
 )
 
+type Status string
+
+const (
+	Idle         Status = "idle"
+	Recording    Status = "recording"
+	Transcribing Status = "transcribing"
+	Injecting    Status = "injecting"
+	Completed    Status = "completed"
+)
+
 type Daemon struct {
-	mu        sync.Mutex
-	recording bool
-	notifier  notify.Notifier
-	ctx       context.Context
-	cancel    context.CancelFunc
+	mu       sync.Mutex
+	status   Status
+	notifier notify.Notifier
+	ctx      context.Context
+	cancel   context.CancelFunc
 }
 
 func New(n notify.Notifier) *Daemon {
@@ -32,13 +42,14 @@ func New(n notify.Notifier) *Daemon {
 		notifier: n,
 		ctx:      ctx,
 		cancel:   cancel,
+		status:   Idle,
 	}
 }
 
-func (d *Daemon) Rec() bool {
+func (d *Daemon) Status() Status {
 	d.mu.Lock()
 	defer d.mu.Unlock()
-	return d.recording
+	return d.status
 }
 
 func (d *Daemon) Run() error {
@@ -120,20 +131,30 @@ func (d *Daemon) handle(c net.Conn) {
 	switch cmd {
 	case 't': // toggle
 		d.mu.Lock()
-		d.recording = !d.recording
-		isRecording := d.recording
-		d.mu.Unlock()
+		defer d.mu.Unlock()
 
-		d.notifier.RecordingChanged(isRecording)
-		log.Printf("Recording toggled: %t", isRecording)
+		switch d.status {
+		case Idle:
+			d.status = Recording
 
-		fmt.Fprintf(c, "STATUS recording=%t\n", isRecording)
+			d.notifier.RecordingChanged(true)
+			log.Printf("Recording toggled: true")
+			fmt.Fprintf(c, "STATUS recording=%s\n", d.status)
+		default:
+			d.status = Idle
+
+			// TODO: trigger transcription
+
+			d.notifier.RecordingChanged(false)
+			log.Printf("Recording toggled: false")
+			fmt.Fprintf(c, "STATUS recording=%s\n", d.status)
+		}
 	case 's': // status
 		d.mu.Lock()
-		isRecording := d.recording
+		status := d.status
 		d.mu.Unlock()
 
-		fmt.Fprintf(c, "STATUS recording=%t\n", isRecording)
+		fmt.Fprintf(c, "STATUS recording=%s\n", status)
 	case 'v': // protocol version
 		fmt.Fprintf(c, "STATUS proto=%s\n", bus.ProtoVer)
 	case 'q': // quit daemon
