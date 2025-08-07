@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/leonardotrapani/hyprvoice/internal/bus"
-	"github.com/leonardotrapani/hyprvoice/internal/hotkeydaemon"
+	"github.com/leonardotrapani/hyprvoice/internal/daemon"
 	"github.com/leonardotrapani/hyprvoice/internal/notify"
 	"github.com/spf13/cobra"
 )
@@ -31,9 +31,9 @@ func init() {
 func serveCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "serve",
-		Short: "Run the hotkey daemon",
+		Short: "Run the daemon",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return (hotkeydaemon.New(notify.Desktop{})).Run()
+			return (daemon.New(notify.Desktop{})).Run()
 		},
 	}
 }
@@ -86,7 +86,7 @@ func versionCmd() *cobra.Command {
 func stopCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "stop",
-		Short: "Stop the hotkey daemon",
+		Short: "Stop the daemon",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			resp, err := bus.SendCommand('q')
 			if err != nil {

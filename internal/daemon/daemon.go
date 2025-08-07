@@ -1,4 +1,4 @@
-package hotkeydaemon
+package daemon
 
 import (
 	"bufio"
@@ -121,18 +121,19 @@ func (d *Daemon) handle(c net.Conn) {
 	case 't': // toggle
 		d.mu.Lock()
 		d.recording = !d.recording
-		recording := d.recording
+		isRecording := d.recording
 		d.mu.Unlock()
 
-		d.notifier.RecordingChanged(recording)
-		log.Printf("Recording toggled: %t", recording)
-		fmt.Fprintf(c, "STATUS recording=%t\n", recording)
+		d.notifier.RecordingChanged(isRecording)
+		log.Printf("Recording toggled: %t", isRecording)
+
+		fmt.Fprintf(c, "STATUS recording=%t\n", isRecording)
 	case 's': // status
 		d.mu.Lock()
-		recording := d.recording
+		isRecording := d.recording
 		d.mu.Unlock()
 
-		fmt.Fprintf(c, "STATUS recording=%t\n", recording)
+		fmt.Fprintf(c, "STATUS recording=%t\n", isRecording)
 	case 'v': // protocol version
 		fmt.Fprintf(c, "STATUS proto=%s\n", bus.ProtoVer)
 	case 'q': // quit daemon

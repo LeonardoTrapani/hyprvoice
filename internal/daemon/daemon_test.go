@@ -1,4 +1,4 @@
-package hotkeydaemon
+package daemon
 
 import (
 	"testing"
