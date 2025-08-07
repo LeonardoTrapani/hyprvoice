@@ -10,7 +10,6 @@ import (
 	"os/signal"
 	"sync"
 	"syscall"
-	"time"
 
 	"github.com/leonardotrapani/hyprvoice/internal/bus"
 	"github.com/leonardotrapani/hyprvoice/internal/notify"
@@ -43,7 +42,6 @@ func (d *Daemon) Rec() bool {
 }
 
 func (d *Daemon) Run() error {
-	// Check if daemon is already running
 	if err := bus.CheckExistingDaemon(); err != nil {
 		return err
 	}
@@ -54,15 +52,14 @@ func (d *Daemon) Run() error {
 	}
 	defer ln.Close()
 
-	// Create PID file
 	if err := bus.CreatePidFile(); err != nil {
 		return fmt.Errorf("failed to create PID file: %w", err)
 	}
 	defer bus.RemovePidFile()
 
-	// Set up signal handling for graceful shutdown
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, syscall.SIGTERM, syscall.SIGINT)
+	defer signal.Stop(sigCh)
 
 	go func() {
 		sig := <-sigCh
@@ -71,29 +68,37 @@ func (d *Daemon) Run() error {
 	}()
 
 	log.Printf("Daemon started, listening on socket")
+
+	// Accept connections in a goroutine
+	connCh := make(chan net.Conn)
+	errCh := make(chan error)
+
+	go func() {
+		for {
+			c, err := ln.Accept()
+			if err != nil {
+				errCh <- err
+				return
+			}
+			connCh <- c
+		}
+	}()
+
 	for {
 		select {
 		case <-d.ctx.Done():
 			log.Printf("Shutdown requested, exiting")
 			return nil
-		default:
-		}
-
-		// Set a timeout for Accept to make it cancellable
-		if tcpListener, ok := ln.(*net.UnixListener); ok {
-			tcpListener.SetDeadline(time.Now().Add(100 * time.Millisecond))
-		}
-
-		c, err := ln.Accept()
-		if err != nil {
-			if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
-				continue // timeout, check for shutdown
+		case c := <-connCh:
+			go d.handle(c)
+		case err := <-errCh:
+			// If context is cancelled, this is expected
+			if d.ctx.Err() != nil {
+				return nil
 			}
 			log.Printf("Accept error: %v", err)
-			time.Sleep(100 * time.Millisecond)
-			continue
+			return fmt.Errorf("accept failed: %w", err)
 		}
-		go d.handle(c)
 	}
 }
 
@@ -112,26 +117,28 @@ func (d *Daemon) handle(c net.Conn) {
 	}
 	cmd := line[0]
 
-	d.mu.Lock()
-	defer d.mu.Unlock()
-
 	switch cmd {
 	case 't': // toggle
+		d.mu.Lock()
 		d.recording = !d.recording
-		d.notifier.RecordingChanged(d.recording)
-		log.Printf("Recording toggled: %t", d.recording)
-		fmt.Fprintf(c, "STATUS recording=%t\n", d.recording)
+		recording := d.recording
+		d.mu.Unlock()
+
+		d.notifier.RecordingChanged(recording)
+		log.Printf("Recording toggled: %t", recording)
+		fmt.Fprintf(c, "STATUS recording=%t\n", recording)
 	case 's': // status
-		fmt.Fprintf(c, "STATUS recording=%t\n", d.recording)
+		d.mu.Lock()
+		recording := d.recording
+		d.mu.Unlock()
+
+		fmt.Fprintf(c, "STATUS recording=%t\n", recording)
 	case 'v': // protocol version
 		fmt.Fprintf(c, "STATUS proto=%s\n", bus.ProtoVer)
 	case 'q': // quit daemon
 		log.Printf("Shutdown requested")
 		fmt.Fprint(c, "OK quitting\n")
-		go func() {
-			time.Sleep(100 * time.Millisecond) // give time for client to read
-			d.cancel()                         // trigger graceful shutdown
-		}()
+		d.cancel()
 	default:
 		log.Printf("Unknown command: %c", cmd)
 		fmt.Fprintf(c, "ERR unknown=%q\n", cmd)
