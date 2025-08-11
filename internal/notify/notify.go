@@ -1,25 +1,35 @@
 package notify
 
 import (
-	"fmt"
 	"log"
 	"os/exec"
 )
 
 type Notifier interface {
-	RecordingChanged(on bool)
+	RecordingStarted()
+	RecordingEnded()
+	Transcribing()
 	Error(msg string)
 }
 
 type Desktop struct{}
 
-func (Desktop) RecordingChanged(on bool) {
-	state := "Stopped"
-	if on {
-		state = "Started"
+func (Desktop) RecordingStarted() {
+	cmd := exec.Command("notify-send", "-a", "Hyprvoice", "Hyprvoice: Recording Started")
+	if err := cmd.Run(); err != nil {
+		log.Printf("Failed to send notification: %v", err)
 	}
-	cmd := exec.Command("notify-send", "-a", "Hyprvoice",
-		fmt.Sprintf("Hyprvoice: %s Recording", state))
+}
+
+func (Desktop) RecordingEnded() {
+	cmd := exec.Command("notify-send", "-a", "Hyprvoice", "Hyprvoice: Recording Ended")
+	if err := cmd.Run(); err != nil {
+		log.Printf("Failed to send notification: %v", err)
+	}
+}
+
+func (Desktop) Transcribing() {
+	cmd := exec.Command("notify-send", "-a", "Hyprvoice", "Hyprvoice: Transcribing...")
 	if err := cmd.Run(); err != nil {
 		log.Printf("Failed to send notification: %v", err)
 	}
@@ -36,5 +46,7 @@ func (Desktop) Error(msg string) {
 // Useful in unit tests or headless builds.
 type Nop struct{}
 
-func (Nop) RecordingChanged(on bool) {}
-func (Nop) Error(msg string)         {}
+func (Nop) RecordingStarted() {}
+func (Nop) RecordingEnded()   {}
+func (Nop) Transcribing()     {}
+func (Nop) Error(msg string)  {}
