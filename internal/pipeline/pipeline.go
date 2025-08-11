@@ -36,7 +36,6 @@ func (p *pipeline) Run(ctx context.Context) <-chan Status {
 	return statusCh
 }
 
-
 func (p *pipeline) Inject() {
 	select {
 	case p.injectCh <- struct{}{}:
