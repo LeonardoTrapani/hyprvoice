@@ -53,7 +53,7 @@ func (p *pipeline) run(ctx context.Context, statusCh chan<- Status) {
 	// Recording phase
 	select {
 	case <-time.After(2 * time.Second):
-		log.Printf("Pipeline: Recording complete, waiting for injection")
+		log.Printf("Pipeline: TODO start recording, and on first chunk set transcribing and start streaming with Whisper")
 		statusCh <- Transcribing
 	case <-ctx.Done():
 		log.Printf("Pipeline: Stopped during recording")

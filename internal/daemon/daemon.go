@@ -10,6 +10,7 @@ import (
 	"os/signal"
 	"sync"
 	"syscall"
+	"time"
 
 	"github.com/leonardotrapani/hyprvoice/internal/bus"
 	"github.com/leonardotrapani/hyprvoice/internal/notify"
@@ -120,6 +121,12 @@ func (d *Daemon) Run() error {
 		d.cancel()
 	}()
 
+	// Close the listener when context is done
+	go func() {
+		<-d.ctx.Done()
+		ln.Close()
+	}()
+
 	log.Printf("Daemon started, listening on socket")
 
 	for {
@@ -155,13 +162,13 @@ func (d *Daemon) handle(c net.Conn) {
 	switch cmd {
 	case 't':
 		d.toggle()
+		fmt.Fprint(c, "OK toggled\n")
 	case 's':
 		status := d.Status()
 		fmt.Fprintf(c, "STATUS recording=%s\n", status)
 	case 'v':
 		fmt.Fprintf(c, "STATUS proto=%s\n", bus.ProtoVer)
 	case 'q':
-		log.Printf("Shutdown requested")
 		fmt.Fprint(c, "OK quitting\n")
 		d.cancel()
 	default:
@@ -178,7 +185,7 @@ func (d *Daemon) toggle() {
 
 	switch d.status {
 	case Idle:
-		ctx, cancel := context.WithCancel(d.ctx)
+		ctx, cancel := context.WithTimeout(d.ctx, 5*time.Minute)
 		p := pipeline.New()
 		d.pipeline = p
 		d.pipelineCancel = cancel
