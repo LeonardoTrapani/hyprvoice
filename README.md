@@ -19,6 +19,7 @@
 
 ## Requirements
 
+- **Go 1.24.5+** (for building from source)
 - Wayland + **Hyprland**
 - **PipeWire** (audio capture)
 - **systemd --user** (service)
@@ -47,10 +48,29 @@ bind = SUPER, R, exec, hyprvoice toggle
 
 ## Usage
 
+### Basic Usage
 - Press your **toggle** key to start; press again to stop.
 - Audio streams to the cloud ASR while you speak.
 - On stop (or VAD endpoint), Hyprvoice **pastes once** into the focused window.
 - Injection flow: **save clipboard → copy final text → send Ctrl+V → restore clipboard**.
+
+### CLI Commands
+```bash
+# Start the daemon
+hyprvoice serve
+
+# Toggle recording on/off
+hyprvoice toggle
+
+# Check current status
+hyprvoice status
+
+# Get protocol version
+hyprvoice version
+
+# Stop the daemon
+hyprvoice stop
+```
 
 ---
 
@@ -118,8 +138,135 @@ idle --toggle--> recording --first frame--> transcribing --final--> injecting --
 ```bash
 git clone https://github.com/leonardotrapani/hyprvoice.git
 cd hyprvoice
+
+# Build the binary
 CGO_ENABLED=1 go build -o hyprvoice ./cmd/hyprvoice
+
+# Run tests (when available)
 go test ./...
+
+# Install locally
+sudo cp hyprvoice /usr/local/bin/
+```
+
+### Dependencies
+- **Cobra CLI** - Command-line interface framework
+- **Go 1.24.5+** - Programming language runtime
+
+---
+
+## Configuration
+
+### File Locations
+- **Socket**: `~/.cache/hyprvoice/control.sock` - IPC communication
+- **PID file**: `~/.cache/hyprvoice/hyprvoice.pid` - Process tracking
+
+### Systemd Service
+The daemon runs as a user service. To create a systemd service file:
+
+```bash
+# Create service file at ~/.config/systemd/user/hyprvoice.service
+mkdir -p ~/.config/systemd/user
+cat > ~/.config/systemd/user/hyprvoice.service << 'EOF'
+[Unit]
+Description=Hyprvoice daemon
+After=pipewire.service
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/hyprvoice serve
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target
+EOF
+
+# Enable and start
+systemctl --user daemon-reload
+systemctl --user enable --now hyprvoice.service
+```
+
+---
+
+## Development
+
+### Project Structure
+```
+hyprvoice/
+├── cmd/hyprvoice/         # Main CLI application
+├── internal/
+│   ├── bus/              # IPC communication (Unix sockets)
+│   ├── daemon/           # Main daemon logic and state management
+│   ├── notify/           # Desktop notifications
+│   └── pipeline/         # Audio processing pipeline
+├── go.mod                # Go module definition
+└── README.md
+```
+
+### State Machine
+The daemon operates with these states:
+- **idle** → **recording** → **transcribing** → **injecting** → **idle**
+
+### IPC Protocol
+Single-character commands over Unix socket:
+- `t` - Toggle recording
+- `s` - Get status
+- `v` - Get protocol version
+- `q` - Quit daemon
+
+### Running in Development
+```bash
+# Terminal 1: Start daemon with logs
+go run ./cmd/hyprvoice serve
+
+# Terminal 2: Test commands
+go run ./cmd/hyprvoice toggle
+go run ./cmd/hyprvoice status
+```
+
+---
+
+## Troubleshooting
+
+### Common Issues
+
+**Daemon won't start**
+```bash
+# Check if already running
+hyprvoice status
+
+# Check PID file
+ls -la ~/.cache/hyprvoice/
+
+# Remove stale files
+rm ~/.cache/hyprvoice/hyprvoice.pid
+rm ~/.cache/hyprvoice/control.sock
+```
+
+**No notifications**
+```bash
+# Test notify-send
+notify-send "Test notification"
+
+# Check if libnotify is installed
+which notify-send
+```
+
+**Permission errors**
+```bash
+# Check socket permissions
+ls -la ~/.cache/hyprvoice/control.sock
+
+# Recreate cache directory
+rm -rf ~/.cache/hyprvoice
+mkdir -p ~/.cache/hyprvoice
+```
+
+### Debug Mode
+```bash
+# Run with verbose logging
+hyprvoice serve 2>&1 | tee hyprvoice.log
 ```
 
 ---
@@ -127,6 +274,9 @@ go test ./...
 ## Contributing
 
 - All PRs and issues welcome.
+- Follow existing code conventions
+- Add tests for new functionality
+- Update documentation for user-facing changes
 
 ---
 
