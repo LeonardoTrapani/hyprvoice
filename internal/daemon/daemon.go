@@ -24,6 +24,8 @@ type Daemon struct {
 	cancel context.CancelFunc
 
 	pipeline pipeline.Pipeline
+
+	wg sync.WaitGroup
 }
 
 func New(n notify.Notifier) *Daemon {
@@ -41,10 +43,23 @@ func New(n notify.Notifier) *Daemon {
 }
 
 func (d *Daemon) status() pipeline.Status {
+	d.mu.RLock()
+	defer d.mu.RUnlock()
 	if d.pipeline == nil {
 		return pipeline.Idle
 	}
 	return d.pipeline.Status()
+}
+
+func (d *Daemon) stopPipeline() {
+	d.mu.Lock()
+	p := d.pipeline
+	d.pipeline = nil
+	d.mu.Unlock()
+
+	if p != nil {
+		p.Stop()
+	}
 }
 
 func (d *Daemon) Run() error {
@@ -73,10 +88,11 @@ func (d *Daemon) Run() error {
 		d.cancel()
 	}()
 
-	// Close the listener when context is done
 	go func() {
 		<-d.ctx.Done()
-		ln.Close()
+		if err := ln.Close(); err != nil {
+			log.Printf("Error closing listener: %v", err)
+		}
 	}()
 
 	log.Printf("Daemon started, listening on socket")
@@ -85,18 +101,21 @@ func (d *Daemon) Run() error {
 		c, err := ln.Accept()
 		if err != nil {
 			if d.ctx.Err() != nil {
-				log.Printf("Shutdown requested")
+				log.Printf("Shutdown requested, waiting for connections to finish")
+				d.wg.Wait()
 				return nil
 			}
 			log.Printf("Accept error: %v", err)
 			return fmt.Errorf("accept failed: %w", err)
 		}
+		d.wg.Add(1)
 		go d.handle(c)
 	}
 }
 
 func (d *Daemon) handle(c net.Conn) {
 	defer c.Close()
+	defer d.wg.Done()
 
 	line, err := bufio.NewReader(c).ReadString('\n')
 	if err != nil {
@@ -129,36 +148,34 @@ func (d *Daemon) handle(c net.Conn) {
 }
 
 func (d *Daemon) toggle() {
-	var actionChan chan<- pipeline.Action
-
 	switch d.status() {
 	case pipeline.Idle:
 		p := pipeline.New()
 		p.Run(d.ctx)
+
+		d.mu.Lock()
 		d.pipeline = p
+		d.mu.Unlock()
+
 		go d.notifier.RecordingStarted()
 
 	case pipeline.Recording:
+		d.stopPipeline() // aborted during recording (chunks not sent to transcriber yet)
 		go d.notifier.Aborted()
-		if d.pipeline != nil {
-			d.pipeline.Stop() // aborted during recording (chunks not sent to transcriber yet)
-			d.pipeline = nil
-		}
 
 	case pipeline.Transcribing:
+		d.mu.RLock()
+		if d.pipeline != nil {
+			actionChan := d.pipeline.GetActionCh()
+			d.mu.RUnlock()
+			actionChan <- pipeline.Inject
+		} else {
+			d.mu.RUnlock()
+		}
 		go d.notifier.RecordingEnded()
-		actionChan = d.pipeline.Actions()
-		actionChan <- pipeline.Inject
 
 	case pipeline.Injecting:
+		d.stopPipeline() // aborted during injection
 		go d.notifier.Aborted()
-
-		if d.pipeline != nil {
-			d.pipeline.Stop() // aborted during injection
-			d.pipeline = nil
-		}
-
-	default:
-		d.mu.Unlock()
 	}
 }

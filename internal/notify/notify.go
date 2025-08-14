@@ -56,5 +56,6 @@ type Nop struct{}
 
 func (Nop) RecordingStarted() {}
 func (Nop) RecordingEnded()   {}
+func (Nop) Aborted()          {}
 func (Nop) Transcribing()     {}
 func (Nop) Error(msg string)  {}

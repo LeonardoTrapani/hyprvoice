@@ -27,14 +27,20 @@ type Pipeline interface {
 	Run(ctx context.Context)
 	Stop()
 	Status() Status
-	Actions() chan<- Action
+	GetActionCh() chan<- Action
 }
 
 type pipeline struct {
 	status   Status
 	actionCh chan Action
-	wg       sync.WaitGroup
-	cancel   context.CancelFunc
+
+	mu sync.RWMutex
+	wg sync.WaitGroup
+
+	cancel context.CancelFunc
+
+	stopOnce sync.Once
+	running  bool
 }
 
 func New() Pipeline {
@@ -44,40 +50,79 @@ func New() Pipeline {
 }
 
 func (p *pipeline) Status() Status {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
 	return p.status
 }
 
-func (p *pipeline) Actions() chan<- Action {
+func (p *pipeline) setStatus(status Status) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.status = status
+}
+
+func (p *pipeline) setCancel(cancel context.CancelFunc) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.cancel = cancel
+}
+
+func (p *pipeline) getCancel() context.CancelFunc {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	return p.cancel
+}
+
+func (p *pipeline) GetActionCh() chan<- Action {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
 	return p.actionCh
 }
 
 func (p *pipeline) Stop() {
-	if p.cancel != nil {
-		p.cancel()
-	}
+	p.stopOnce.Do(func() {
+		cancel := p.getCancel()
+		if cancel != nil {
+			cancel()
+		}
+	})
 	p.wg.Wait()
 }
 
 func (p *pipeline) Run(ctx context.Context) {
+	p.mu.Lock()
+	if p.running {
+		p.mu.Unlock()
+		log.Printf("Pipeline: Already running, ignoring Run() call")
+		return
+	}
+	p.running = true
+	p.mu.Unlock()
+
 	runCtx, cancel := context.WithTimeout(ctx, 5*time.Minute)
-	p.cancel = cancel
+	p.setCancel(cancel)
+
 	p.wg.Add(1)
 	go p.run(runCtx)
 }
 
 func (p *pipeline) run(ctx context.Context) {
 	defer func() {
+		log.Printf("Pipeline: defered run")
+		p.mu.Lock()
+		p.running = false
+		p.mu.Unlock()
 		p.wg.Done()
 	}()
 
 	log.Printf("Pipeline: Starting recording")
-	p.status = Recording
+	p.setStatus(Recording)
 
 	recorder := recording.NewDefaultRecorder()
 	frameCh, errCh, err := recorder.Start(ctx)
 	if err != nil {
 		log.Printf("Pipeline: Recording error: %v", err)
-		p.status = Idle
+		p.setStatus(Idle)
 		return
 	}
 	defer recorder.Stop()
@@ -93,12 +138,12 @@ func (p *pipeline) run(ctx context.Context) {
 			log.Printf("Pipeline: Received frame #%d - Size: %d bytes, Timestamp: %v, Total bytes so far: %d",
 				frameCount, len(frame.Data), frame.Timestamp.Format("15:04:05.000"), totalBytes)
 
-			p.status = Transcribing
+			p.setStatus(Transcribing)
 
 		case err := <-errCh:
 			if err != nil {
 				log.Printf("Pipeline: Recording error: %v", err)
-				p.status = Idle
+				p.setStatus(Idle)
 				return
 			}
 
@@ -111,7 +156,13 @@ func (p *pipeline) run(ctx context.Context) {
 				if err := recorder.Stop(); err != nil {
 					log.Printf("Pipeline: Error stopping recorder: %v", err)
 				}
-				p.status = Injecting
+				p.setStatus(Injecting)
+
+				// Simulate injection work then return to idle
+				log.Printf("Pipeline: Simulating injection work")
+				time.Sleep(10 * time.Millisecond)
+				log.Printf("Pipeline: Injection work done, returning to idle")
+				p.setStatus(Idle)
 				return
 			}
 
