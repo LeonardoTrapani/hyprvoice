@@ -1,7 +1,7 @@
 # Hyprvoice
 
-> **Voice‑powered typing for Wayland/Hyprland — press to toggle, speak, instant paste.**
-> Streams audio while you talk and **pastes the final text the moment you toggle off** → aims to be the **fastest feel** on Wayland.
+> Voice‑powered typing for Wayland/Hyprland — press to toggle, speak, instant paste.
+> Streams audio while you talk and pastes the final text the moment you toggle off → aims to be the fastest feel on Wayland.
 
 **Status:** Early development (expect rough edges)
 
@@ -9,23 +9,22 @@
 
 ## TL;DR
 
-- **Toggle workflow** (Hyprland‑friendly): press to start, press to stop.
-- **Cloud streaming ASR** (MVP) → **single final paste** into the focused window.
-- **Daemon with clear states & events**; desktop notifications.
-- **Clipboard‑based injection** (save/restore) with **`wtype`**
-- **Unixy pipeline** (small pieces, bounded channels).
+- Toggle workflow (Hyprland‑friendly): press to start, press to stop.
+- Pipeline owns state; daemon is a thin control plane (IPC + lifecycle).
+- Notifications for key events (recording started/ended, aborted).
+- Audio capture via PipeWire (`pw-record`) with backpressure.
+- ASR + clipboard injection are planned; injection is currently stubbed.
 
 ---
 
 ## Requirements
 
-- **Go 1.24.5+** (for building from source)
-- Wayland + **Hyprland**
-- **PipeWire** (audio capture)
-- **systemd --user** (service)
-- **wl-clipboard** (clipboard save/restore)
-- **libnotify**/`notify-send` (optional notifications)
-- `wtype` or `ydotool` (optional text injection fallback)
+- Go 1.24.5+ (for building from source)
+- Wayland + Hyprland
+- PipeWire tools: `pw-record` and `pw-cli`
+- systemd --user (service)
+- Optional: libnotify/`notify-send` (desktop notifications)
+- Planned/optional: `wl-clipboard` (clipboard save/restore), `wtype`/`ydotool` (text injection)
 
 > Other distros may work, but Arch/Hyprland is the primary target for now.
 
@@ -49,10 +48,9 @@ bind = SUPER, R, exec, hyprvoice toggle
 ## Usage
 
 ### Basic Usage
-- Press your **toggle** key to start; press again to stop.
-- Audio streams to the cloud ASR while you speak.
-- On stop (or VAD endpoint), Hyprvoice **pastes once** into the focused window.
-- Injection flow: **save clipboard → copy final text → send Ctrl+V → restore clipboard**.
+- Press your toggle key to start; press again to stop.
+- Audio is captured via PipeWire; the pipeline enters `transcribing` after the first frame.
+- On toggle‑off during `transcribing`, an `inject` action is sent. Injection is currently simulated (no clipboard paste yet).
 
 ### CLI Commands
 ```bash
@@ -76,15 +74,15 @@ hyprvoice stop
 
 ## Status
 
-| Component                  | State | Notes                                       |
-| -------------------------- | ----- | ------------------------------------------- |
-| **Daemon (control plane)** | ✅    | State, IPC, worker orchestration            |
-| **Recording control**      | ✅    | `hyprvoice toggle`                          |
-| **Desktop notifications**  | ✅    | `notify-send` (logs fallback)               |
-| **Audio capture**          | 🔄    | PipeWire + VAD                              |
-| **ASR backends**           | 🔄    | Cloud **streaming** now; local Whisper next |
-| **Text injection**         | 🔄    | Clipboard paste → `wtype` → `ydotool`       |
-| **Service management**     | 🔄    | `systemd --user`                            |
+| Component                  | State | Notes                                                      |
+| -------------------------- | ----- | ---------------------------------------------------------- |
+| Daemon (control plane)     | ✅    | IPC server, lifecycle; forwards status from the pipeline   |
+| Recording control          | ✅    | `hyprvoice toggle`                                         |
+| Desktop notifications      | ✅    | `notify-send` (logs fallback)                              |
+| Audio capture              | ✅    | PipeWire (`pw-record`) frames + bounded channels           |
+| ASR backends               | ⏳    | Not implemented yet (cloud/local planned)                  |
+| Text injection             | ⏳    | Not implemented; will use clipboard + `wtype`/`ydotool`    |
+| Service management         | 🔄    | `systemd --user` unit example provided                     |
 
 Legend: ✅ done · 🔄 in progress · ⏳ planned
 
@@ -92,9 +90,9 @@ Legend: ✅ done · 🔄 in progress · ⏳ planned
 
 ## How it works
 
-- **Model:** pipeline + central state (daemon = control plane).
-- **State machine:** `idle → recording → transcribing → injecting → idle`.
-- **Rule:** switch to **`transcribing`**\*\* as soon as the first audio frame is sent\*\* to the ASR.
+- Model: The pipeline owns all runtime state; the daemon is a control plane (IPC + lifecycle) that starts/stops a pipeline instance and forwards status.
+- State machine (pipeline): `idle → recording → transcribing → injecting → idle`.
+- Rule: switch to `transcribing` as soon as the first audio frame arrives.
 
 ### ASCII diagram
 
@@ -102,34 +100,32 @@ Legend: ✅ done · 🔄 in progress · ⏳ planned
           +-------------------+        Unix socket IPC        +-----------+
 CLI cmd → |   Control Daemon  | <---------------------------- |  CLI/Tool |
           |-------------------|                               +-----------+
-          | State: idle/rec/  |
-          |  transcribing/... |  events        events
-          | Event bus (chan)  | -----> [Notifications] -----> notify-send/log
+          | Lifecycle only    |  events        events
+          | (start/stop pipe) | -----> [Notifications] -----> notify-send/log
           |                   |
-          |  frames    finals |
+          |     status ←------+
           +--+-----------+----+
-             |           |
-      Audio  |           |  Final Text
-      Frames v           v
-         +--------+   +--------+      text      +-----------+
-         | Audio  |-->|  ASR   | -------------->| Injection |
-         | Capture|   | Stream |                |  Worker   |
-         +--------+   +--------+                +-----------+
-             |              ^
-             +--------------+
-               backpressure via bounded channels
+             |
+      Audio  |  frames
+      Frames v
+         +---------------------------- Pipeline ----------------------------+
+         |  +--------+   +-------------+        +-----------+               |
+         |  | Audio  |-->| Transcribing|  ...→  | Injecting |  → idle       |
+         |  | Capture|   |   (ASR TBD) |        |  (stub)   |               |
+         |  +--------+   +-------------+        +-----------+               |
+         +------------------------------------------------------------------+
 
-State (daemon):
-idle --toggle--> recording --first frame--> transcribing --final--> injecting --done--> idle
+State (pipeline):
+idle --toggle--> recording --first frame--> transcribing --inject--> injecting --done--> idle
 ```
 
 ### Data flow
 
-1. `toggle` → **recording**
-2. First frame sent → **transcribing**
-3. Cloud ASR returns **final** → **injecting**
-4. Paste once → **idle**
-5. Notifications at each transition
+1. `toggle` (daemon) → create pipeline → recording
+2. First frame arrives → transcribing (daemon may notify `Transcribing` later)
+3. Second `toggle` during transcribing → send `inject` action → injecting (simulated)
+4. Complete → idle; pipeline stops; daemon clears reference
+5. Notifications at key transitions
 
 ---
 
@@ -150,16 +146,16 @@ sudo cp hyprvoice /usr/local/bin/
 ```
 
 ### Dependencies
-- **Cobra CLI** - Command-line interface framework
-- **Go 1.24.5+** - Programming language runtime
+- Cobra CLI - Command-line interface framework
+- Go 1.24.5+ - Programming language runtime
 
 ---
 
 ## Configuration
 
 ### File Locations
-- **Socket**: `~/.cache/hyprvoice/control.sock` - IPC communication
-- **PID file**: `~/.cache/hyprvoice/hyprvoice.pid` - Process tracking
+- Socket: `~/.cache/hyprvoice/control.sock` - IPC communication
+- PID file: `~/.cache/hyprvoice/hyprvoice.pid` - Process tracking
 
 ### Systemd Service
 The daemon runs as a user service. To create a systemd service file:
@@ -196,17 +192,17 @@ systemctl --user enable --now hyprvoice.service
 hyprvoice/
 ├── cmd/hyprvoice/         # Main CLI application
 ├── internal/
-│   ├── bus/              # IPC communication (Unix sockets)
-│   ├── daemon/           # Main daemon logic and state management
+│   ├── bus/              # IPC (Unix socket) + PID management
+│   ├── daemon/           # Control plane (IPC server, lifecycle; no state)
 │   ├── notify/           # Desktop notifications
-│   └── pipeline/         # Audio processing pipeline
+│   └── pipeline/         # Pipeline + state machine (record/transcribe/inject)
 ├── go.mod                # Go module definition
 └── README.md
 ```
 
 ### State Machine
-The daemon operates with these states:
-- **idle** → **recording** → **transcribing** → **injecting** → **idle**
+The pipeline operates with these states:
+- idle → recording → transcribing → injecting → idle
 
 ### IPC Protocol
 Single-character commands over Unix socket:
@@ -224,6 +220,25 @@ go run ./cmd/hyprvoice serve
 go run ./cmd/hyprvoice toggle
 go run ./cmd/hyprvoice status
 ```
+
+---
+
+## Recent changes
+
+- Migrated runtime state from the daemon to the pipeline. The daemon now just starts/stops the pipeline and proxies status.
+- Introduced an action channel for control (`inject`), enabling toggle‑to‑inject behavior while transcribing.
+- Implemented PipeWire recording via `pw-record` with bounded channels and basic backpressure logging.
+- Desktop notifications wired for start/end/abort (transcribing notification hook available).
+- Added CLI commands: `serve`, `toggle`, `status`, `version`, `stop`.
+
+## Direction / Roadmap
+
+- ASR integration: start with a cloud streaming backend; add a local backend later.
+- Proper injection: clipboard save/restore + Ctrl+V, with `wtype`/`ydotool` fallbacks.
+- VAD / endpointing to auto‑stop on silence (in addition to manual toggle).
+- Configuration for devices, sample rate, and buffer sizing.
+- Tests for pipeline state transitions and IPC.
+- Direction is flexible; we can adjust based on UX feedback and perf.
 
 ---
 
