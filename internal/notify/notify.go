@@ -8,6 +8,7 @@ import (
 type Notifier interface {
 	RecordingStarted()
 	RecordingEnded()
+	Aborted()
 	Transcribing()
 	Error(msg string)
 }
@@ -32,6 +33,13 @@ func (Desktop) Transcribing() {
 	cmd := exec.Command("notify-send", "-a", "Hyprvoice", "Hyprvoice: Transcribing...")
 	if err := cmd.Run(); err != nil {
 		log.Printf("Failed to send notification: %v", err)
+	}
+}
+
+func (Desktop) Aborted() {
+	cmd := exec.Command("notify-send", "-a", "Hyprvoice", "-u", "critical", "Hyprvoice: Aborted")
+	if err := cmd.Run(); err != nil {
+		log.Printf("Failed to send abort notification: %v", err)
 	}
 }
 

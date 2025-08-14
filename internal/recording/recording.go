@@ -71,7 +71,6 @@ func (r *Recorder) Start(ctx context.Context) (<-chan AudioFrame, <-chan error, 
 		return nil, nil, fmt.Errorf("PipeWire not available: %w", err)
 	}
 
-	// Create a cancellable context specific to this recording session.
 	recordingCtx, cancel := context.WithCancel(ctx)
 
 	frameCh := make(chan AudioFrame, r.config.ChannelBufferSize)
@@ -150,7 +149,6 @@ func (r *Recorder) captureLoop(ctx context.Context, frameCh chan<- AudioFrame, e
 	r.cmd = cmd
 	r.mu.Unlock()
 
-	// Log stderr lines to aid diagnostics.
 	go func() {
 		scanner := bufio.NewScanner(stderr)
 		for scanner.Scan() {
@@ -158,47 +156,46 @@ func (r *Recorder) captureLoop(ctx context.Context, frameCh chan<- AudioFrame, e
 		}
 	}()
 
-	buffer := make([]byte, r.config.BufferSize)
-	var sentCount int
-	var droppedCount int
-	lastDropLog := time.Now()
-
 	for {
-		n, readErr := stdout.Read(buffer)
-		if n > 0 {
-			frameData := make([]byte, n)
-			copy(frameData, buffer[:n])
-
-			frame := AudioFrame{Data: frameData, Timestamp: time.Now()}
-
-			select {
-			case frameCh <- frame:
-				sentCount++
-			case <-ctx.Done():
-				return
-			default:
-				droppedCount++
-				if time.Since(lastDropLog) > time.Second {
-					log.Printf("Recording: dropped %d frames due to backpressure", droppedCount)
-					lastDropLog = time.Now()
-					droppedCount = 0
-				}
-			}
-		}
-
-		if readErr != nil {
-			if errors.Is(readErr, io.EOF) {
-				return
-			}
-			r.emitErr(errCh, fmt.Errorf("read audio: %w", readErr))
-			r.requestCancel()
-			return
-		}
-
 		select {
 		case <-ctx.Done():
 			return
 		default:
+			buffer := make([]byte, r.config.BufferSize)
+			var sentCount int
+			var droppedCount int
+			lastDropLog := time.Now()
+			n, readErr := stdout.Read(buffer)
+			if n > 0 {
+				frameData := make([]byte, n)
+				copy(frameData, buffer[:n])
+
+				frame := AudioFrame{Data: frameData, Timestamp: time.Now()}
+
+				select {
+				case frameCh <- frame:
+					sentCount++
+				case <-ctx.Done():
+					return
+				default:
+					droppedCount++
+					if time.Since(lastDropLog) > time.Second {
+						log.Printf("Recording: dropped %d frames due to backpressure", droppedCount)
+						lastDropLog = time.Now()
+						droppedCount = 0
+					}
+				}
+			}
+
+			if readErr != nil {
+				if errors.Is(readErr, io.EOF) {
+					return
+				}
+				r.emitErr(errCh, fmt.Errorf("read audio: %w", readErr))
+				r.requestCancel()
+				return
+			}
+
 		}
 	}
 }

@@ -16,25 +16,14 @@ import (
 	"github.com/leonardotrapani/hyprvoice/internal/pipeline"
 )
 
-type Status = pipeline.Status
-
-const (
-	Idle         = pipeline.Idle
-	Recording    = pipeline.Recording
-	Transcribing = pipeline.Transcribing
-	Injecting    = pipeline.Injecting
-)
-
 type Daemon struct {
 	mu       sync.RWMutex
-	status   Status
 	notifier notify.Notifier
 
 	ctx    context.Context
 	cancel context.CancelFunc
 
-	pipeline      pipeline.Pipeline
-	actionChannel chan<- pipeline.Action
+	pipeline pipeline.Pipeline
 }
 
 func New(n notify.Notifier) *Daemon {
@@ -46,48 +35,16 @@ func New(n notify.Notifier) *Daemon {
 		notifier: n,
 		ctx:      ctx,
 		cancel:   cancel,
-		status:   Idle,
 	}
 
 	return d
 }
 
-func (d *Daemon) Status() Status {
-	d.mu.RLock()
-	defer d.mu.RUnlock()
-	return d.status
-}
-
-func (d *Daemon) startStatusReader(ctx context.Context, statusCh <-chan Status) {
-	defer func() {
-		// Always clean up when this goroutine exits
-		d.mu.Lock()
-		d.status = Idle
-		d.pipeline = nil
-		d.actionChannel = nil
-		d.mu.Unlock()
-	}()
-
-	for {
-		select {
-		case status, ok := <-statusCh:
-			if !ok {
-				return // Channel closed
-			}
-
-			d.mu.Lock()
-			oldStatus := d.status
-			d.status = status
-			d.mu.Unlock()
-
-			if oldStatus != status {
-				log.Printf("Status changed: %s -> %s", oldStatus, status)
-			}
-
-		case <-ctx.Done():
-			return // Context cancelled
-		}
+func (d *Daemon) status() pipeline.Status {
+	if d.pipeline == nil {
+		return pipeline.Idle
 	}
+	return d.pipeline.Status()
 }
 
 func (d *Daemon) Run() error {
@@ -158,7 +115,7 @@ func (d *Daemon) handle(c net.Conn) {
 		d.toggle()
 		fmt.Fprint(c, "OK toggled\n")
 	case 's':
-		status := d.Status()
+		status := d.status()
 		fmt.Fprintf(c, "STATUS status=%s\n", status)
 	case 'v':
 		fmt.Fprintf(c, "STATUS proto=%s\n", bus.ProtoVer)
@@ -172,64 +129,33 @@ func (d *Daemon) handle(c net.Conn) {
 }
 
 func (d *Daemon) toggle() {
-	// Capture current state and prepare action under lock
-	d.mu.Lock()
-	status := d.status
-	var pipelineToStop pipeline.Pipeline
 	var actionChan chan<- pipeline.Action
 
-	switch status {
-	case Idle:
-		// Clean up any existing pipeline first
+	switch d.status() {
+	case pipeline.Idle:
+		p := pipeline.New()
+		p.Run(d.ctx)
+		d.pipeline = p
+		go d.notifier.RecordingStarted()
+
+	case pipeline.Recording:
+		go d.notifier.Aborted()
 		if d.pipeline != nil {
-			pipelineToStop = d.pipeline
+			d.pipeline.Stop() // aborted during recording (chunks not sent to transcriber yet)
 			d.pipeline = nil
 		}
 
-		// Start new pipeline
-		p := pipeline.New()
-		statusCh, actionCh := p.Run(d.ctx)
-		d.pipeline = p
-		d.actionChannel = actionCh
-
-		d.mu.Unlock()
-
-		// Stop old pipeline if needed (outside lock)
-		if pipelineToStop != nil {
-			pipelineToStop.Stop()
-		}
-
-		go d.notifier.RecordingStarted()
-		go d.startStatusReader(d.ctx, statusCh)
-
-	case Recording:
-		pipelineToStop = d.pipeline
-		d.mu.Unlock()
-
+	case pipeline.Transcribing:
 		go d.notifier.RecordingEnded()
-		if pipelineToStop != nil {
-			pipelineToStop.Stop()
-		}
+		actionChan = d.pipeline.Actions()
+		actionChan <- pipeline.Inject
 
-	case Transcribing:
-		actionChan = d.actionChannel
-		d.mu.Unlock()
+	case pipeline.Injecting:
+		go d.notifier.Aborted()
 
-		// Try to inject (non-blocking)
-		if actionChan != nil {
-			select {
-			case actionChan <- pipeline.Inject:
-			default:
-			}
-		}
-
-	case Injecting:
-		pipelineToStop = d.pipeline
-		d.mu.Unlock()
-
-		go d.notifier.RecordingEnded()
-		if pipelineToStop != nil {
-			pipelineToStop.Stop() // aborted during injection
+		if d.pipeline != nil {
+			d.pipeline.Stop() // aborted during injection
+			d.pipeline = nil
 		}
 
 	default:
