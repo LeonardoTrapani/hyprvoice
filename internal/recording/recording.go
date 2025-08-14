@@ -32,7 +32,7 @@ func DefaultConfig() Config {
 	return Config{
 		SampleRate:        16000,
 		Channels:          1,
-		Format:            "s16le",
+		Format:            "s16",
 		BufferSize:        4096,
 		Device:            "",
 		ChannelBufferSize: 20,
@@ -175,7 +175,6 @@ func (r *Recorder) captureLoop(ctx context.Context, frameCh chan<- AudioFrame, e
 			case frameCh <- frame:
 				sentCount++
 			case <-ctx.Done():
-				// Context cancelled, stop cleanly after writing any pending frames.
 				return
 			default:
 				droppedCount++
@@ -266,8 +265,8 @@ func (r *Recorder) validateConfig() error {
 	if r.config.Format == "" {
 		return fmt.Errorf("invalid Format: empty")
 	}
-	// For s16le, sample frame size is 2 bytes per sample per channel.
-	if r.config.Format == "s16le" {
+	// For s16, sample frame size is 2 bytes per sample per channel.
+	if r.config.Format == "s16" {
 		frameBytes := 2 * r.config.Channels
 		if r.config.BufferSize%frameBytes != 0 {
 			log.Printf("Recording: BufferSize %d not aligned to frame size %d; audio frames may split",

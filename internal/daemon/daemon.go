@@ -172,36 +172,67 @@ func (d *Daemon) handle(c net.Conn) {
 }
 
 func (d *Daemon) toggle() {
-	switch d.status {
+	// Capture current state and prepare action under lock
+	d.mu.Lock()
+	status := d.status
+	var pipelineToStop pipeline.Pipeline
+	var actionChan chan<- pipeline.Action
+
+	switch status {
 	case Idle:
-		// Defensive: if a prior pipeline exists, stop and wait before starting a new one
+		// Clean up any existing pipeline first
 		if d.pipeline != nil {
-			d.pipeline.Stop()
+			pipelineToStop = d.pipeline
 			d.pipeline = nil
 		}
 
+		// Start new pipeline
 		p := pipeline.New()
 		statusCh, actionCh := p.Run(d.ctx)
-
 		d.pipeline = p
 		d.actionChannel = actionCh
 
-		go d.notifier.RecordingStarted()
+		d.mu.Unlock()
 
+		// Stop old pipeline if needed (outside lock)
+		if pipelineToStop != nil {
+			pipelineToStop.Stop()
+		}
+
+		go d.notifier.RecordingStarted()
 		go d.startStatusReader(d.ctx, statusCh)
 
 	case Recording:
+		pipelineToStop = d.pipeline
+		d.mu.Unlock()
+
 		go d.notifier.RecordingEnded()
-		d.pipeline.Stop()
+		if pipelineToStop != nil {
+			pipelineToStop.Stop()
+		}
 
 	case Transcribing:
-		select {
-		case d.actionChannel <- pipeline.Inject:
-		default:
+		actionChan = d.actionChannel
+		d.mu.Unlock()
+
+		// Try to inject (non-blocking)
+		if actionChan != nil {
+			select {
+			case actionChan <- pipeline.Inject:
+			default:
+			}
 		}
 
 	case Injecting:
+		pipelineToStop = d.pipeline
+		d.mu.Unlock()
+
 		go d.notifier.RecordingEnded()
-		d.pipeline.Stop() // aborted during injection
+		if pipelineToStop != nil {
+			pipelineToStop.Stop() // aborted during injection
+		}
+
+	default:
+		d.mu.Unlock()
 	}
 }

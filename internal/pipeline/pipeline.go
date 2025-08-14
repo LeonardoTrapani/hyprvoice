@@ -5,6 +5,8 @@ import (
 	"log"
 	"sync"
 	"time"
+
+	"github.com/leonardotrapani/hyprvoice/internal/recording"
 )
 
 type Status string
@@ -61,45 +63,62 @@ func (p *pipeline) run(ctx context.Context, statusCh chan<- Status) {
 	log.Printf("Pipeline: Starting recording")
 	statusCh <- Recording
 
-	// Recording phase
-	select {
-	case <-time.After(2 * time.Second):
-		log.Printf("Pipeline: TODO start recording, and on first chunk set transcribing and start streaming with Whisper")
-		statusCh <- Transcribing
-	case <-ctx.Done():
-		log.Printf("Pipeline: Stopped during recording")
+	recorder := recording.NewDefaultRecorder()
+	frameCh, errCh, err := recorder.Start(ctx)
+	if err != nil {
+		log.Printf("Pipeline: Recording error: %v", err)
+		statusCh <- Idle
 		return
 	}
+	defer recorder.Stop()
 
-	// TODO: when integrating the recorder, ensure its context is cancelled here on exit paths
-	// Wait for an action or timeout
-	select {
-	case action := <-p.actionCh:
-		switch action {
-		case Inject:
-			log.Printf("Pipeline: Injection started")
-			statusCh <- Injecting
+	// Track statistics for logging
+	frameCount := 0
+	totalBytes := 0
+	startTime := time.Now()
 
-			// Injection work
-			select {
-			case <-time.After(1 * time.Second):
-				log.Printf("Pipeline: Injection complete")
-				statusCh <- Idle
-			case <-ctx.Done():
-				log.Printf("Pipeline: Stopped during injection")
+	// Main event loop
+	for {
+		select {
+		case frame, ok := <-frameCh:
+			if !ok {
+				// Frame channel closed, recording ended
+				log.Printf("Pipeline: Recording ended. Total frames: %d, Total bytes: %d, Duration: %v",
+					frameCount, totalBytes, time.Since(startTime))
+				statusCh <- Transcribing
+
 				return
 			}
-		default:
-			// Unknown action: ignore for now
+			// Log frame details
+			frameCount++
+			totalBytes += len(frame.Data)
+			log.Printf("Pipeline: Received frame #%d - Size: %d bytes, Timestamp: %v, Total bytes so far: %d",
+				frameCount, len(frame.Data), frame.Timestamp.Format("15:04:05.000"), totalBytes)
+			// TODO: pass this channel to the transcriber
+
+		case err := <-errCh:
+			if err != nil {
+				log.Printf("Pipeline: Recording error: %v", err)
+				statusCh <- Idle
+				return
+			}
+
+		case action := <-p.actionCh:
+			log.Printf("Pipeline: Received action: %v", action)
+			if action == Inject {
+				log.Printf("Pipeline: Inject action received, stopping recording")
+
+				if err := recorder.Stop(); err != nil {
+					log.Printf("Pipeline: Error stopping recorder: %v", err)
+				}
+				statusCh <- Injecting
+				return
+			}
+
+		case <-ctx.Done():
+			log.Printf("Pipeline: Context cancelled, stopping")
+			return
 		}
-
-	case <-time.After(10 * time.Second): // use context timeout
-		log.Printf("Pipeline: Auto-timeout, completing")
-		statusCh <- Idle // Instead of Completed
-
-	case <-ctx.Done():
-		log.Printf("Pipeline: Stopped during transcription wait")
-		return
 	}
 }
 
