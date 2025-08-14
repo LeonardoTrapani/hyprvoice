@@ -48,11 +48,13 @@ bind = SUPER, R, exec, hyprvoice toggle
 ## Usage
 
 ### Basic Usage
+
 - Press your toggle key to start; press again to stop.
 - Audio is captured via PipeWire; the pipeline enters `transcribing` after the first frame.
 - On toggle‑off during `transcribing`, an `inject` action is sent. Injection is currently simulated (no clipboard paste yet).
 
 ### CLI Commands
+
 ```bash
 # Start the daemon
 hyprvoice serve
@@ -74,15 +76,15 @@ hyprvoice stop
 
 ## Status
 
-| Component                  | State | Notes                                                      |
-| -------------------------- | ----- | ---------------------------------------------------------- |
-| Daemon (control plane)     | ✅    | IPC server, lifecycle; forwards status from the pipeline   |
-| Recording control          | ✅    | `hyprvoice toggle`                                         |
-| Desktop notifications      | ✅    | `notify-send` (logs fallback)                              |
-| Audio capture              | ✅    | PipeWire (`pw-record`) frames + bounded channels           |
-| ASR backends               | ⏳    | Not implemented yet (cloud/local planned)                  |
-| Text injection             | ⏳    | Not implemented; will use clipboard + `wtype`/`ydotool`    |
-| Service management         | 🔄    | `systemd --user` unit example provided                     |
+| Component              | State | Notes                                                    |
+| ---------------------- | ----- | -------------------------------------------------------- |
+| Daemon (control plane) | ✅    | IPC server, lifecycle; forwards status from the pipeline |
+| Recording control      | ✅    | `hyprvoice toggle`                                       |
+| Desktop notifications  | ✅    | `notify-send` (logs fallback)                            |
+| Audio capture          | ✅    | PipeWire (`pw-record`) frames + bounded channels         |
+| ASR backends           | ⏳    | Not implemented yet (cloud/local planned)                |
+| Text injection         | ⏳    | Not implemented; will use clipboard + `wtype`/`ydotool`  |
+| Service management     | 🔄    | `systemd --user` unit example provided                   |
 
 Legend: ✅ done · 🔄 in progress · ⏳ planned
 
@@ -94,29 +96,42 @@ Legend: ✅ done · 🔄 in progress · ⏳ planned
 - State machine (pipeline): `idle → recording → transcribing → injecting → idle`.
 - Rule: switch to `transcribing` as soon as the first audio frame arrives.
 
-### ASCII diagram
+### Diagrams
 
+```mermaid
+flowchart LR
+  subgraph Client
+    CLI["CLI/Tool"]
+  end
+  subgraph Daemon
+    D["Control Daemon (lifecycle + IPC)"]
+  end
+  subgraph Pipeline
+    A["Audio Capture"]
+    T["Transcribing (ASR TBD)"]
+    I["Injecting (stub)"]
+  end
+  N["notify-send/log"]
+
+  CLI -- unix socket --> D
+  D -- start/stop --> A
+  A -- frames --> T
+  T -- status --> D
+  D -- events --> N
+  D -- inject action --> T
+  T --> I
+  I -->|done| D
 ```
-          +-------------------+        Unix socket IPC        +-----------+
-CLI cmd → |   Control Daemon  | <---------------------------- |  CLI/Tool |
-          |-------------------|                               +-----------+
-          | Lifecycle only    |  events        events
-          | (start/stop pipe) | -----> [Notifications] -----> notify-send/log
-          |                   |
-          |     status ←------+
-          +--+-----------+----+
-             |
-      Audio  |  frames
-      Frames v
-         +---------------------------- Pipeline ----------------------------+
-         |  +--------+   +-------------+        +-----------+               |
-         |  | Audio  |-->| Transcribing|  ...→  | Injecting |  → idle       |
-         |  | Capture|   |   (ASR TBD) |        |  (stub)   |               |
-         |  +--------+   +-------------+        +-----------+               |
-         +------------------------------------------------------------------+
 
-State (pipeline):
-idle --toggle--> recording --first frame--> transcribing --inject--> injecting --done--> idle
+```mermaid
+stateDiagram-v2
+  [*] --> idle
+  idle --> recording: toggle
+  recording --> transcribing: first_frame
+  transcribing --> injecting: inject_action
+  injecting --> idle: done
+  recording --> idle: abort
+  injecting --> idle: abort
 ```
 
 ### Data flow
@@ -146,6 +161,7 @@ sudo cp hyprvoice /usr/local/bin/
 ```
 
 ### Dependencies
+
 - Cobra CLI - Command-line interface framework
 - Go 1.24.5+ - Programming language runtime
 
@@ -154,10 +170,13 @@ sudo cp hyprvoice /usr/local/bin/
 ## Configuration
 
 ### File Locations
+
 - Socket: `~/.cache/hyprvoice/control.sock` - IPC communication
 - PID file: `~/.cache/hyprvoice/hyprvoice.pid` - Process tracking
 
 ### Systemd Service
+
+In the future, this will be implemented with the command `hyprvoice install`
 The daemon runs as a user service. To create a systemd service file:
 
 ```bash
@@ -188,6 +207,7 @@ systemctl --user enable --now hyprvoice.service
 ## Development
 
 ### Project Structure
+
 ```
 hyprvoice/
 ├── cmd/hyprvoice/         # Main CLI application
@@ -201,17 +221,22 @@ hyprvoice/
 ```
 
 ### State Machine
+
 The pipeline operates with these states:
+
 - idle → recording → transcribing → injecting → idle
 
 ### IPC Protocol
+
 Single-character commands over Unix socket:
+
 - `t` - Toggle recording
 - `s` - Get status
 - `v` - Get protocol version
 - `q` - Quit daemon
 
 ### Running in Development
+
 ```bash
 # Terminal 1: Start daemon with logs
 go run ./cmd/hyprvoice serve
@@ -222,14 +247,6 @@ go run ./cmd/hyprvoice status
 ```
 
 ---
-
-## Recent changes
-
-- Migrated runtime state from the daemon to the pipeline. The daemon now just starts/stops the pipeline and proxies status.
-- Introduced an action channel for control (`inject`), enabling toggle‑to‑inject behavior while transcribing.
-- Implemented PipeWire recording via `pw-record` with bounded channels and basic backpressure logging.
-- Desktop notifications wired for start/end/abort (transcribing notification hook available).
-- Added CLI commands: `serve`, `toggle`, `status`, `version`, `stop`.
 
 ## Direction / Roadmap
 
@@ -247,6 +264,7 @@ go run ./cmd/hyprvoice status
 ### Common Issues
 
 **Daemon won't start**
+
 ```bash
 # Check if already running
 hyprvoice status
@@ -260,6 +278,7 @@ rm ~/.cache/hyprvoice/control.sock
 ```
 
 **No notifications**
+
 ```bash
 # Test notify-send
 notify-send "Test notification"
@@ -269,6 +288,7 @@ which notify-send
 ```
 
 **Permission errors**
+
 ```bash
 # Check socket permissions
 ls -la ~/.cache/hyprvoice/control.sock
@@ -279,6 +299,7 @@ mkdir -p ~/.cache/hyprvoice
 ```
 
 ### Debug Mode
+
 ```bash
 # Run with verbose logging
 hyprvoice serve 2>&1 | tee hyprvoice.log
