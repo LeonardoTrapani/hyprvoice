@@ -101,12 +101,8 @@ func (r *Recorder) Stop() error {
 	if cancel != nil {
 		cancel()
 	}
-
-	return nil
-}
-
-func (r *Recorder) Wait() {
 	r.wg.Wait()
+	return nil
 }
 
 func (r *Recorder) captureLoop(ctx context.Context, frameCh chan<- AudioFrame, errCh chan<- error) {
@@ -144,15 +140,15 @@ func (r *Recorder) captureLoop(ctx context.Context, frameCh chan<- AudioFrame, e
 		return
 	}
 
-	r.mu.Lock()
-	r.cmd = cmd
-	r.mu.Unlock()
-
 	if err := cmd.Start(); err != nil {
 		r.emitErr(errCh, fmt.Errorf("start pw-record: %w", err))
 		r.requestCancel()
 		return
 	}
+
+	r.mu.Lock()
+	r.cmd = cmd
+	r.mu.Unlock()
 
 	// Log stderr lines to aid diagnostics.
 	go func() {
@@ -221,7 +217,6 @@ func (r *Recorder) emitErr(errCh chan<- error, err error) {
 	select {
 	case errCh <- err:
 	default:
-		// Best-effort; avoid blocking
 	}
 	log.Printf("Recording error: %v", err)
 }
@@ -246,9 +241,6 @@ func CheckPipeWireAvailable(ctx context.Context) error {
 		return fmt.Errorf("pw-record not found: %w (install pipewire-tools)", err)
 	}
 	// Use a short timeout to avoid hangs on misconfigured systems.
-	if ctx == nil {
-		ctx = context.Background()
-	}
 	checkCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
 	defer cancel()
 	cmd := exec.CommandContext(checkCtx, "pw-cli", "info")

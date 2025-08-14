@@ -3,6 +3,7 @@ package pipeline
 import (
 	"context"
 	"log"
+	"sync"
 	"time"
 )
 
@@ -15,38 +16,48 @@ const (
 	Injecting    Status = "injecting"
 )
 
+// Action represents commands sent to the pipeline to drive state
+// transitions or trigger work. Keeping this separate from Status
+// preserves directionality: callers send Actions, pipeline emits Statuses.
+type Action int
+
+const (
+	Inject Action = iota
+)
+
 type Pipeline interface {
-	Run(ctx context.Context) <-chan Status
-	Inject()
+	Run(ctx context.Context) (<-chan Status, chan<- Action)
+	Stop()
 }
 
 type pipeline struct {
-	injectCh chan struct{}
+	actionCh chan Action
+	wg       sync.WaitGroup
+	cancel   context.CancelFunc
 }
 
 func New() Pipeline {
 	return &pipeline{
-		injectCh: make(chan struct{}, 1),
+		actionCh: make(chan Action, 1),
 	}
 }
 
-func (p *pipeline) Run(ctx context.Context) <-chan Status {
+func (p *pipeline) Run(ctx context.Context) (<-chan Status, chan<- Action) {
 	statusCh := make(chan Status, 1)
-	go p.run(ctx, statusCh)
-	return statusCh
-}
-
-func (p *pipeline) Inject() {
-	select {
-	case p.injectCh <- struct{}{}:
-	default:
-	}
+	runCtx, cancel := context.WithTimeout(ctx, 5*time.Minute)
+	p.cancel = cancel
+	p.wg.Add(1)
+	go p.run(runCtx, statusCh)
+	return statusCh, p.actionCh
 }
 
 func (p *pipeline) run(ctx context.Context, statusCh chan<- Status) {
-	defer close(statusCh)
+	defer func() {
+		// Ensure status channel is closed and wg is decremented
+		close(statusCh)
+		p.wg.Done()
+	}()
 
-	// Start recording
 	log.Printf("Pipeline: Starting recording")
 	statusCh <- Recording
 
@@ -60,20 +71,26 @@ func (p *pipeline) run(ctx context.Context, statusCh chan<- Status) {
 		return
 	}
 
-	// Wait for injection or timeout
+	// TODO: when integrating the recorder, ensure its context is cancelled here on exit paths
+	// Wait for an action or timeout
 	select {
-	case <-p.injectCh:
-		log.Printf("Pipeline: Injection started")
-		statusCh <- Injecting
+	case action := <-p.actionCh:
+		switch action {
+		case Inject:
+			log.Printf("Pipeline: Injection started")
+			statusCh <- Injecting
 
-		// Injection work
-		select {
-		case <-time.After(1 * time.Second):
-			log.Printf("Pipeline: Injection complete")
-			statusCh <- Idle // Instead of Completed
-		case <-ctx.Done():
-			log.Printf("Pipeline: Stopped during injection")
-			return
+			// Injection work
+			select {
+			case <-time.After(1 * time.Second):
+				log.Printf("Pipeline: Injection complete")
+				statusCh <- Idle
+			case <-ctx.Done():
+				log.Printf("Pipeline: Stopped during injection")
+				return
+			}
+		default:
+			// Unknown action: ignore for now
 		}
 
 	case <-time.After(10 * time.Second): // use context timeout
@@ -84,4 +101,11 @@ func (p *pipeline) run(ctx context.Context, statusCh chan<- Status) {
 		log.Printf("Pipeline: Stopped during transcription wait")
 		return
 	}
+}
+
+func (p *pipeline) Stop() {
+	if p.cancel != nil {
+		p.cancel()
+	}
+	p.wg.Wait()
 }

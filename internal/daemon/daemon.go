@@ -10,7 +10,6 @@ import (
 	"os/signal"
 	"sync"
 	"syscall"
-	"time"
 
 	"github.com/leonardotrapani/hyprvoice/internal/bus"
 	"github.com/leonardotrapani/hyprvoice/internal/notify"
@@ -34,9 +33,8 @@ type Daemon struct {
 	ctx    context.Context
 	cancel context.CancelFunc
 
-	pipeline       pipeline.Pipeline
-	pipelineCancel context.CancelFunc
-	statusCh       <-chan Status
+	pipeline      pipeline.Pipeline
+	actionChannel chan<- pipeline.Action
 }
 
 func New(n notify.Notifier) *Daemon {
@@ -61,38 +59,35 @@ func (d *Daemon) Status() Status {
 }
 
 func (d *Daemon) startStatusReader(ctx context.Context, statusCh <-chan Status) {
-	go func() {
-		defer func() {
-			// Always clean up when this goroutine exits
-			d.mu.Lock()
-			d.status = Idle
-			d.statusCh = nil
-			d.pipeline = nil
-			d.pipelineCancel = nil
-			d.mu.Unlock()
-		}()
-
-		for {
-			select {
-			case status, ok := <-statusCh:
-				if !ok {
-					return // Channel closed
-				}
-
-				d.mu.Lock()
-				oldStatus := d.status
-				d.status = status
-				d.mu.Unlock()
-
-				if oldStatus != status {
-					log.Printf("Status changed: %s -> %s", oldStatus, status)
-				}
-
-			case <-ctx.Done():
-				return // Context cancelled
-			}
-		}
+	defer func() {
+		// Always clean up when this goroutine exits
+		d.mu.Lock()
+		d.status = Idle
+		d.pipeline = nil
+		d.actionChannel = nil
+		d.mu.Unlock()
 	}()
+
+	for {
+		select {
+		case status, ok := <-statusCh:
+			if !ok {
+				return // Channel closed
+			}
+
+			d.mu.Lock()
+			oldStatus := d.status
+			d.status = status
+			d.mu.Unlock()
+
+			if oldStatus != status {
+				log.Printf("Status changed: %s -> %s", oldStatus, status)
+			}
+
+		case <-ctx.Done():
+			return // Context cancelled
+		}
+	}
 }
 
 func (d *Daemon) Run() error {
@@ -139,7 +134,6 @@ func (d *Daemon) Run() error {
 			log.Printf("Accept error: %v", err)
 			return fmt.Errorf("accept failed: %w", err)
 		}
-
 		go d.handle(c)
 	}
 }
@@ -165,7 +159,7 @@ func (d *Daemon) handle(c net.Conn) {
 		fmt.Fprint(c, "OK toggled\n")
 	case 's':
 		status := d.Status()
-		fmt.Fprintf(c, "STATUS recording=%s\n", status)
+		fmt.Fprintf(c, "STATUS status=%s\n", status)
 	case 'v':
 		fmt.Fprintf(c, "STATUS proto=%s\n", bus.ProtoVer)
 	case 'q':
@@ -178,44 +172,36 @@ func (d *Daemon) handle(c net.Conn) {
 }
 
 func (d *Daemon) toggle() {
-	d.mu.Lock()
-	defer d.mu.Unlock()
-
-	var notification func()
-
 	switch d.status {
 	case Idle:
-		ctx, cancel := context.WithTimeout(d.ctx, 5*time.Minute)
-		p := pipeline.New()
-		d.pipeline = p
-		d.pipelineCancel = cancel
-		d.statusCh = p.Run(ctx)
-		notification = d.notifier.RecordingStarted
+		// Defensive: if a prior pipeline exists, stop and wait before starting a new one
+		if d.pipeline != nil {
+			d.pipeline.Stop()
+			d.pipeline = nil
+		}
 
-		// Start status reader for this pipeline
-		d.startStatusReader(ctx, d.statusCh)
+		p := pipeline.New()
+		statusCh, actionCh := p.Run(d.ctx)
+
+		d.pipeline = p
+		d.actionChannel = actionCh
+
+		go d.notifier.RecordingStarted()
+
+		go d.startStatusReader(d.ctx, statusCh)
 
 	case Recording:
-		if d.pipelineCancel != nil {
-			d.pipelineCancel() // Context cleanup handles the rest
-		}
-		notification = d.notifier.RecordingEnded
+		go d.notifier.RecordingEnded()
+		d.pipeline.Stop()
 
 	case Transcribing:
-		if d.pipeline != nil {
-			d.pipeline.Inject()
+		select {
+		case d.actionChannel <- pipeline.Inject:
+		default:
 		}
-		// No notification for injection start
 
 	case Injecting:
-		if d.pipelineCancel != nil {
-			d.pipelineCancel() // Context cleanup handles the rest
-		}
-		notification = d.notifier.RecordingEnded
-	}
-
-	// Send notification after releasing lock
-	if notification != nil {
-		go notification()
+		go d.notifier.RecordingEnded()
+		d.pipeline.Stop() // aborted during injection
 	}
 }
