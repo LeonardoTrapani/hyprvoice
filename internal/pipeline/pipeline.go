@@ -181,7 +181,7 @@ func (p *pipeline) run(ctx context.Context) {
 	}
 
 	defer func() {
-		if stopErr := t.Stop(); stopErr != nil {
+		if stopErr := t.Stop(ctx); stopErr != nil {
 			log.Printf("Pipeline: Error stopping transcriber: %v", stopErr)
 			p.sendError("Transcription Error", "Failed to stop transcriber cleanly", stopErr)
 		}
@@ -231,15 +231,13 @@ func (p *pipeline) run(ctx context.Context) {
 
 				// Wait for the recorder to fully stop and frameCh to be closed
 				// The transcriber will process any remaining frames when frameCh closes
-				log.Printf("Pipeline: Waiting for recording channel to close and final transcription to complete")
-
 				// Drain the frameCh to ensure it's fully closed
 				for range frameCh {
 					// Continue draining until channel is closed
 				}
 
 				// Stop the transcriber to ensure all buffered audio is processed
-				if err := t.Stop(); err != nil {
+				if err := t.Stop(ctx); err != nil {
 					log.Printf("Pipeline: Error stopping transcriber: %v", err)
 					p.sendError("Transcription Error", "Failed to stop transcriber during injection", err)
 				}

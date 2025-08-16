@@ -82,7 +82,9 @@ hyprvoice stop
 | Recording control      | ✅    | `hyprvoice toggle`                                       |
 | Desktop notifications  | ✅    | `notify-send` (logs fallback)                            |
 | Audio capture          | ✅    | PipeWire (`pw-record`) frames + bounded channels         |
-| ASR backends           | ⏳    | Not implemented yet (cloud/local planned)                |
+| Simple transcriber     | ✅    | Collect audio and transcribe when complete               |
+| OpenAI adapter         | ✅    | HTTP API calls with clean audio buffering                |
+| whisper.cpp adapter    | ⏳    | Local inference ready for implementation                 |
 | Text injection         | ⏳    | Not implemented; will use clipboard + `wtype`/`ydotool`  |
 | Service management     | 🔄    | `systemd --user` unit example provided                   |
 
@@ -134,13 +136,31 @@ stateDiagram-v2
   injecting --> idle: abort
 ```
 
+### Transcription Strategy
+
+Hyprvoice uses a **simple collect-and-transcribe** approach for reliable transcription:
+
+- **Collect all audio** during recording session
+- **Single transcription** when recording stops
+- **Clean, predictable results** with full context
+- **Provider-agnostic adapter** pattern for different backends
+
+**Architecture:**
+
+```
+Audio Frames → Audio Buffer → Backend Adapter → Transcription
+                     ↓
+              [OpenAI API, whisper.cpp, etc.]
+```
+
 ### Data flow
 
 1. `toggle` (daemon) → create pipeline → recording
 2. First frame arrives → transcribing (daemon may notify `Transcribing` later)
-3. Second `toggle` during transcribing → send `inject` action → injecting (simulated)
-4. Complete → idle; pipeline stops; daemon clears reference
-5. Notifications at key transitions
+3. Audio frames → audio buffer (collect all audio during session)
+4. Second `toggle` during transcribing → send `inject` action → transcribe collected audio → injecting (simulated)
+5. Complete → idle; pipeline stops; daemon clears reference
+6. Notifications at key transitions
 
 ---
 
@@ -215,7 +235,9 @@ hyprvoice/
 │   ├── bus/              # IPC (Unix socket) + PID management
 │   ├── daemon/           # Control plane (IPC server, lifecycle; no state)
 │   ├── notify/           # Desktop notifications
-│   └── pipeline/         # Pipeline + state machine (record/transcribe/inject)
+│   ├── pipeline/         # Pipeline + state machine (record/transcribe/inject)
+│   ├── recording/        # Audio capture via PipeWire
+│   └── transcriber/      # Simple transcriber + adapters (OpenAI, whisper.cpp)
 ├── go.mod                # Go module definition
 └── README.md
 ```
@@ -250,12 +272,12 @@ go run ./cmd/hyprvoice status
 
 ## Direction / Roadmap
 
-- ASR integration: start with a cloud streaming backend; add a local backend later.
-- Proper injection: clipboard save/restore + Ctrl+V, with `wtype`/`ydotool` fallbacks.
-- VAD / endpointing to auto‑stop on silence (in addition to manual toggle).
-- Configuration for devices, sample rate, and buffer sizing.
-- Tests for pipeline state transitions and IPC.
-- Direction is flexible; we can adjust based on UX feedback and perf.
+- **ASR integration**: OpenAI adapter complete; whisper.cpp adapter ready for implementation.
+- **Proper injection**: clipboard save/restore + Ctrl+V, with `wtype`/`ydotool` fallbacks.
+- **Configuration options**: devices, sample rate, transcription providers.
+- **Enhanced features**: VAD for auto-stop, improved chunking strategies if needed.
+- **Tests**: comprehensive testing for pipeline state transitions and transcription.
+- Direction is flexible; we can adjust based on UX feedback and performance needs.
 
 ---
 
