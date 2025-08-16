@@ -87,21 +87,14 @@ func (r *Recorder) Start(ctx context.Context) (<-chan AudioFrame, <-chan error, 
 	return frameCh, errCh, nil
 }
 
-func (r *Recorder) Stop() error {
+func (r *Recorder) Stop() {
 	if !r.recording.Load() {
-		return nil
+		return
 	}
 
-	r.mu.Lock()
-	cancel := r.cancel
-	r.cancel = nil
-	r.mu.Unlock()
+	r.requestCancel()
 
-	if cancel != nil {
-		cancel()
-	}
 	r.wg.Wait()
-	return nil
 }
 
 func (r *Recorder) captureLoop(ctx context.Context, frameCh chan<- AudioFrame, errCh chan<- error) {
@@ -110,12 +103,7 @@ func (r *Recorder) captureLoop(ctx context.Context, frameCh chan<- AudioFrame, e
 		close(errCh)
 		r.recording.Store(false)
 
-		// Ensure any child process is reaped.
 		r.mu.Lock()
-		if r.cmd != nil {
-			_ = r.cmd.Wait()
-			r.cmd = nil
-		}
 		r.cancel = nil
 		r.mu.Unlock()
 

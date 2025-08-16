@@ -3,7 +3,6 @@ package pipeline
 import (
 	"context"
 	"log"
-	"os"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -50,13 +49,95 @@ type pipeline struct {
 	cancel   context.CancelFunc
 	stopOnce sync.Once
 
-	running int32
+	running atomic.Bool
 }
 
 func New() Pipeline {
 	return &pipeline{
 		actionCh: make(chan Action, 1),
 		errorCh:  make(chan PipelineError, 10),
+	}
+}
+func (p *pipeline) Run(ctx context.Context) {
+	if !p.running.CompareAndSwap(false, true) {
+		log.Printf("Pipeline: Already running, ignoring Run() call")
+		return
+	}
+
+	runCtx, cancel := context.WithTimeout(ctx, 5*time.Minute)
+	p.setCancel(cancel)
+
+	p.wg.Add(1)
+	go p.run(runCtx)
+}
+
+func (p *pipeline) run(ctx context.Context) {
+	defer func() {
+		p.running.Store(false)
+		p.setStatus(Idle)
+		p.wg.Done()
+	}()
+
+	log.Printf("Pipeline: Starting recording")
+	p.setStatus(Recording)
+
+	recorder := recording.NewDefaultRecorder()
+	frameCh, rErrCh, err := recorder.Start(ctx)
+
+	if err != nil {
+		log.Printf("Pipeline: Recording error: %v", err)
+		p.sendError("Recording Error", "Failed to start recording", err)
+		return
+	}
+
+	defer recorder.Stop()
+
+	t, err := transcriber.NewDefaultTranscriber()
+	if err != nil {
+		log.Printf("Pipeline: Failed to create transcriber: %v", err)
+		p.sendError("Transcription Error", "Failed to create transcriber", err)
+		return
+	}
+
+	log.Printf("Pipeline: Starting transcriber")
+	p.setStatus(Transcribing)
+
+	tErrCh, err := t.Start(ctx, frameCh)
+	if err != nil {
+		log.Printf("Pipeline: Transcriber error: %v", err)
+		p.sendError("Transcription Error", "Failed to start transcriber", err)
+		return
+	}
+
+	defer func() {
+		if stopErr := t.Stop(ctx); stopErr != nil {
+			log.Printf("Pipeline: Error stopping transcriber: %v", stopErr)
+			p.sendError("Transcription Error", "Failed to stop transcriber cleanly", stopErr)
+		}
+	}()
+
+	for {
+		select {
+		case <-frameCh:
+
+		case action := <-p.actionCh:
+			switch action {
+			case Inject:
+				p.handleInjectAction(ctx, recorder, t)
+				return
+			}
+
+		case err := <-tErrCh:
+			p.handleTranscriberError(err)
+			return
+
+		case err := <-rErrCh:
+			p.handleRecordingError(err)
+			return
+
+		case <-ctx.Done():
+			return
+		}
 	}
 }
 
@@ -110,6 +191,43 @@ func (p *pipeline) sendError(title, message string, err error) {
 	}
 }
 
+func (p *pipeline) handleTranscriberError(err error) {
+	p.sendError("Transcription Error", "Transcription processing error", err)
+}
+
+func (p *pipeline) handleRecordingError(err error) {
+	p.sendError("Recording Error", "Recording stream error", err)
+}
+
+func (p *pipeline) handleInjectAction(ctx context.Context, recorder *recording.Recorder, t transcriber.Transcriber) {
+	status := p.Status()
+
+	if status != Transcribing {
+		log.Printf("Pipeline: Inject action received, but not in transcribing state, ignoring")
+		return
+	}
+
+	log.Printf("Pipeline: Inject action received, stopping recording and finalizing transcription")
+	p.setStatus(Injecting)
+
+	recorder.Stop()
+
+	if err := t.Stop(ctx); err != nil {
+		p.sendError("Transcription Error", "Failed to stop transcriber during injection", err)
+	}
+
+	transcriptionText, err := t.GetFinalTranscription()
+	if err != nil {
+		p.sendError("Transcription Error", "Failed to retrieve transcription", err)
+		return
+	}
+	log.Printf("Pipeline: Final transcription text: %s", transcriptionText)
+
+	log.Printf("Pipeline: Simulating injection work")
+	time.Sleep(10 * time.Millisecond)
+	log.Printf("Pipeline: Injection work done, returning to idle")
+}
+
 func (p *pipeline) Stop() {
 	p.stopOnce.Do(func() {
 		cancel := p.getCancel()
@@ -118,148 +236,4 @@ func (p *pipeline) Stop() {
 		}
 	})
 	p.wg.Wait()
-}
-
-func (p *pipeline) Run(ctx context.Context) {
-	if !atomic.CompareAndSwapInt32(&p.running, 0, 1) {
-		log.Printf("Pipeline: Already running, ignoring Run() call")
-		return
-	}
-
-	runCtx, cancel := context.WithTimeout(ctx, 5*time.Minute)
-	p.setCancel(cancel)
-
-	p.wg.Add(1)
-	go p.run(runCtx)
-}
-
-func (p *pipeline) run(ctx context.Context) {
-	defer func() {
-		atomic.StoreInt32(&p.running, 0)
-		p.setStatus(Idle)
-		p.wg.Done()
-	}()
-
-	log.Printf("Pipeline: Starting recording")
-	p.setStatus(Recording)
-
-	recorder := recording.NewDefaultRecorder()
-	frameCh, errCh, err := recorder.Start(ctx)
-	if err != nil {
-		log.Printf("Pipeline: Recording error: %v", err)
-		p.sendError("Recording Error", "Failed to start recording", err)
-		return
-	}
-
-	defer func() {
-		if stopErr := recorder.Stop(); stopErr != nil {
-			log.Printf("Pipeline: Error stopping recorder: %v", stopErr)
-			p.sendError("Recording Error", "Failed to stop recorder cleanly", stopErr)
-		}
-	}()
-
-	config := transcriber.DefaultConfig()
-	if apiKey := os.Getenv("OPENAI_API_KEY"); apiKey != "" {
-		config.APIKey = apiKey
-	}
-
-	t, err := transcriber.NewTranscriber(config)
-	if err != nil {
-		log.Printf("Pipeline: Failed to create transcriber: %v", err)
-		p.sendError("Transcription Error", "Failed to create transcriber", err)
-		return
-	}
-
-	log.Printf("Pipeline: Starting transcriber")
-	p.setStatus(Transcribing)
-
-	tErrCh, err := t.Start(ctx, frameCh)
-	if err != nil {
-		log.Printf("Pipeline: Transcriber error: %v", err)
-		p.sendError("Transcription Error", "Failed to start transcriber", err)
-		return
-	}
-
-	defer func() {
-		if stopErr := t.Stop(ctx); stopErr != nil {
-			log.Printf("Pipeline: Error stopping transcriber: %v", stopErr)
-			p.sendError("Transcription Error", "Failed to stop transcriber cleanly", stopErr)
-		}
-	}()
-
-	frameCount := 0
-	totalBytes := 0
-
-	for {
-		select {
-		case frame := <-frameCh:
-			frameCount++
-			totalBytes += len(frame.Data)
-			// log.Printf("Pipeline: Received frame #%d - Size: %d bytes, Timestamp: %v, Total bytes so far: %d", frameCount, len(frame.Data), frame.Timestamp.Format("15:04:05.000"), totalBytes)
-
-		case err := <-tErrCh:
-			if err != nil {
-				log.Printf("Pipeline: Transcription error: %v", err)
-				p.sendError("Transcription Error", "Transcription processing error", err)
-				return
-			}
-
-		case err := <-errCh:
-			if err != nil {
-				log.Printf("Pipeline: Recording error: %v", err)
-				p.sendError("Recording Error", "Recording stream error", err)
-				return
-			}
-
-		case action := <-p.actionCh:
-			log.Printf("Pipeline: Received action: %v", action)
-			switch action {
-			case Inject:
-				if p.status != Transcribing {
-					log.Printf("Pipeline: Inject action received, but not in transcribing state, ignoring")
-					continue
-				}
-
-				log.Printf("Pipeline: Inject action received, stopping recording and finalizing transcription")
-				p.setStatus(Injecting)
-
-				// Stop the recorder first - this will close the frameCh channel
-				if err := recorder.Stop(); err != nil {
-					log.Printf("Pipeline: Error stopping recorder: %v", err)
-					p.sendError("Recording Error", "Failed to stop recorder during injection", err)
-				}
-
-				// Wait for the recorder to fully stop and frameCh to be closed
-				// The transcriber will process any remaining frames when frameCh closes
-				// Drain the frameCh to ensure it's fully closed
-				for range frameCh {
-					// Continue draining until channel is closed
-				}
-
-				// Stop the transcriber to ensure all buffered audio is processed
-				if err := t.Stop(ctx); err != nil {
-					log.Printf("Pipeline: Error stopping transcriber: %v", err)
-					p.sendError("Transcription Error", "Failed to stop transcriber during injection", err)
-				}
-
-				// Now get the final transcription which includes all processed audio
-				transcriptionText, err := t.GetTranscription()
-				if err != nil {
-					log.Printf("Pipeline: Error getting transcription: %v", err)
-					p.sendError("Transcription Error", "Failed to retrieve transcription", err)
-				} else {
-					log.Printf("Pipeline: Final transcription text: %s", transcriptionText)
-				}
-
-				log.Printf("Pipeline: Simulating injection work")
-				time.Sleep(10 * time.Millisecond)
-				log.Printf("Pipeline: Injection work done, returning to idle")
-				return
-			}
-
-		case <-ctx.Done():
-			log.Printf("Pipeline: Context cancelled, stopping")
-			return
-		}
-	}
 }

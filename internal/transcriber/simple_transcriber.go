@@ -61,7 +61,7 @@ func (t *SimpleTranscriber) Stop(ctx context.Context) error {
 	return t.transcribeAll(ctx)
 }
 
-func (t *SimpleTranscriber) GetTranscription() (string, error) {
+func (t *SimpleTranscriber) GetFinalTranscription() (string, error) {
 	t.transcriptionMu.RLock()
 	defer t.transcriptionMu.RUnlock()
 	return t.transcriptionText, nil

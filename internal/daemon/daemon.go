@@ -157,27 +157,28 @@ func (d *Daemon) toggle() {
 		d.pipeline = p
 		d.mu.Unlock()
 
-		go d.notifier.RecordingStarted()
+		go d.notifier.Notify("Hyprvoice", "Recording Started")
 		go d.monitorPipelineErrors(p)
 
 	case pipeline.Recording:
 		d.stopPipeline() // aborted during recording (chunks not sent to transcriber yet)
-		go d.notifier.Aborted()
+		go d.notifier.Error("Recording Aborted")
 
 	case pipeline.Transcribing:
 		d.mu.RLock()
 		if d.pipeline != nil {
 			actionChan := d.pipeline.GetActionCh()
+			log.Printf("Daemon: Sending inject action to pipeline")
 			d.mu.RUnlock()
 			actionChan <- pipeline.Inject
 		} else {
 			d.mu.RUnlock()
 		}
-		go d.notifier.RecordingEnded()
+		go d.notifier.Notify("Hyprvoice", "Recording Ended... Transcribing")
 
 	case pipeline.Injecting:
 		d.stopPipeline() // aborted during injection
-		go d.notifier.Aborted()
+		go d.notifier.Error("Injection Aborted")
 	}
 }
 
@@ -186,19 +187,15 @@ func (d *Daemon) monitorPipelineErrors(p pipeline.Pipeline) {
 	for {
 		select {
 		case pipelineErr := <-errorCh:
-			d.handlePipelineError(pipelineErr)
+			message := pipelineErr.Message
+
+			if pipelineErr.Err != nil {
+				message = fmt.Sprintf("%s: %v", message, pipelineErr.Err)
+			}
+
+			d.notifier.Error(message)
 		case <-d.ctx.Done():
 			return
 		}
 	}
-}
-
-func (d *Daemon) handlePipelineError(pipelineErr pipeline.PipelineError) {
-	message := pipelineErr.Message
-
-	if pipelineErr.Err != nil {
-		message = fmt.Sprintf("%s: %v", message, pipelineErr.Err)
-	}
-
-	d.notifier.Error(message)
 }

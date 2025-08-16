@@ -3,6 +3,7 @@ package transcriber
 import (
 	"context"
 	"fmt"
+	"os"
 
 	"github.com/leonardotrapani/hyprvoice/internal/recording"
 )
@@ -11,7 +12,7 @@ import (
 type Transcriber interface {
 	Start(ctx context.Context, frameCh <-chan recording.AudioFrame) (<-chan error, error)
 	Stop(ctx context.Context) error
-	GetTranscription() (string, error)
+	GetFinalTranscription() (string, error)
 }
 
 // Adapter interface for different transcription backends
@@ -58,4 +59,13 @@ func NewTranscriber(config Config) (Transcriber, error) {
 	transcriber := NewSimpleTranscriber(config, adapter)
 
 	return transcriber, nil
+}
+
+func NewDefaultTranscriber() (Transcriber, error) {
+	config := DefaultConfig()
+	if apiKey := os.Getenv("OPENAI_API_KEY"); apiKey != "" {
+		config.APIKey = apiKey
+	}
+
+	return NewTranscriber(config)
 }
