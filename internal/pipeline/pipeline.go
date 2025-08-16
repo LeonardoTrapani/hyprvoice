@@ -3,14 +3,23 @@ package pipeline
 import (
 	"context"
 	"log"
+	"os"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/leonardotrapani/hyprvoice/internal/recording"
+	"github.com/leonardotrapani/hyprvoice/internal/transcriber"
 )
 
 type Status string
 type Action string
+
+type PipelineError struct {
+	Title   string
+	Message string
+	Err     error
+}
 
 const (
 	Idle         Status = "idle"
@@ -28,24 +37,26 @@ type Pipeline interface {
 	Stop()
 	Status() Status
 	GetActionCh() chan<- Action
+	GetErrorCh() <-chan PipelineError
 }
 
 type pipeline struct {
 	status   Status
 	actionCh chan Action
+	errorCh  chan PipelineError
 
-	mu sync.RWMutex
-	wg sync.WaitGroup
-
-	cancel context.CancelFunc
-
+	mu       sync.RWMutex
+	wg       sync.WaitGroup
+	cancel   context.CancelFunc
 	stopOnce sync.Once
-	running  bool
+
+	running int32
 }
 
 func New() Pipeline {
 	return &pipeline{
 		actionCh: make(chan Action, 1),
+		errorCh:  make(chan PipelineError, 10),
 	}
 }
 
@@ -79,6 +90,26 @@ func (p *pipeline) GetActionCh() chan<- Action {
 	return p.actionCh
 }
 
+func (p *pipeline) GetErrorCh() <-chan PipelineError {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	return p.errorCh
+}
+
+func (p *pipeline) sendError(title, message string, err error) {
+	pipelineErr := PipelineError{
+		Title:   title,
+		Message: message,
+		Err:     err,
+	}
+
+	select {
+	case p.errorCh <- pipelineErr:
+	default:
+		log.Printf("Pipeline: Error channel full, dropping error: %s", message)
+	}
+}
+
 func (p *pipeline) Stop() {
 	p.stopOnce.Do(func() {
 		cancel := p.getCancel()
@@ -90,14 +121,10 @@ func (p *pipeline) Stop() {
 }
 
 func (p *pipeline) Run(ctx context.Context) {
-	p.mu.Lock()
-	if p.running {
-		p.mu.Unlock()
+	if !atomic.CompareAndSwapInt32(&p.running, 0, 1) {
 		log.Printf("Pipeline: Already running, ignoring Run() call")
 		return
 	}
-	p.running = true
-	p.mu.Unlock()
 
 	runCtx, cancel := context.WithTimeout(ctx, 5*time.Minute)
 	p.setCancel(cancel)
@@ -108,10 +135,8 @@ func (p *pipeline) Run(ctx context.Context) {
 
 func (p *pipeline) run(ctx context.Context) {
 	defer func() {
-		log.Printf("Pipeline: defered run")
-		p.mu.Lock()
-		p.running = false
-		p.mu.Unlock()
+		atomic.StoreInt32(&p.running, 0)
+		p.setStatus(Idle)
 		p.wg.Done()
 	}()
 
@@ -122,10 +147,45 @@ func (p *pipeline) run(ctx context.Context) {
 	frameCh, errCh, err := recorder.Start(ctx)
 	if err != nil {
 		log.Printf("Pipeline: Recording error: %v", err)
-		p.setStatus(Idle)
+		p.sendError("Recording Error", "Failed to start recording", err)
 		return
 	}
-	defer recorder.Stop()
+
+	defer func() {
+		if stopErr := recorder.Stop(); stopErr != nil {
+			log.Printf("Pipeline: Error stopping recorder: %v", stopErr)
+			p.sendError("Recording Error", "Failed to stop recorder cleanly", stopErr)
+		}
+	}()
+
+	config := transcriber.DefaultConfig()
+	if apiKey := os.Getenv("OPENAI_API_KEY"); apiKey != "" {
+		config.APIKey = apiKey
+	}
+
+	t, err := transcriber.NewTranscriber(config)
+	if err != nil {
+		log.Printf("Pipeline: Failed to create transcriber: %v", err)
+		p.sendError("Transcription Error", "Failed to create transcriber", err)
+		return
+	}
+
+	log.Printf("Pipeline: Starting transcriber")
+	p.setStatus(Transcribing)
+
+	tErrCh, err := t.Start(ctx, frameCh)
+	if err != nil {
+		log.Printf("Pipeline: Transcriber error: %v", err)
+		p.sendError("Transcription Error", "Failed to start transcriber", err)
+		return
+	}
+
+	defer func() {
+		if stopErr := t.Stop(); stopErr != nil {
+			log.Printf("Pipeline: Error stopping transcriber: %v", stopErr)
+			p.sendError("Transcription Error", "Failed to stop transcriber cleanly", stopErr)
+		}
+	}()
 
 	frameCount := 0
 	totalBytes := 0
@@ -138,12 +198,17 @@ func (p *pipeline) run(ctx context.Context) {
 			log.Printf("Pipeline: Received frame #%d - Size: %d bytes, Timestamp: %v, Total bytes so far: %d",
 				frameCount, len(frame.Data), frame.Timestamp.Format("15:04:05.000"), totalBytes)
 
-			p.setStatus(Transcribing)
+		case err := <-tErrCh:
+			if err != nil {
+				log.Printf("Pipeline: Transcription error: %v", err)
+				p.sendError("Transcription Error", "Transcription processing error", err)
+				return
+			}
 
 		case err := <-errCh:
 			if err != nil {
 				log.Printf("Pipeline: Recording error: %v", err)
-				p.setStatus(Idle)
+				p.sendError("Recording Error", "Recording stream error", err)
 				return
 			}
 
@@ -151,18 +216,31 @@ func (p *pipeline) run(ctx context.Context) {
 			log.Printf("Pipeline: Received action: %v", action)
 			switch action {
 			case Inject:
-				log.Printf("Pipeline: Inject action received, stopping recording (TODO: stop transcribing)")
+				if p.status != Transcribing {
+					log.Printf("Pipeline: Inject action received, but not in transcribing state, ignoring")
+					continue
+				}
+
+				log.Printf("Pipeline: Inject action received, stopping recording and getting transcription")
 
 				if err := recorder.Stop(); err != nil {
 					log.Printf("Pipeline: Error stopping recorder: %v", err)
+					p.sendError("Recording Error", "Failed to stop recorder during injection", err)
 				}
+
 				p.setStatus(Injecting)
 
-				// Simulate injection work then return to idle
+				transcriptionText, err := t.GetTranscription()
+				if err != nil {
+					log.Printf("Pipeline: Error getting transcription: %v", err)
+					p.sendError("Transcription Error", "Failed to retrieve transcription", err)
+				} else {
+					log.Printf("Pipeline: Transcription text: %s", transcriptionText)
+				}
+
 				log.Printf("Pipeline: Simulating injection work")
 				time.Sleep(10 * time.Millisecond)
 				log.Printf("Pipeline: Injection work done, returning to idle")
-				p.setStatus(Idle)
 				return
 			}
 

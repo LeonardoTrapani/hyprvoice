@@ -158,6 +158,7 @@ func (d *Daemon) toggle() {
 		d.mu.Unlock()
 
 		go d.notifier.RecordingStarted()
+		go d.monitorPipelineErrors(p)
 
 	case pipeline.Recording:
 		d.stopPipeline() // aborted during recording (chunks not sent to transcriber yet)
@@ -178,4 +179,26 @@ func (d *Daemon) toggle() {
 		d.stopPipeline() // aborted during injection
 		go d.notifier.Aborted()
 	}
+}
+
+func (d *Daemon) monitorPipelineErrors(p pipeline.Pipeline) {
+	errorCh := p.GetErrorCh()
+	for {
+		select {
+		case pipelineErr := <-errorCh:
+			d.handlePipelineError(pipelineErr)
+		case <-d.ctx.Done():
+			return
+		}
+	}
+}
+
+func (d *Daemon) handlePipelineError(pipelineErr pipeline.PipelineError) {
+	message := pipelineErr.Message
+
+	if pipelineErr.Err != nil {
+		message = fmt.Sprintf("%s: %v", message, pipelineErr.Err)
+	}
+
+	d.notifier.Error(message)
 }

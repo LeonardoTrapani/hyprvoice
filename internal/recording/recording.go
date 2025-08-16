@@ -33,9 +33,9 @@ func DefaultConfig() Config {
 		SampleRate:        16000,
 		Channels:          1,
 		Format:            "s16",
-		BufferSize:        4096,
+		BufferSize:        8192,
 		Device:            "",
-		ChannelBufferSize: 20,
+		ChannelBufferSize: 30,
 	}
 }
 

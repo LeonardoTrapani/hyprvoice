@@ -11,29 +11,21 @@ type Notifier interface {
 	Aborted()
 	Transcribing()
 	Error(msg string)
+	Notify(title, message string)
 }
 
 type Desktop struct{}
 
-func (Desktop) RecordingStarted() {
-	cmd := exec.Command("notify-send", "-a", "Hyprvoice", "Hyprvoice: Recording Started")
-	if err := cmd.Run(); err != nil {
-		log.Printf("Failed to send notification: %v", err)
-	}
+func (d Desktop) RecordingStarted() {
+	d.Notify("Hyprvoice", "Recording Started")
 }
 
-func (Desktop) RecordingEnded() {
-	cmd := exec.Command("notify-send", "-a", "Hyprvoice", "Hyprvoice: Recording Ended")
-	if err := cmd.Run(); err != nil {
-		log.Printf("Failed to send notification: %v", err)
-	}
+func (d Desktop) RecordingEnded() {
+	d.Notify("Hyprvoice", "Recording Ended")
 }
 
-func (Desktop) Transcribing() {
-	cmd := exec.Command("notify-send", "-a", "Hyprvoice", "Hyprvoice: Transcribing...")
-	if err := cmd.Run(); err != nil {
-		log.Printf("Failed to send notification: %v", err)
-	}
+func (d Desktop) Transcribing() {
+	d.Notify("Hyprvoice", "Transcribing...")
 }
 
 func (Desktop) Aborted() {
@@ -44,18 +36,50 @@ func (Desktop) Aborted() {
 }
 
 func (Desktop) Error(msg string) {
-	cmd := exec.Command("notify-send", "-a", "Hyprvoice", "-u", "critical", msg)
+	cmd := exec.Command("notify-send", "-a", "Hyprvoice", "-u", "critical", "Hyprvoice Error", msg)
 	if err := cmd.Run(); err != nil {
 		log.Printf("Failed to send error notification: %v", err)
 	}
 }
 
-// Nop is a Notifier that does absolutely nothing.
-// Useful in unit tests or headless builds.
+func (Desktop) Notify(title, message string) {
+	cmd := exec.Command("notify-send", "-a", "Hyprvoice", title, message)
+	if err := cmd.Run(); err != nil {
+		log.Printf("Failed to send notification: %v", err)
+	}
+}
+
+type Log struct{}
+
+func (l Log) RecordingStarted() {
+	l.Notify("Hyprvoice", "Recording Started")
+}
+
+func (l Log) RecordingEnded() {
+	l.Notify("Hyprvoice", "Recording Ended")
+}
+
+func (l Log) Transcribing() {
+	l.Notify("Hyprvoice", "Transcribing...")
+}
+
+func (l Log) Aborted() {
+	l.Notify("Hyprvoice", "Aborted")
+}
+
+func (l Log) Error(msg string) {
+	l.Notify("Hyprvoice Error", msg)
+}
+
+func (Log) Notify(title, message string) {
+	log.Printf("%s: %s", title, message)
+}
+
 type Nop struct{}
 
-func (Nop) RecordingStarted() {}
-func (Nop) RecordingEnded()   {}
-func (Nop) Aborted()          {}
-func (Nop) Transcribing()     {}
-func (Nop) Error(msg string)  {}
+func (Nop) RecordingStarted()            {}
+func (Nop) RecordingEnded()              {}
+func (Nop) Aborted()                     {}
+func (Nop) Transcribing()                {}
+func (Nop) Error(msg string)             {}
+func (Nop) Notify(title, message string) {}
