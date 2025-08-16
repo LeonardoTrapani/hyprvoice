@@ -195,8 +195,7 @@ func (p *pipeline) run(ctx context.Context) {
 		case frame := <-frameCh:
 			frameCount++
 			totalBytes += len(frame.Data)
-			log.Printf("Pipeline: Received frame #%d - Size: %d bytes, Timestamp: %v, Total bytes so far: %d",
-				frameCount, len(frame.Data), frame.Timestamp.Format("15:04:05.000"), totalBytes)
+			// log.Printf("Pipeline: Received frame #%d - Size: %d bytes, Timestamp: %v, Total bytes so far: %d", frameCount, len(frame.Data), frame.Timestamp.Format("15:04:05.000"), totalBytes)
 
 		case err := <-tErrCh:
 			if err != nil {
@@ -221,21 +220,37 @@ func (p *pipeline) run(ctx context.Context) {
 					continue
 				}
 
-				log.Printf("Pipeline: Inject action received, stopping recording and getting transcription")
+				log.Printf("Pipeline: Inject action received, stopping recording and finalizing transcription")
+				p.setStatus(Injecting)
 
+				// Stop the recorder first - this will close the frameCh channel
 				if err := recorder.Stop(); err != nil {
 					log.Printf("Pipeline: Error stopping recorder: %v", err)
 					p.sendError("Recording Error", "Failed to stop recorder during injection", err)
 				}
 
-				p.setStatus(Injecting)
+				// Wait for the recorder to fully stop and frameCh to be closed
+				// The transcriber will process any remaining frames when frameCh closes
+				log.Printf("Pipeline: Waiting for recording channel to close and final transcription to complete")
 
+				// Drain the frameCh to ensure it's fully closed
+				for range frameCh {
+					// Continue draining until channel is closed
+				}
+
+				// Stop the transcriber to ensure all buffered audio is processed
+				if err := t.Stop(); err != nil {
+					log.Printf("Pipeline: Error stopping transcriber: %v", err)
+					p.sendError("Transcription Error", "Failed to stop transcriber during injection", err)
+				}
+
+				// Now get the final transcription which includes all processed audio
 				transcriptionText, err := t.GetTranscription()
 				if err != nil {
 					log.Printf("Pipeline: Error getting transcription: %v", err)
 					p.sendError("Transcription Error", "Failed to retrieve transcription", err)
 				} else {
-					log.Printf("Pipeline: Transcription text: %s", transcriptionText)
+					log.Printf("Pipeline: Final transcription text: %s", transcriptionText)
 				}
 
 				log.Printf("Pipeline: Simulating injection work")

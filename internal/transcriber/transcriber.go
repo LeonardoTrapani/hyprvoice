@@ -31,7 +31,7 @@ type Config struct {
 func DefaultConfig() Config {
 	return Config{
 		Provider:   "openai",
-		Language:   "en",
+		Language:   "it",
 		ChunkSize:  16384,
 		BufferTime: 2 * time.Second,
 		Model:      "whisper-1",

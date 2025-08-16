@@ -82,6 +82,16 @@ func (t *OpenAITranscriber) Stop() error {
 		cancel()
 	}
 	t.wg.Wait()
+
+	// After stopping, ensure any remaining buffered audio is transcribed
+	if t.buffer.hasData() {
+		log.Printf("transcriber: processing remaining buffered audio on stop")
+		ctx := context.Background()
+		errCh := make(chan error, 1)
+		t.transcribeBuffer(ctx, errCh)
+		close(errCh)
+	}
+
 	return nil
 }
 
@@ -98,6 +108,13 @@ func (t *OpenAITranscriber) GetTranscription() (string, error) {
 
 func (t *OpenAITranscriber) processFrames(ctx context.Context, frameCh <-chan recording.AudioFrame, errCh chan<- error) {
 	defer func() {
+		// Always process remaining buffer when shutting down
+		if t.buffer.hasData() {
+			log.Printf("transcriber: processing final buffered audio on shutdown")
+			// Use background context for final transcription to avoid timeout
+			finalCtx := context.Background()
+			t.transcribeBuffer(finalCtx, errCh)
+		}
 		close(errCh)
 		t.mu.Lock()
 		t.transcribing = false
@@ -112,16 +129,25 @@ func (t *OpenAITranscriber) processFrames(ctx context.Context, frameCh <-chan re
 	for {
 		select {
 		case <-ctx.Done():
-			if t.buffer.hasData() {
-				t.transcribeBuffer(ctx, errCh)
+			log.Printf("transcriber: context cancelled, processing remaining frames")
+			// Continue processing remaining frames from channel before stopping
+			for {
+				select {
+				case frame, ok := <-frameCh:
+					if !ok {
+						log.Printf("transcriber: recording channel closed")
+						return
+					}
+					t.buffer.addFrame(frame)
+				default:
+					// No more frames available, exit
+					return
+				}
 			}
-			return
 
 		case frame, ok := <-frameCh:
 			if !ok {
-				if t.buffer.hasData() {
-					t.transcribeBuffer(ctx, errCh)
-				}
+				log.Printf("transcriber: recording channel closed, finishing with remaining buffer")
 				return
 			}
 			t.buffer.addFrame(frame)
