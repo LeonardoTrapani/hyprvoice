@@ -3,7 +3,6 @@ package transcriber
 import (
 	"context"
 	"fmt"
-	"os"
 
 	"github.com/leonardotrapani/hyprvoice/internal/recording"
 )
@@ -28,14 +27,6 @@ type Config struct {
 	Model    string
 }
 
-func DefaultConfig() Config {
-	return Config{
-		Provider: "openai",
-		Language: "it",
-		Model:    "whisper-1",
-	}
-}
-
 // NewTranscriber creates a new simple transcriber
 func NewTranscriber(config Config) (Transcriber, error) {
 	// Create the appropriate adapter
@@ -56,13 +47,4 @@ func NewTranscriber(config Config) (Transcriber, error) {
 	transcriber := NewSimpleTranscriber(config, adapter)
 
 	return transcriber, nil
-}
-
-func NewDefaultTranscriber() (Transcriber, error) {
-	config := DefaultConfig()
-	if apiKey := os.Getenv("OPENAI_API_KEY"); apiKey != "" {
-		config.APIKey = apiKey
-	}
-
-	return NewTranscriber(config)
 }

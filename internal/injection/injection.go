@@ -6,59 +6,37 @@ import (
 	"time"
 )
 
-// Injector interface for text injection
 type Injector interface {
 	Inject(ctx context.Context, text string) error
 }
 
-// Config for text injection
 type Config struct {
-	Mode                string        // "clipboard", "type", "fallback"
-	AlwaysCopyClipboard bool          // Always copy to clipboard regardless of mode
-	RestoreClipboard    bool          // Restore original clipboard after injection
-	WtypeTimeout        time.Duration // Timeout for wtype commands
-	ClipboardTimeout    time.Duration // Timeout for clipboard operations
+	Mode             string        // "clipboard", "type", "fallback"
+	RestoreClipboard bool          // Restore original clipboard after injection
+	WtypeTimeout     time.Duration // Timeout for wtype commands
+	ClipboardTimeout time.Duration // Timeout for clipboard operations
 }
 
-// DefaultConfig returns sensible defaults for injection
-func DefaultConfig() Config {
-	return Config{
-		Mode:                "fallback",
-		AlwaysCopyClipboard: true,
-		RestoreClipboard:    true,
-		WtypeTimeout:        5 * time.Second,
-		ClipboardTimeout:    3 * time.Second,
-	}
-}
-
-// injector implements the Injector interface
 type injector struct {
 	config Config
 }
 
-// NewInjector creates a new injector with the given config
 func NewInjector(config Config) Injector {
 	return &injector{
 		config: config,
 	}
 }
 
-// NewDefaultInjector creates an injector with default configuration
-func NewDefaultInjector() Injector {
-	return NewInjector(DefaultConfig())
-}
-
-// Inject performs text injection based on the configured mode
 func (i *injector) Inject(ctx context.Context, text string) error {
 	if text == "" {
 		return fmt.Errorf("cannot inject empty text")
 	}
 
-	// Always copy to clipboard if configured
+	// Copy to clipboard for clipboard mode and fallback mode
 	var originalClipboard string
 	var err error
 
-	if i.config.AlwaysCopyClipboard || i.config.Mode == "clipboard" || i.config.Mode == "fallback" {
+	if i.config.Mode == "clipboard" || i.config.Mode == "fallback" {
 		if err := checkClipboardAvailable(); err != nil {
 			return fmt.Errorf("clipboard tools not available: %w", err)
 		}
@@ -99,10 +77,9 @@ func (i *injector) Inject(ctx context.Context, text string) error {
 
 	// Restore original clipboard if configured and we have it
 	if i.config.RestoreClipboard && originalClipboard != "" {
-		// Restore after a short delay to ensure the text has been processed
 		go func() {
 			time.Sleep(100 * time.Millisecond)
-			restoreCtx, cancel := context.WithTimeout(context.Background(), i.config.ClipboardTimeout)
+			restoreCtx, cancel := context.WithTimeout(ctx, i.config.ClipboardTimeout)
 			defer cancel()
 			setClipboard(restoreCtx, originalClipboard, i.config.ClipboardTimeout)
 		}()

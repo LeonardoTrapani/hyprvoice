@@ -7,12 +7,10 @@ import (
 	"time"
 )
 
-// typeText types the given text using wtype
 func typeText(ctx context.Context, text string, timeout time.Duration) error {
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
-	// Check if wtype is available
 	if err := checkWtypeAvailable(); err != nil {
 		return err
 	}
@@ -26,7 +24,6 @@ func typeText(ctx context.Context, text string, timeout time.Duration) error {
 	return nil
 }
 
-// checkWtypeAvailable checks if wtype is available on the system
 func checkWtypeAvailable() error {
 	if _, err := exec.LookPath("wtype"); err != nil {
 		return fmt.Errorf("wtype not found: %w (install wtype package)", err)

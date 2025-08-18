@@ -28,17 +28,6 @@ type Config struct {
 	ChannelBufferSize int
 }
 
-func DefaultConfig() Config {
-	return Config{
-		SampleRate:        16000,
-		Channels:          1,
-		Format:            "s16",
-		BufferSize:        8192,
-		Device:            "",
-		ChannelBufferSize: 30,
-	}
-}
-
 type Recorder struct {
 	config    Config
 	recording atomic.Bool
@@ -217,8 +206,6 @@ func (r *Recorder) buildPwRecordArgs() []string {
 	}
 	return args
 }
-
-func NewDefaultRecorder() *Recorder { return NewRecorder(DefaultConfig()) }
 
 func CheckPipeWireAvailable(ctx context.Context) error {
 	if _, err := exec.LookPath("pw-record"); err != nil {

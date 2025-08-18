@@ -12,13 +12,15 @@ import (
 	"syscall"
 
 	"github.com/leonardotrapani/hyprvoice/internal/bus"
+	"github.com/leonardotrapani/hyprvoice/internal/config"
 	"github.com/leonardotrapani/hyprvoice/internal/notify"
 	"github.com/leonardotrapani/hyprvoice/internal/pipeline"
 )
 
 type Daemon struct {
-	mu       sync.RWMutex
-	notifier notify.Notifier
+	mu        sync.RWMutex
+	notifier  notify.Notifier
+	configMgr *config.Manager
 
 	ctx    context.Context
 	cancel context.CancelFunc
@@ -28,18 +30,35 @@ type Daemon struct {
 	wg sync.WaitGroup
 }
 
-func New(n notify.Notifier) *Daemon {
-	if n == nil {
+func New() (*Daemon, error) {
+	configMgr, err := config.NewManager()
+
+	conf := configMgr.GetConfig()
+
+	var n notify.Notifier
+
+	switch conf.Notifications.Type {
+	case "desktop":
 		n = notify.Desktop{}
-	}
-	ctx, cancel := context.WithCancel(context.Background())
-	d := &Daemon{
-		notifier: n,
-		ctx:      ctx,
-		cancel:   cancel,
+	case "log":
+		n = notify.Log{}
+	case "none":
+		n = notify.Nop{}
 	}
 
-	return d
+	if err != nil {
+		return nil, fmt.Errorf("failed to create config manager: %w", err)
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	d := &Daemon{
+		notifier:  n,
+		configMgr: configMgr,
+		ctx:       ctx,
+		cancel:    cancel,
+	}
+
+	return d, nil
 }
 
 func (d *Daemon) status() pipeline.Status {
@@ -77,6 +96,11 @@ func (d *Daemon) Run() error {
 		return fmt.Errorf("failed to create PID file: %w", err)
 	}
 	defer bus.RemovePidFile()
+
+	if err := d.configMgr.StartWatching(d.ctx); err != nil {
+		log.Printf("Warning: failed to start config file watching: %v", err)
+	}
+	defer d.configMgr.Stop()
 
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, syscall.SIGTERM, syscall.SIGINT)
@@ -150,7 +174,8 @@ func (d *Daemon) handle(c net.Conn) {
 func (d *Daemon) toggle() {
 	switch d.status() {
 	case pipeline.Idle:
-		p := pipeline.New()
+		config := d.configMgr.GetConfig()
+		p := pipeline.New(config)
 		p.Run(d.ctx)
 
 		d.mu.Lock()

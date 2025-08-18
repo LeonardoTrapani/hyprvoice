@@ -5,7 +5,6 @@ import (
 
 	"github.com/leonardotrapani/hyprvoice/internal/bus"
 	"github.com/leonardotrapani/hyprvoice/internal/daemon"
-	"github.com/leonardotrapani/hyprvoice/internal/notify"
 	"github.com/spf13/cobra"
 )
 
@@ -33,7 +32,11 @@ func serveCmd() *cobra.Command {
 		Use:   "serve",
 		Short: "Run the daemon",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return (daemon.New(notify.Desktop{})).Run()
+			d, err := daemon.New()
+			if err != nil {
+				return fmt.Errorf("failed to create daemon: %w", err)
+			}
+			return d.Run()
 		},
 	}
 }

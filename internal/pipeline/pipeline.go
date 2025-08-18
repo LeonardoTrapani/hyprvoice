@@ -7,6 +7,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/leonardotrapani/hyprvoice/internal/config"
 	"github.com/leonardotrapani/hyprvoice/internal/injection"
 	"github.com/leonardotrapani/hyprvoice/internal/recording"
 	"github.com/leonardotrapani/hyprvoice/internal/transcriber"
@@ -44,6 +45,7 @@ type pipeline struct {
 	status   Status
 	actionCh chan Action
 	errorCh  chan PipelineError
+	config   *config.Config
 
 	mu       sync.RWMutex
 	wg       sync.WaitGroup
@@ -53,10 +55,11 @@ type pipeline struct {
 	running atomic.Bool
 }
 
-func New() Pipeline {
+func New(cfg *config.Config) Pipeline {
 	return &pipeline{
 		actionCh: make(chan Action, 1),
 		errorCh:  make(chan PipelineError, 10),
+		config:   cfg,
 	}
 }
 func (p *pipeline) Run(ctx context.Context) {
@@ -82,7 +85,7 @@ func (p *pipeline) run(ctx context.Context) {
 	log.Printf("Pipeline: Starting recording")
 	p.setStatus(Recording)
 
-	recorder := recording.NewDefaultRecorder()
+	recorder := recording.NewRecorder(p.config.ToRecordingConfig())
 	frameCh, rErrCh, err := recorder.Start(ctx)
 
 	if err != nil {
@@ -93,7 +96,7 @@ func (p *pipeline) run(ctx context.Context) {
 
 	defer recorder.Stop()
 
-	t, err := transcriber.NewDefaultTranscriber()
+	t, err := transcriber.NewTranscriber(p.config.ToTranscriberConfig())
 	if err != nil {
 		log.Printf("Pipeline: Failed to create transcriber: %v", err)
 		p.sendError("Transcription Error", "Failed to create transcriber", err)
@@ -222,7 +225,7 @@ func (p *pipeline) handleInjectAction(ctx context.Context, recorder *recording.R
 	}
 	log.Printf("Pipeline: Final transcription text: %s", transcriptionText)
 
-	injector := injection.NewDefaultInjector()
+	injector := injection.NewInjector(p.config.ToInjectionConfig())
 
 	if err := injector.Inject(ctx, transcriptionText); err != nil {
 		p.sendError("Injection Error", "Failed to inject text", err)
