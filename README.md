@@ -7,7 +7,7 @@ Press a toggle key, speak, and get instant text input. Built natively for Waylan
 - **Toggle workflow**: Press once to start recording, press again to stop and inject text
 - **Wayland native**: Purpose-built for Wayland compositors - no legacy X11 dependencies or hacky workarounds
 - **Real-time feedback**: Desktop notifications for recording states and transcription status
-- **Multiple transcription backends**: OpenAI Whisper (planned: whisper.cpp for local processing)
+- **Multiple transcription backends**: OpenAI Whisper (planned: whisper.cpp for local processing, and more)
 - **Smart text injection**: Clipboard save/restore with direct typing fallback
 - **Daemon architecture**: Lightweight control plane with efficient pipeline management
 
@@ -72,7 +72,7 @@ sudo apt install pipewire-pulse pipewire-bin wl-clipboard
 sudo dnf install pipewire-utils wl-clipboard
 ```
 
-**For text injection (recommended):**
+**For text injection:**
 
 ```bash
 # Arch Linux
@@ -196,7 +196,7 @@ Configuration will be read from `~/.config/hyprvoice/config.toml` (planned). Cur
 
 Hyprvoice will support multiple transcription backends:
 
-#### OpenAI Whisper API (Planned)
+#### OpenAI Whisper API
 
 Fast, accurate cloud-based transcription:
 
@@ -218,6 +218,31 @@ provider = "whisper_cpp"
 model_path = "~/models/ggml-base.en.bin"
 threads = 4
 ```
+
+#### Text Injection (Current)
+
+Configurable text injection with multiple modes:
+
+```toml
+[injection]
+mode = "fallback"  # "clipboard", "type", or "fallback"
+always_copy_clipboard = true
+restore_clipboard = true
+wtype_timeout = "5s"
+clipboard_timeout = "3s"
+```
+
+**Injection Modes:**
+
+- **`fallback`** (default): Try direct typing first, fallback to clipboard
+- **`type`**: Direct typing using wtype only
+- **`clipboard`**: Copy to clipboard only
+
+**Behavior:**
+
+- `always_copy_clipboard = true`: Always copy text to clipboard regardless of mode
+- `restore_clipboard = true`: Save and restore original clipboard content
+- Smart fallback ensures text injection always succeeds when possible
 
 ### Service Configuration
 
@@ -256,17 +281,17 @@ systemctl --user enable --now hyprvoice.service
 
 ## Development Status
 
-| Component             | Status | Notes                             |
-| --------------------- | ------ | --------------------------------- |
-| Core daemon & IPC     | ✅     | Unix socket control plane         |
-| Recording workflow    | ✅     | Toggle recording via PipeWire     |
-| Audio capture         | ✅     | Efficient PipeWire integration    |
-| Desktop notifications | ✅     | Status feedback via notify-send   |
-| OpenAI transcription  | ✅     | HTTP API integration              |
-| Text injection        | ⏳     | Clipboard + typing implementation |
-| Configuration system  | ⏳     | TOML-based user settings          |
-| Comprehensive tests   | ⏳     | Pipeline and integration testing  |
-| whisper.cpp support   | ⏳     | Local model inference             |
+| Component             | Status | Notes                            |
+| --------------------- | ------ | -------------------------------- |
+| Core daemon & IPC     | ✅     | Unix socket control plane        |
+| Recording workflow    | ✅     | Toggle recording via PipeWire    |
+| Audio capture         | ✅     | Efficient PipeWire integration   |
+| Desktop notifications | ✅     | Status feedback via notify-send  |
+| OpenAI transcription  | ✅     | HTTP API integration             |
+| Text injection        | ✅     | Clipboard + wtype with fallback  |
+| Configuration system  | ⏳     | TOML-based user settings         |
+| Comprehensive tests   | ⏳     | Pipeline and integration testing |
+| whisper.cpp support   | ⏳     | Local model inference            |
 
 **Legend**: ✅ Complete · ⏳ Planned
 
@@ -290,8 +315,8 @@ flowchart LR
   end
   subgraph Pipeline
     A["Audio Capture"]
-    T["Transcribing (ASR TBD)"]
-    I["Injecting (stub)"]
+    T["Transcribing"]
+    I["Injecting (wtype + clipboard)"]
   end
   N["notify-send/log"]
 
@@ -404,11 +429,34 @@ sudo apt install libnotify-bin  # Ubuntu/Debian
 
 #### Text Injection Issues
 
-**Text not appearing (when implemented):**
+**Text not appearing:**
 
 - Ensure cursor is in a text field when toggling off recording
-- Check that `wtype` or clipboard tools are installed
-- Verify window manager supports the text injection method used
+- Check that `wtype` and `wl-clipboard` tools are installed:
+
+  ```bash
+  # Test wtype directly
+  wtype "test text"
+
+  # Test clipboard tools
+  echo "test" | wl-copy
+  wl-paste
+  ```
+
+- Verify Wayland compositor supports text input protocols
+- Check injection mode in configuration (fallback mode is most robust)
+
+**Clipboard issues:**
+
+```bash
+# Install wl-clipboard if missing
+sudo pacman -S wl-clipboard  # Arch
+sudo apt install wl-clipboard  # Ubuntu/Debian
+
+# Test clipboard functionality
+wl-copy "test text"
+wl-paste
+```
 
 ### Debug Mode
 
@@ -453,6 +501,7 @@ hyprvoice/
 ├── internal/
 │   ├── bus/              # IPC (Unix socket) + PID management
 │   ├── daemon/           # Control daemon (lifecycle management)
+│   ├── injection/        # Text injection (clipboard + wtype)
 │   ├── notify/           # Desktop notification integration
 │   ├── pipeline/         # Audio processing pipeline + state machine
 │   ├── recording/        # PipeWire audio capture

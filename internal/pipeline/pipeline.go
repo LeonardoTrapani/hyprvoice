@@ -7,6 +7,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/leonardotrapani/hyprvoice/internal/injection"
 	"github.com/leonardotrapani/hyprvoice/internal/recording"
 	"github.com/leonardotrapani/hyprvoice/internal/transcriber"
 )
@@ -116,6 +117,19 @@ func (p *pipeline) run(ctx context.Context) {
 		}
 	}()
 
+	// Forward errors from component channels to unified pipeline error channel
+	go func() {
+		for err := range tErrCh {
+			p.sendError("Transcription Error", "Transcription processing error", err)
+		}
+	}()
+
+	go func() {
+		for err := range rErrCh {
+			p.sendError("Recording Error", "Recording stream error", err)
+		}
+	}()
+
 	for {
 		select {
 		case <-frameCh:
@@ -126,14 +140,6 @@ func (p *pipeline) run(ctx context.Context) {
 				p.handleInjectAction(ctx, recorder, t)
 				return
 			}
-
-		case err := <-tErrCh:
-			p.handleTranscriberError(err)
-			return
-
-		case err := <-rErrCh:
-			p.handleRecordingError(err)
-			return
 
 		case <-ctx.Done():
 			return
@@ -191,14 +197,6 @@ func (p *pipeline) sendError(title, message string, err error) {
 	}
 }
 
-func (p *pipeline) handleTranscriberError(err error) {
-	p.sendError("Transcription Error", "Transcription processing error", err)
-}
-
-func (p *pipeline) handleRecordingError(err error) {
-	p.sendError("Recording Error", "Recording stream error", err)
-}
-
 func (p *pipeline) handleInjectAction(ctx context.Context, recorder *recording.Recorder, t transcriber.Transcriber) {
 	status := p.Status()
 
@@ -214,6 +212,7 @@ func (p *pipeline) handleInjectAction(ctx context.Context, recorder *recording.R
 
 	if err := t.Stop(ctx); err != nil {
 		p.sendError("Transcription Error", "Failed to stop transcriber during injection", err)
+		return
 	}
 
 	transcriptionText, err := t.GetFinalTranscription()
@@ -223,9 +222,16 @@ func (p *pipeline) handleInjectAction(ctx context.Context, recorder *recording.R
 	}
 	log.Printf("Pipeline: Final transcription text: %s", transcriptionText)
 
-	log.Printf("Pipeline: Simulating injection work")
-	time.Sleep(10 * time.Millisecond)
-	log.Printf("Pipeline: Injection work done, returning to idle")
+	injector := injection.NewDefaultInjector()
+
+	if err := injector.Inject(ctx, transcriptionText); err != nil {
+		p.sendError("Injection Error", "Failed to inject text", err)
+	} else {
+		log.Printf("Pipeline: Text injection completed successfully")
+	}
+
+	// Return to idle state after injection is complete
+	p.setStatus(Idle)
 }
 
 func (p *pipeline) Stop() {
