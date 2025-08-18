@@ -48,9 +48,6 @@ func NewTranscriber(config Config) (Transcriber, error) {
 		}
 		adapter = NewOpenAIAdapter(config)
 
-	case "whisper.cpp":
-		adapter = NewWhisperCppAdapter(config)
-
 	default:
 		return nil, fmt.Errorf("unsupported provider: %s", config.Provider)
 	}

@@ -1,11 +1,11 @@
-# Hyprvoice - Voice-Powered Typing for Wayland
+# Hyprvoice - Voice-Powered Typing for Hyprland / Wayland
 
-Press a toggle key, speak, and get instant text input. A speech-to-text tool designed for Wayland/Hyprland with toggle-based workflow and seamless text injection.
+Press a toggle key, speak, and get instant text input. Built natively for Wayland/Hyprland - no X11 hacks or workarounds, just clean integration with modern Linux desktops.
 
 ## Features
 
 - **Toggle workflow**: Press once to start recording, press again to stop and inject text
-- **Wayland native**: Built specifically for modern Linux desktops (Hyprland, etc.)
+- **Wayland native**: Purpose-built for Wayland compositors - no legacy X11 dependencies or hacky workarounds
 - **Real-time feedback**: Desktop notifications for recording states and transcription status
 - **Multiple transcription backends**: OpenAI Whisper (planned: whisper.cpp for local processing)
 - **Smart text injection**: Clipboard save/restore with direct typing fallback
