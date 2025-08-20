@@ -213,6 +213,7 @@ The daemon automatically creates `~/.config/hyprvoice/config.toml` with helpful 
   buffer_size = 8192           # Internal buffer size in bytes (larger = less CPU, more latency)
   device = ""                  # PipeWire audio device (empty = use default microphone)
   channel_buffer_size = 30     # Audio frame buffer size (frames to buffer)
+  timeout = "5m"               # Maximum recording duration (e.g., "30s", "2m", "5m")
 
 # Speech Transcription Configuration
 [transcription]
@@ -257,7 +258,14 @@ format = "s16"             # Audio format (s16 recommended)
 buffer_size = 8192         # Internal buffer size in bytes
 device = ""                # PipeWire device (empty for default)
 channel_buffer_size = 30   # Audio frame buffer size
+timeout = "5m"             # Maximum recording duration (prevents runaway recordings)
 ```
+
+**Recording Timeout:**
+- Prevents accidental long recordings that could consume resources
+- Default: 5 minutes (`"5m"`)
+- Format: Go duration strings like `"30s"`, `"2m"`, `"10m"`
+- Recording automatically stops when timeout is reached
 
 #### Text Injection
 

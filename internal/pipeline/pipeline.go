@@ -5,7 +5,6 @@ import (
 	"log"
 	"sync"
 	"sync/atomic"
-	"time"
 
 	"github.com/leonardotrapani/hyprvoice/internal/config"
 	"github.com/leonardotrapani/hyprvoice/internal/injection"
@@ -68,7 +67,7 @@ func (p *pipeline) Run(ctx context.Context) {
 		return
 	}
 
-	runCtx, cancel := context.WithTimeout(ctx, 5*time.Minute)
+	runCtx, cancel := context.WithTimeout(ctx, p.config.Recording.Timeout)
 	p.setCancel(cancel)
 
 	p.wg.Add(1)

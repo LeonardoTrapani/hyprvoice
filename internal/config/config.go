@@ -21,12 +21,13 @@ type Config struct {
 }
 
 type RecordingConfig struct {
-	SampleRate        int    `toml:"sample_rate"`
-	Channels          int    `toml:"channels"`
-	Format            string `toml:"format"`
-	BufferSize        int    `toml:"buffer_size"`
-	Device            string `toml:"device"`
-	ChannelBufferSize int    `toml:"channel_buffer_size"`
+	SampleRate        int           `toml:"sample_rate"`
+	Channels          int           `toml:"channels"`
+	Format            string        `toml:"format"`
+	BufferSize        int           `toml:"buffer_size"`
+	Device            string        `toml:"device"`
+	ChannelBufferSize int           `toml:"channel_buffer_size"`
+	Timeout           time.Duration `toml:"timeout"`
 }
 
 type TranscriptionConfig struct {
@@ -56,6 +57,7 @@ func (c *Config) ToRecordingConfig() recording.Config {
 		BufferSize:        c.Recording.BufferSize,
 		Device:            c.Recording.Device,
 		ChannelBufferSize: c.Recording.ChannelBufferSize,
+		Timeout:           c.Recording.Timeout,
 	}
 }
 
@@ -99,6 +101,9 @@ func (c *Config) Validate() error {
 	}
 	if c.Recording.Format == "" {
 		return fmt.Errorf("invalid recording.format: empty")
+	}
+	if c.Recording.Timeout <= 0 {
+		return fmt.Errorf("invalid recording.timeout: %v", c.Recording.Timeout)
 	}
 
 	// Transcription
@@ -228,6 +233,7 @@ func SaveDefaultConfig() error {
   buffer_size = 8192           # Internal buffer size in bytes (larger = less CPU, more latency)
   device = ""                  # PipeWire audio device (empty = use default microphone)
   channel_buffer_size = 30     # Audio frame buffer size (frames to buffer)
+  timeout = "5m"               # Maximum recording duration (e.g., "30s", "2m", "5m")
 
 # Speech Transcription Configuration  
 [transcription]

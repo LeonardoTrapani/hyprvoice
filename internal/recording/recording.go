@@ -26,6 +26,7 @@ type Config struct {
 	BufferSize        int
 	Device            string
 	ChannelBufferSize int
+	Timeout           time.Duration
 }
 
 type Recorder struct {
