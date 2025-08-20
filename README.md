@@ -262,6 +262,7 @@ timeout = "5m"             # Maximum recording duration (prevents runaway record
 ```
 
 **Recording Timeout:**
+
 - Prevents accidental long recordings that could consume resources
 - Default: 5 minutes (`"5m"`)
 - Format: Go duration strings like `"30s"`, `"2m"`, `"10m"`
