@@ -35,22 +35,14 @@ func New() (*Daemon, error) {
 
 	conf := configMgr.GetConfig()
 
-	var n notify.Notifier
-
-	switch conf.Notifications.Type {
-	case "desktop":
-		n = notify.Desktop{}
-	case "log":
-		n = notify.Log{}
-	case "none":
-		n = notify.Nop{}
-	}
-
 	if err != nil {
 		return nil, fmt.Errorf("failed to create config manager: %w", err)
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
+
+	n := notify.GetNotifierBasedOnConfig(conf)
+
 	d := &Daemon{
 		notifier:  n,
 		configMgr: configMgr,
@@ -59,6 +51,17 @@ func New() (*Daemon, error) {
 	}
 
 	return d, nil
+}
+
+func (d *Daemon) onConfigReload() {
+	log.Printf("Config reloaded, restarting pipeline")
+	d.stopPipeline()
+
+	d.notifier.Notify("Hyprvoice", "Config Reloaded")
+
+	d.mu.Lock()
+	d.notifier = notify.GetNotifierBasedOnConfig(d.configMgr.GetConfig())
+	d.mu.Unlock()
 }
 
 func (d *Daemon) status() pipeline.Status {
@@ -85,6 +88,8 @@ func (d *Daemon) Run() error {
 	if err := bus.CheckExistingDaemon(); err != nil {
 		return err
 	}
+
+	d.configMgr.SetOnConfigReload(d.onConfigReload)
 
 	ln, err := bus.Listen()
 	if err != nil {

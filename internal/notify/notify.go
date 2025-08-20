@@ -1,6 +1,7 @@
 package notify
 
 import (
+	"github.com/leonardotrapani/hyprvoice/internal/config"
 	"log"
 	"os/exec"
 )
@@ -48,3 +49,15 @@ type Nop struct{}
 
 func (Nop) Error(msg string)             {}
 func (Nop) Notify(title, message string) {}
+
+func GetNotifierBasedOnConfig(c *config.Config) Notifier {
+	switch c.Notifications.Type {
+	case "desktop":
+		return Desktop{}
+	case "log":
+		return Log{}
+	case "none":
+		return Nop{}
+	}
+	return Nop{}
+}

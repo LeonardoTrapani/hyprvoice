@@ -5,6 +5,7 @@ import (
 	"log"
 	"path/filepath"
 	"sync"
+	"time"
 
 	"github.com/fsnotify/fsnotify"
 )
@@ -14,6 +15,13 @@ type Manager struct {
 	config  *Config
 	watcher *fsnotify.Watcher
 	wg      sync.WaitGroup
+
+	onConfigReload func()
+
+	// Debouncer for config reloads
+	debounceTimer *time.Timer
+	debounceMutex sync.Mutex
+	debounceDelay time.Duration
 }
 
 func NewManager() (*Manager, error) {
@@ -31,7 +39,8 @@ func NewManager() (*Manager, error) {
 	}
 
 	m := &Manager{
-		config: config,
+		config:        config,
+		debounceDelay: 500 * time.Millisecond, // 500ms debounce delay
 	}
 
 	log.Printf("Config manager: initialization completed successfully")
@@ -78,6 +87,14 @@ func (m *Manager) Stop() {
 	if m.watcher != nil {
 		m.watcher.Close()
 	}
+
+	// Clean up debounce timer
+	m.debounceMutex.Lock()
+	if m.debounceTimer != nil {
+		m.debounceTimer.Stop()
+	}
+	m.debounceMutex.Unlock()
+
 	m.wg.Wait()
 }
 
@@ -100,8 +117,8 @@ func (m *Manager) watchLoop(ctx context.Context, configPath string) {
 
 			// Only react to Write and Create events (ignore Chmod, Remove, etc.)
 			if event.Op&fsnotify.Write == fsnotify.Write || event.Op&fsnotify.Create == fsnotify.Create {
-				log.Printf("Config manager: file change detected: %s. Reloading config...", event.Name)
-				m.reloadConfig()
+				log.Printf("Config manager: file change detected: %s. Debouncing reload...", event.Name)
+				m.debounceReloadConfig()
 			}
 
 		case err, ok := <-m.watcher.Errors:
@@ -133,7 +150,35 @@ func (m *Manager) reloadConfig() {
 
 	m.mu.Lock()
 	m.config = newConfig
+	onConfigReload := m.onConfigReload
 	m.mu.Unlock()
 
+	if onConfigReload != nil {
+		onConfigReload()
+	}
+
 	log.Printf("Config manager: configuration successfully reloaded")
+}
+
+func (m *Manager) SetOnConfigReload(onConfigReload func()) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.onConfigReload = onConfigReload
+}
+
+// debounceReloadConfig implements debouncing to prevent duplicate reloads
+func (m *Manager) debounceReloadConfig() {
+	m.debounceMutex.Lock()
+	defer m.debounceMutex.Unlock()
+
+	// Cancel existing timer if it exists
+	if m.debounceTimer != nil {
+		m.debounceTimer.Stop()
+	}
+
+	// Create new timer with debounce delay
+	m.debounceTimer = time.AfterFunc(m.debounceDelay, func() {
+		log.Printf("Config manager: debounce period expired, reloading config...")
+		m.reloadConfig()
+	})
 }
