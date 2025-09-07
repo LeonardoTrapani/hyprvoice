@@ -116,7 +116,7 @@ func (c *Config) Validate() error {
 			apiKey = os.Getenv("OPENAI_API_KEY")
 		}
 		if apiKey == "" {
-			return fmt.Errorf("OpenAI API key required (set transcription.api_key in config or OPENAI_API_KEY env var)")
+			return fmt.Errorf("OpenAI API key required: not found in config (transcription.api_key) or environment variable (OPENAI_API_KEY)")
 		}
 
 		// Validate language code if provided (empty string means auto-detect)

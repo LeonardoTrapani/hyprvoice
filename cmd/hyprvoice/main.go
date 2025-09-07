@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"os/exec"
 	"strconv"
 	"strings"
 	"time"
@@ -141,7 +142,7 @@ func runInteractiveConfig() error {
 	fmt.Println("------------------------------")
 
 	// OpenAI API Key
-	fmt.Printf("OpenAI API Key (current: %s): ", maskAPIKey(cfg.Transcription.APIKey))
+	fmt.Printf("OpenAI API Key (current: %s, leave empty to use OPENAI_API_KEY env var): ", maskAPIKey(cfg.Transcription.APIKey))
 	if scanner.Scan() {
 		input := strings.TrimSpace(scanner.Text())
 		if input != "" {
@@ -227,10 +228,21 @@ func runInteractiveConfig() error {
 	fmt.Println("✅ Configuration saved successfully!")
 	fmt.Println()
 
+	// Check if service is running
+	serviceRunning := false
+	if _, err := exec.Command("systemctl", "--user", "is-active", "--quiet", "hyprvoice.service").CombinedOutput(); err == nil {
+		serviceRunning = true
+	}
+
 	// Show next steps
 	fmt.Println("🚀 Next Steps:")
-	fmt.Println("1. Start/restart the daemon: systemctl --user restart hyprvoice.service")
-	fmt.Println("2. Test voice input: hyprvoice toggle")
+	if !serviceRunning {
+		fmt.Println("1. Start the service: systemctl --user start hyprvoice.service")
+		fmt.Println("2. Test voice input: hyprvoice toggle")
+	} else {
+		fmt.Println("1. Restart the service to apply changes: systemctl --user restart hyprvoice.service")
+		fmt.Println("2. Test voice input: hyprvoice toggle")
+	}
 	fmt.Println()
 
 	configPath, _ := config.GetConfigPath()
