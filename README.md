@@ -11,7 +11,7 @@ Press a toggle key, speak, and get instant text input. Built natively for Waylan
 - **Smart text injection**: Clipboard save/restore with direct typing fallback
 - **Daemon architecture**: Lightweight control plane with efficient pipeline management
 
-**Status:** Early development - core functionality working, transcription integration in progress
+**Status:** Beta - core functionality complete and tested, ready for early adopters
 
 ## Installation
 
@@ -48,11 +48,19 @@ export PATH="$HOME/.local/bin:$PATH"
 git clone https://github.com/leonardotrapani/hyprvoice.git
 cd hyprvoice
 
-# Build the binary
-CGO_ENABLED=1 go build -o hyprvoice ./cmd/hyprvoice
+# Install Go dependencies
+go mod download
 
-# Install locally
+# Build the binary
+go build -o hyprvoice ./cmd/hyprvoice
+
+# Install locally (optional)
 sudo cp hyprvoice /usr/local/bin/
+
+# Or install to user directory
+mkdir -p ~/.local/bin
+cp hyprvoice ~/.local/bin/
+export PATH="$HOME/.local/bin:$PATH"  # Add to ~/.bashrc or ~/.zshrc
 ```
 
 ## Requirements
@@ -235,7 +243,7 @@ The daemon automatically creates `~/.config/hyprvoice/config.toml` with helpful 
   type = "desktop"             # Notification type ("desktop", "log", "none") -- always keep "desktop" unless debugging
 ```
 
-#### whisper.cpp Local (Planned)
+#### whisper.cpp Local (Planned) -> Not yet implemented
 
 Private, offline transcription using local models:
 
@@ -355,17 +363,19 @@ systemctl --user enable --now hyprvoice.service
 
 ## Development Status
 
-| Component             | Status | Notes                                    |
-| --------------------- | ------ | ---------------------------------------- |
-| Core daemon & IPC     | ✅     | Unix socket control plane                |
-| Recording workflow    | ✅     | Toggle recording via PipeWire            |
-| Audio capture         | ✅     | Efficient PipeWire integration           |
-| Desktop notifications | ✅     | Status feedback via notify-send          |
-| OpenAI transcription  | ✅     | HTTP API integration                     |
-| Text injection        | ✅     | Clipboard + wtype with fallback          |
-| Configuration system  | ✅     | TOML-based user settings with hot-reload |
-| Comprehensive tests   | ⏳     | Pipeline and integration testing         |
-| whisper.cpp support   | ⏳     | Local model inference                    |
+| Component              | Status | Notes                                                 |
+| ---------------------- | ------ | ----------------------------------------------------- |
+| Core daemon & IPC      | ✅     | Unix socket control plane                             |
+| Recording workflow     | ✅     | Toggle recording via PipeWire                         |
+| Audio capture          | ✅     | Efficient PipeWire integration                        |
+| Desktop notifications  | ✅     | Status feedback via notify-send                       |
+| OpenAI transcription   | ✅     | HTTP API integration                                  |
+| Text injection         | ✅     | Clipboard + wtype with fallback                       |
+| Configuration system   | ✅     | TOML-based user settings with hot-reload              |
+| Unit test coverage     | ✅     | Comprehensive test suite (100% pass)                  |
+| Installation (AUR etc) | ⏳     | Installation via AUR and easy setup                   |
+| Light dictation models | ⏳     | Alternatives to whispers for light and fast dictation |
+| whisper.cpp support    | ⏳     | Local model inference                                 |
 
 **Legend**: ✅ Complete · ⏳ Planned
 
