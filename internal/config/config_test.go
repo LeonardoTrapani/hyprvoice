@@ -262,12 +262,19 @@ func TestConfig_Load(t *testing.T) {
 	t.Run("creates default config when none exists", func(t *testing.T) {
 		tempDir := t.TempDir()
 		originalConfigDir := os.Getenv("XDG_CONFIG_HOME")
+		originalAPIKey := os.Getenv("OPENAI_API_KEY")
 		os.Setenv("XDG_CONFIG_HOME", tempDir)
+		os.Setenv("OPENAI_API_KEY", "test-api-key") // Set test API key for validation
 		defer func() {
 			if originalConfigDir == "" {
 				os.Unsetenv("XDG_CONFIG_HOME")
 			} else {
 				os.Setenv("XDG_CONFIG_HOME", originalConfigDir)
+			}
+			if originalAPIKey == "" {
+				os.Unsetenv("OPENAI_API_KEY")
+			} else {
+				os.Setenv("OPENAI_API_KEY", originalAPIKey)
 			}
 		}()
 
@@ -362,12 +369,19 @@ func TestConfig_SaveDefaultConfig(t *testing.T) {
 	// Override the config path by setting environment variable
 	tempDir := t.TempDir()
 	originalConfigDir := os.Getenv("XDG_CONFIG_HOME")
+	originalAPIKey := os.Getenv("OPENAI_API_KEY")
 	os.Setenv("XDG_CONFIG_HOME", tempDir)
+	os.Setenv("OPENAI_API_KEY", "test-api-key") // Set test API key for validation
 	defer func() {
 		if originalConfigDir == "" {
 			os.Unsetenv("XDG_CONFIG_HOME")
 		} else {
 			os.Setenv("XDG_CONFIG_HOME", originalConfigDir)
+		}
+		if originalAPIKey == "" {
+			os.Unsetenv("OPENAI_API_KEY")
+		} else {
+			os.Setenv("OPENAI_API_KEY", originalAPIKey)
 		}
 	}()
 
