@@ -30,4 +30,5 @@ go.work.sum
 
 # Output binaries
 hyprvoice
+hyprvoice-*
 tmp/*
