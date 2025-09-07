@@ -27,7 +27,10 @@ jobs:
             pkg-config \
             libasound2-dev \
             libpulse-dev \
-            libpipewire-0.3-dev
+            libpipewire-0.3-dev \
+            pipewire-bin \
+            wl-clipboard \
+            wtype
       
       - name: Extract version from tag
         id: version
