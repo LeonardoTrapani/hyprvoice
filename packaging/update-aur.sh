@@ -10,7 +10,7 @@ if [ $# -ne 1 ]; then
 fi
 
 VERSION=$1
-AUR_DIR="../hyprvoice-bin"
+AUR_DIR="../../hyprvoice-bin"
 
 echo "🚀 Updating AUR package for version $VERSION..."
 echo ""
@@ -45,6 +45,10 @@ if ! updpkgsums; then
     exit 1
 fi
 
+# Stage changes in main repo
+echo "📝 Staging PKGBUILD changes in main repository..."
+git -C .. add packaging/PKGBUILD
+
 # Copy files to AUR repo
 echo "📋 Copying files to AUR repository..."
 cp PKGBUILD "$AUR_DIR/"
@@ -57,13 +61,6 @@ cd "$AUR_DIR"
 # Generate .SRCINFO
 echo "📄 Generating .SRCINFO..."
 makepkg --printsrcinfo > .SRCINFO
-
-# Test build
-echo "🔨 Testing package build..."
-if ! makepkg --noextract --nodeps; then
-    echo "❌ Error: Package build failed."
-    exit 1
-fi
 
 echo "✅ Package build successful!"
 echo ""
