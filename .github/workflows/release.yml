@@ -1,0 +1,112 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    name: Build and Release
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.21'
+      
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential \
+            pkg-config \
+            libasound2-dev \
+            libpulse-dev \
+            libpipewire-0.3-dev
+      
+      - name: Extract version from tag
+        id: version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+      
+      - name: Build binary
+        env:
+          CGO_ENABLED: 1
+          GOOS: linux
+          GOARCH: amd64
+        run: |
+          go mod download
+          go build -ldflags="-s -w" -o hyprvoice-linux-x86_64 ./cmd/hyprvoice
+          chmod +x hyprvoice-linux-x86_64
+      
+      - name: Run tests
+        run: go test ./...
+      
+      - name: Create release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref }}
+          release_name: Release ${{ steps.version.outputs.VERSION }}
+          body: |
+            ## Hyprvoice v${{ steps.version.outputs.VERSION }}
+            
+            ### Installation
+            
+            **From AUR (Recommended):**
+            ```bash
+            yay -S hyprvoice-bin
+            hyprvoice configure
+            systemctl --user enable --now hyprvoice.service
+            ```
+            
+            **Manual installation:**
+            ```bash
+            wget https://github.com/leonardotrapani/hyprvoice/releases/download/v${{ steps.version.outputs.VERSION }}/hyprvoice-linux-x86_64
+            chmod +x hyprvoice-linux-x86_64
+            mv hyprvoice-linux-x86_64 ~/.local/bin/hyprvoice
+            ```
+            
+            ### What's Changed
+            - See commit history for detailed changes
+            
+            ### Requirements
+            - Wayland desktop environment
+            - PipeWire audio system
+            - OpenAI API key for transcription
+            
+            **Full Changelog**: https://github.com/leonardotrapani/hyprvoice/commits/v${{ steps.version.outputs.VERSION }}
+          draft: false
+          prerelease: false
+      
+      - name: Upload binary
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./hyprvoice-linux-x86_64
+          asset_name: hyprvoice-linux-x86_64
+          asset_content_type: application/octet-stream
+      
+      - name: Upload checksums
+        run: |
+          sha256sum hyprvoice-linux-x86_64 > hyprvoice-linux-x86_64.sha256
+          echo "Binary SHA256:"
+          cat hyprvoice-linux-x86_64.sha256
+      
+      - name: Upload checksum file
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./hyprvoice-linux-x86_64.sha256
+          asset_name: hyprvoice-linux-x86_64.sha256
+          asset_content_type: text/plain

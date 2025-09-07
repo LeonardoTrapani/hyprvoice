@@ -15,24 +15,23 @@ Press a toggle key, speak, and get instant text input. Built natively for Waylan
 
 ## Installation
 
-### From AUR (Arch Linux)
+### From AUR (Arch Linux) - Recommended
 
 ```bash
-# Using your preferred AUR helper
+# Install hyprvoice and all dependencies automatically
 yay -S hyprvoice-bin
 # or
 paru -S hyprvoice-bin
-
-# Enable user service
-systemctl --user enable --now hyprvoice.service
 ```
 
-### Download Binary
+The AUR package automatically installs all dependencies (`pipewire`, `wl-clipboard`, `wtype`, etc.) and sets up the systemd service. Follow the post-install instructions to complete setup.
 
-1. Download from [GitHub Releases](https://github.com/leonardotrapani/hyprvoice/releases)
-2. Install:
+### Alternative: Download Binary
+
+For non-Arch users or testing:
 
 ```bash
+# Download and install binary
 wget https://github.com/leonardotrapani/hyprvoice/releases/latest/download/hyprvoice-linux-x86_64
 mkdir -p ~/.local/bin
 mv hyprvoice-linux-x86_64 ~/.local/bin/hyprvoice
@@ -40,6 +39,9 @@ chmod +x ~/.local/bin/hyprvoice
 
 # Add to PATH (add to ~/.bashrc or ~/.zshrc)
 export PATH="$HOME/.local/bin:$PATH"
+
+# You'll need to manually install dependencies and create systemd service
+# See Requirements section above
 ```
 
 ### Build from Source
@@ -47,83 +49,67 @@ export PATH="$HOME/.local/bin:$PATH"
 ```bash
 git clone https://github.com/leonardotrapani/hyprvoice.git
 cd hyprvoice
-
-# Install Go dependencies
 go mod download
-
-# Build the binary
 go build -o hyprvoice ./cmd/hyprvoice
 
-# Install locally (optional)
-sudo cp hyprvoice /usr/local/bin/
-
-# Or install to user directory
+# Install locally
 mkdir -p ~/.local/bin
 cp hyprvoice ~/.local/bin/
-export PATH="$HOME/.local/bin:$PATH"  # Add to ~/.bashrc or ~/.zshrc
+export PATH="$HOME/.local/bin:$PATH"
 ```
 
 ## Requirements
 
 - **Wayland desktop** (Hyprland, Niri, GNOME, KDE, etc.)
 - **PipeWire audio system** with tools
-- **System packages**:
+- **OpenAI API key** (for transcription)
+
+**System packages** (automatically installed with AUR package):
+
+- `pipewire`, `pipewire-pulse`, `pipewire-audio` - Audio capture
+- `wl-clipboard` - Clipboard integration
+- `wtype` - Text typing
+- `libnotify` - Desktop notifications
+- `systemd` - User service management
+
+For manual installation on other distros:
 
 ```bash
-# Arch Linux
-sudo pacman -S pipewire pipewire-pulse pw-record wl-clipboard
-
 # Ubuntu/Debian
-sudo apt install pipewire-pulse pipewire-bin wl-clipboard
+sudo apt install pipewire-pulse pipewire-bin wl-clipboard wtype libnotify-bin
 
 # Fedora
-sudo dnf install pipewire-utils wl-clipboard
+sudo dnf install pipewire-utils wl-clipboard wtype libnotify
 ```
-
-**For text injection:**
-
-```bash
-# Arch Linux
-sudo pacman -S wtype
-
-# Ubuntu/Debian
-sudo apt install wtype
-
-# Alternative: ydotool (if wtype unavailable)
-# Follow ydotool setup for user permissions
-```
-
-**Optional:**
-
-- `notify-send` (desktop notifications)
-- `systemd --user` (daemon service)
 
 ## Quick Start
 
-1. **Setup daemon service:**
+After installing via AUR:
 
+1. **Configure hyprvoice interactively:**
 ```bash
-# Enable and start the user service (reccomended)
-systemctl --user enable --now hyprvoice.service
+hyprvoice configure
+```
+This wizard will guide you through setting up your OpenAI API key, audio preferences, and other settings.
 
-# Or run manually in background
-hyprvoice serve &
+2. **Enable and start the service:**
+```bash
+systemctl --user enable --now hyprvoice.service
 ```
 
-2. **Configure Hyprland keybind:**
-
+3. **Add keybinding to your window manager:**
 ```bash
-# Add to ~/.config/hypr/hyprland.conf
+# For Hyprland, add to ~/.config/hypr/hyprland.conf
 bind = SUPER, R, exec, hyprvoice toggle
 ```
 
-3. **Test voice input:**
+4. **Test voice input:**
 
 ```bash
 # Check daemon status
 hyprvoice status
 
-# Toggle recording (or use Super+R)
+# Toggle recording (or use your keybind)
 hyprvoice toggle
 # Speak something...
 hyprvoice toggle  # Stop and transcribe
@@ -134,6 +120,9 @@ hyprvoice toggle  # Stop and transcribe
 ### Common Commands
 
 ```bash
+# Interactive configuration wizard
+hyprvoice configure
+
 # Start the daemon
 hyprvoice serve
 
@@ -198,7 +187,21 @@ hyprvoice status
 
 ## Configuration
 
-Configuration is automatically loaded from `~/.config/hyprvoice/config.toml`. The daemon creates this file with sensible defaults and helpful comments on first run. Changes to the config file are applied immediately without restarting the daemon.
+Use the interactive configuration wizard:
+
+```bash
+hyprvoice configure
+```
+
+This will guide you through setting up:
+
+- OpenAI API key for transcription
+- Language preferences (auto-detect or specific language)
+- Text injection method (clipboard/typing/fallback)
+- Notification settings
+- Recording timeout
+
+Configuration is stored in `~/.config/hyprvoice/config.toml` and can also be edited manually. Changes are applied immediately without restarting the daemon.
 
 ### Transcription Providers
 
@@ -326,33 +329,24 @@ The daemon automatically watches the config file for changes and applies them im
 - **Recording/Transcription settings**: Applied to new recording sessions
 - **Invalid configs**: Rejected with error notification, daemon continues with previous config
 
-### Service Configuration
+### Service Management
 
-#### Systemd Service
-
-The daemon runs as a user service:
+The systemd user service is automatically installed with the AUR package:
 
 ```bash
-# Create service file
-mkdir -p ~/.config/systemd/user
-cat > ~/.config/systemd/user/hyprvoice.service << 'EOF'
-[Unit]
-Description=Hyprvoice voice-to-text daemon
-After=pipewire.service
+# Check service status
+systemctl --user status hyprvoice.service
 
-[Service]
-Type=simple
-ExecStart=/usr/local/bin/hyprvoice serve
-Restart=on-failure
-RestartSec=5
+# Start/stop service
+systemctl --user start hyprvoice.service
+systemctl --user stop hyprvoice.service
 
-[Install]
-WantedBy=default.target
-EOF
+# Enable/disable autostart
+systemctl --user enable hyprvoice.service
+systemctl --user disable hyprvoice.service
 
-# Enable and start
-systemctl --user daemon-reload
-systemctl --user enable --now hyprvoice.service
+# View logs
+journalctl --user -u hyprvoice.service -f
 ```
 
 ### File Locations
@@ -372,8 +366,10 @@ systemctl --user enable --now hyprvoice.service
 | OpenAI transcription   | ✅     | HTTP API integration                                  |
 | Text injection         | ✅     | Clipboard + wtype with fallback                       |
 | Configuration system   | ✅     | TOML-based user settings with hot-reload              |
+| Interactive setup      | ✅     | `hyprvoice configure` wizard for easy setup           |
 | Unit test coverage     | ✅     | Comprehensive test suite (100% pass)                  |
-| Installation (AUR etc) | ⏳     | Installation via AUR and easy setup                   |
+| CI/CD Pipeline         | ✅     | Automated builds and releases via GitHub Actions      |
+| Installation (AUR etc) | ✅     | AUR package with automated dependency installation    |
 | Light dictation models | ⏳     | Alternatives to whispers for light and fast dictation |
 | whisper.cpp support    | ⏳     | Local model inference                                 |
 
@@ -563,18 +559,26 @@ hyprvoice status
 ```bash
 git clone https://github.com/leonardotrapani/hyprvoice.git
 cd hyprvoice
-
-# Install Go dependencies
 go mod download
-
-# Build
-CGO_ENABLED=1 go build -o hyprvoice ./cmd/hyprvoice
-
-# Run tests
-go test ./...
+go build -o hyprvoice ./cmd/hyprvoice
 
 # Install locally
-sudo cp hyprvoice /usr/local/bin/
+mkdir -p ~/.local/bin
+cp hyprvoice ~/.local/bin/
+export PATH="$HOME/.local/bin:$PATH"
+```
+
+## For Maintainers
+
+### Publishing to AUR
+
+See [`packaging/RELEASE.md`](packaging/RELEASE.md) for complete release process including AUR deployment.
+
+Quick start for AUR:
+```bash
+# After creating your first GitHub release
+cd packaging/
+./setup-aur.sh    # One-time AUR repository setup
 ```
 
 ### Project Structure

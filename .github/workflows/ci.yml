@@ -1,0 +1,48 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.21'
+      
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential \
+            pkg-config \
+            libasound2-dev \
+            libpulse-dev \
+            libpipewire-0.3-dev
+      
+      - name: Download dependencies
+        run: go mod download
+      
+      - name: Run tests
+        run: go test -v ./...
+      
+      - name: Build binary
+        env:
+          CGO_ENABLED: 1
+        run: go build -o hyprvoice ./cmd/hyprvoice
+      
+      - name: Test binary help
+        run: ./hyprvoice --help
+      
+      - name: Test configure command
+        run: ./hyprvoice configure --help
