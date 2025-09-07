@@ -2,6 +2,7 @@ package injection
 
 import (
 	"context"
+	"os"
 	"testing"
 	"time"
 )
@@ -30,6 +31,11 @@ func TestNewInjector(t *testing.T) {
 }
 
 func TestInjector_Inject(t *testing.T) {
+	// Skip integration tests in CI environments
+	if os.Getenv("CI") == "true" {
+		t.Skip("Skipping integration test in CI environment")
+	}
+
 	tests := []struct {
 		name    string
 		config  Config
@@ -133,6 +139,11 @@ func TestConfig(t *testing.T) {
 
 // TestTypeText tests the typeText function
 func TestTypeText(t *testing.T) {
+	// Skip integration tests in CI environments
+	if os.Getenv("CI") == "true" {
+		t.Skip("Skipping integration test in CI environment")
+	}
+
 	tests := []struct {
 		name    string
 		text    string

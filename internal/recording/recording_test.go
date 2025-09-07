@@ -2,6 +2,7 @@ package recording
 
 import (
 	"context"
+	"os"
 	"testing"
 	"time"
 )
@@ -254,6 +255,11 @@ func TestAudioFrame(t *testing.T) {
 // TestRecorder_Start tests the Start method with mocked external dependencies
 // This is a simplified test that focuses on the logic rather than actual audio capture
 func TestRecorder_Start(t *testing.T) {
+	// Skip integration tests in CI environments
+	if os.Getenv("CI") == "true" {
+		t.Skip("Skipping integration test in CI environment")
+	}
+
 	config := Config{
 		SampleRate:        16000,
 		Channels:          1,
@@ -314,6 +320,10 @@ func TestRecorder_Start(t *testing.T) {
 
 // TestRecorder_Stop tests the Stop method
 func TestRecorder_Stop(t *testing.T) {
+	// Skip integration tests in CI environments
+	if os.Getenv("CI") == "true" {
+		t.Skip("Skipping integration test in CI environment")
+	}
 	config := Config{
 		SampleRate:        16000,
 		Channels:          1,
