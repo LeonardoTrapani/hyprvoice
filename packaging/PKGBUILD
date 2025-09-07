@@ -22,11 +22,11 @@ optdepends=(
 provides=('hyprvoice')
 conflicts=('hyprvoice')
 source=(
-    "hyprvoice-${pkgver}::https://github.com/leonardotrapani/hyprvoice/releases/download/v${pkgver}/hyprvoice-linux-x86_64"
+    "hyprvoice-${pkgver}::https://github.com/leonardotrapani/hyprvoice/releases/download/${pkgver}/hyprvoice-linux-x86_64"
     "hyprvoice.service"
 )
-sha256sums=('SKIP'  # Update this with: updpkgsums after first release
-           'SKIP')  # Update this with: sha256sum hyprvoice.service
+sha256sums=('fd70a11c48ebe797887f5120108c68bf2d3ecd4416869349c470a99763ddd45a'
+            '8a9a764753c740a6c76e4173ccfb97b6e984ba52978124e307cebc9d62ed2596')
 install=hyprvoice.install
 
 package() {
