@@ -129,6 +129,9 @@ hyprvoice serve
 # Toggle recording on/off
 hyprvoice toggle
 
+# Cancel current operation
+hyprvoice cancel
+
 # Check current status
 hyprvoice status
 
@@ -145,6 +148,7 @@ Most setups use this toggle pattern in window manager config:
 
 ```bash
 bind = SUPER, R, exec, hyprvoice toggle
+bind = SUPER SHIFT, R, exec, hyprvoice cancel  # Optional: cancel current operation
 ```
 
 ## Keyboard Shortcuts Setup
@@ -156,6 +160,9 @@ Add to your `~/.config/hypr/hyprland.conf`:
 ```bash
 # Hyprvoice - Voice to Text (toggle recording)
 bind = SUPER, R, exec, hyprvoice toggle
+
+# Optional: Cancel current operation
+bind = SUPER SHIFT, C, exec, hyprvoice cancel
 
 # Optional: Status check
 bind = SUPER SHIFT, R, exec, hyprvoice status && notify-send "Hyprvoice" "$(hyprvoice status)"
@@ -169,6 +176,8 @@ bind = SUPER SHIFT, R, exec, hyprvoice status && notify-send "Hyprvoice" "$(hypr
 2. **Speak your text** → Audio captured in real-time
 3. **Press keybind again** → Recording stops, transcription begins
 4. **Text appears** → Injected at cursor position or clipboard
+
+**Cancel anytime:** Press your cancel keybind (e.g., `SUPER+SHIFT+C`) to abort the current operation and return to idle.
 
 ### CLI Usage
 
@@ -615,6 +624,7 @@ go run ./cmd/hyprvoice stop
 Simple single-character commands over Unix socket:
 
 - `t` - Toggle recording on/off
+- `c` - Cancel current operation
 - `s` - Get current status
 - `v` - Get protocol version
 - `q` - Quit daemon gracefully

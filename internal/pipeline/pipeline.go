@@ -30,6 +30,7 @@ const (
 
 const (
 	Inject Action = "inject"
+	Cancel Action = "cancel"
 )
 
 type Pipeline interface {
@@ -115,7 +116,8 @@ func (p *pipeline) run(ctx context.Context) {
 	defer func() {
 		if stopErr := t.Stop(ctx); stopErr != nil {
 			log.Printf("Pipeline: Error stopping transcriber: %v", stopErr)
-			p.sendError("Transcription Error", "Failed to stop transcriber cleanly", stopErr)
+			// Silently call an error now because on simple transcriber we just transcribe all audio when we stop, and might fail when force stop
+			//p.sendError("Transcription Error", "Failed to stop transcriber cleanly", stopErr)
 		}
 	}()
 
@@ -232,7 +234,6 @@ func (p *pipeline) handleInjectAction(ctx context.Context, recorder *recording.R
 		log.Printf("Pipeline: Text injection completed successfully")
 	}
 
-	// Return to idle state after injection is complete
 	p.setStatus(Idle)
 }
 
