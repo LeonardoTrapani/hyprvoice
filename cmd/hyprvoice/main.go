@@ -28,6 +28,7 @@ func init() {
 	rootCmd.AddCommand(
 		serveCmd(),
 		toggleCmd(),
+		cancelCmd(),
 		statusCmd(),
 		versionCmd(),
 		stopCmd(),
@@ -102,6 +103,21 @@ func stopCmd() *cobra.Command {
 			resp, err := bus.SendCommand('q')
 			if err != nil {
 				return fmt.Errorf("failed to stop daemon: %w", err)
+			}
+			fmt.Print(resp)
+			return nil
+		},
+	}
+}
+
+func cancelCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "cancel",
+		Short: "Cancel current operation",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			resp, err := bus.SendCommand('c')
+			if err != nil {
+				return fmt.Errorf("failed to cancel operation: %w", err)
 			}
 			fmt.Print(resp)
 			return nil

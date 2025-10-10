@@ -162,6 +162,9 @@ func (d *Daemon) handle(c net.Conn) {
 	case 't':
 		d.toggle()
 		fmt.Fprint(c, "OK toggled\n")
+	case 'c':
+		d.cancelPipeline()
+		fmt.Fprint(c, "OK cancelled\n")
 	case 's':
 		status := d.status()
 		fmt.Fprintf(c, "STATUS status=%s\n", status)
@@ -191,7 +194,7 @@ func (d *Daemon) toggle() {
 		go d.monitorPipelineErrors(p)
 
 	case pipeline.Recording:
-		d.stopPipeline() // aborted during recording (chunks not sent to transcriber yet)
+		d.stopPipeline()
 		go d.notifier.Error("Recording Aborted")
 
 	case pipeline.Transcribing:
@@ -207,8 +210,18 @@ func (d *Daemon) toggle() {
 		go d.notifier.Notify("Hyprvoice", "Recording Ended... Transcribing")
 
 	case pipeline.Injecting:
-		d.stopPipeline() // aborted during injection
+		d.stopPipeline()
 		go d.notifier.Error("Injection Aborted")
+	}
+}
+
+func (d *Daemon) cancelPipeline() {
+	switch d.status() {
+	case pipeline.Idle:
+		log.Printf("Daemon: Cancel requested but pipeline is idle, ignoring")
+	default:
+		d.stopPipeline()
+		go d.notifier.Notify("Hyprvoice", "Operation Cancelled")
 	}
 }
 
