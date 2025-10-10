@@ -3,6 +3,7 @@ package injection
 import (
 	"context"
 	"fmt"
+	"os"
 	"os/exec"
 	"strings"
 	"time"
@@ -42,6 +43,15 @@ func checkClipboardAvailable() error {
 
 	if _, err := exec.LookPath("wl-paste"); err != nil {
 		return fmt.Errorf("wl-paste not found: %w (install wl-clipboard)", err)
+	}
+
+	// Check for Wayland environment
+	if os.Getenv("WAYLAND_DISPLAY") == "" {
+		return fmt.Errorf("WAYLAND_DISPLAY not set - clipboard operations require Wayland session")
+	}
+
+	if os.Getenv("XDG_RUNTIME_DIR") == "" {
+		return fmt.Errorf("XDG_RUNTIME_DIR not set - clipboard operations require proper session environment")
 	}
 
 	return nil
