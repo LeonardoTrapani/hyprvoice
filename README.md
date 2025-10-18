@@ -62,7 +62,7 @@ export PATH="$HOME/.local/bin:$PATH"
 
 - **Wayland desktop** (Hyprland, Niri, GNOME, KDE, etc.)
 - **PipeWire audio system** with tools
-- **OpenAI API key** (for transcription)
+- **API key for transcription**: OpenAI API key or Groq API key (Groq offers faster processing and free tier)
 
 **System packages** (automatically installed with AUR package):
 
@@ -216,6 +216,59 @@ Configuration is stored in `~/.config/hyprvoice/config.toml` and can also be edi
 
 Hyprvoice supports multiple transcription backends:
 
+#### OpenAI Whisper API
+
+Cloud-based transcription using OpenAI's Whisper API:
+
+```toml
+[transcription]
+provider = "openai"
+api_key = "sk-..."              # Or set OPENAI_API_KEY environment variable
+language = ""                   # Empty for auto-detect, or "en", "es", "fr", etc.
+model = "whisper-1"
+```
+
+**Features:**
+- High-quality transcription
+- Supports 50+ languages
+- Auto-detection or specify language for better accuracy
+
+#### Groq Whisper API (Transcription)
+
+Fast cloud-based transcription using Groq's Whisper API:
+
+```toml
+[transcription]
+provider = "groq-transcription"
+api_key = "gsk_..."             # Or set GROQ_API_KEY environment variable
+language = ""                   # Empty for auto-detect, or "en", "es", "fr", etc.
+model = "whisper-large-v3"      # Or "whisper-large-v3-turbo" for faster processing
+```
+
+**Features:**
+- Ultra-fast transcription (significantly faster than OpenAI)
+- Same Whisper model quality
+- Supports 50+ languages
+- Free tier available with generous limits
+
+#### Groq Translation API
+
+Fast translation of audio to English using Groq's Whisper API:
+
+```toml
+[transcription]
+provider = "groq-translation"
+api_key = "gsk_..."             # Or set GROQ_API_KEY environment variable
+language = "es"                 # Optional: hint source language for better accuracy
+model = "whisper-large-v3-turbo"
+```
+
+**Features:**
+- Translates any language audio → English text
+- Ultra-fast processing
+- Language field hints at source language (improves accuracy)
+- Always outputs English regardless of input language
+
 #### Generated Configuration Example
 
 The daemon automatically creates `~/.config/hyprvoice/config.toml` with helpful comments:
@@ -237,10 +290,10 @@ The daemon automatically creates `~/.config/hyprvoice/config.toml` with helpful 
 
 # Speech Transcription Configuration
 [transcription]
-  provider = "openai"          # Transcription service ("openai" only currently supported)
-  api_key = ""                 # OpenAI API key (or set OPENAI_API_KEY environment variable)
+  provider = "openai"          # Transcription service: "openai", "groq-transcription", or "groq-translation"
+  api_key = ""                 # API key (or set OPENAI_API_KEY/GROQ_API_KEY environment variable)
   language = ""                # Language code (empty for auto-detect, "en", "it", "es", "fr", etc.)
-  model = "whisper-1"          # OpenAI model name ("whisper-1" recommended)
+  model = "whisper-1"          # Model: OpenAI="whisper-1", Groq="whisper-large-v3" or "whisper-large-v3-turbo"
 
 # Text Injection Configuration
 [injection]
@@ -373,6 +426,7 @@ journalctl --user -u hyprvoice.service -f
 | Audio capture          | ✅     | Efficient PipeWire integration                        |
 | Desktop notifications  | ✅     | Status feedback via notify-send                       |
 | OpenAI transcription   | ✅     | HTTP API integration                                  |
+| Groq transcription     | ✅     | Fast Whisper API with transcription and translation   |
 | Text injection         | ✅     | Clipboard + wtype with fallback                       |
 | Configuration system   | ✅     | TOML-based user settings with hot-reload              |
 | Interactive setup      | ✅     | `hyprvoice configure` wizard for easy setup           |
