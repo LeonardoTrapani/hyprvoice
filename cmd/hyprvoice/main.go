@@ -131,7 +131,8 @@ func configureCmd() *cobra.Command {
 		Short: "Interactive configuration setup",
 		Long: `Interactive configuration wizard for hyprvoice.
 This will guide you through setting up:
-- OpenAI API key for transcription
+- Transcription provider (OpenAI or Groq)
+- API keys and model selection
 - Audio and text injection preferences
 - Notification settings`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -157,8 +158,81 @@ func runInteractiveConfig() error {
 	fmt.Println("📝 Transcription Configuration")
 	fmt.Println("------------------------------")
 
-	// OpenAI API Key
-	fmt.Printf("OpenAI API Key (current: %s, leave empty to use OPENAI_API_KEY env var): ", maskAPIKey(cfg.Transcription.APIKey))
+	// Provider selection
+	fmt.Println("Select transcription provider:")
+	fmt.Println("  1. openai            - OpenAI Whisper API (cloud-based)")
+	fmt.Println("  2. groq-transcription - Groq Whisper API (fast transcription)")
+	fmt.Println("  3. groq-translation   - Groq Whisper API (translate to English)")
+	fmt.Printf("Provider [1-3] (current: %s): ", cfg.Transcription.Provider)
+	if scanner.Scan() {
+		input := strings.TrimSpace(scanner.Text())
+		switch input {
+		case "1":
+			cfg.Transcription.Provider = "openai"
+		case "2":
+			cfg.Transcription.Provider = "groq-transcription"
+		case "3":
+			cfg.Transcription.Provider = "groq-translation"
+		case "openai", "groq-transcription", "groq-translation":
+			cfg.Transcription.Provider = input
+		}
+	}
+
+	// Model selection based on provider
+	if cfg.Transcription.Provider == "openai" {
+		fmt.Println("\nOpenAI Model:")
+		fmt.Printf("Model (current: %s): ", cfg.Transcription.Model)
+		if scanner.Scan() {
+			input := strings.TrimSpace(scanner.Text())
+			if input != "" {
+				cfg.Transcription.Model = input
+			} else if cfg.Transcription.Model == "" {
+				cfg.Transcription.Model = "whisper-1"
+			}
+		}
+	} else if cfg.Transcription.Provider == "groq-transcription" {
+		fmt.Println("\nGroq Transcription Model:")
+		fmt.Println("  1. whisper-large-v3       - Standard model")
+		fmt.Println("  2. whisper-large-v3-turbo - Faster model")
+		fmt.Printf("Model [1-2] (current: %s): ", cfg.Transcription.Model)
+		if scanner.Scan() {
+			input := strings.TrimSpace(scanner.Text())
+			switch input {
+			case "1":
+				cfg.Transcription.Model = "whisper-large-v3"
+			case "2":
+				cfg.Transcription.Model = "whisper-large-v3-turbo"
+			case "whisper-large-v3", "whisper-large-v3-turbo":
+				cfg.Transcription.Model = input
+			case "":
+				if cfg.Transcription.Model == "" {
+					cfg.Transcription.Model = "whisper-large-v3-turbo"
+				}
+			}
+		}
+	} else if cfg.Transcription.Provider == "groq-translation" {
+		fmt.Println("\nGroq Translation Model:")
+		fmt.Println("  Note: Translation only supports whisper-large-v3 (turbo not available)")
+		fmt.Printf("Model (current: %s, press Enter for whisper-large-v3): ", cfg.Transcription.Model)
+		if scanner.Scan() {
+			input := strings.TrimSpace(scanner.Text())
+			if input == "" || input == "whisper-large-v3" || input == "1" {
+				cfg.Transcription.Model = "whisper-large-v3"
+			} else {
+				fmt.Println("  Warning: Only whisper-large-v3 is supported for translation. Using whisper-large-v3.")
+				cfg.Transcription.Model = "whisper-large-v3"
+			}
+		}
+	}
+
+	// API Key (provider-aware)
+	var envVarName string
+	if cfg.Transcription.Provider == "openai" {
+		envVarName = "OPENAI_API_KEY"
+	} else {
+		envVarName = "GROQ_API_KEY"
+	}
+	fmt.Printf("\nAPI Key (current: %s, leave empty to use %s env var): ", maskAPIKey(cfg.Transcription.APIKey), envVarName)
 	if scanner.Scan() {
 		input := strings.TrimSpace(scanner.Text())
 		if input != "" {
@@ -167,7 +241,12 @@ func runInteractiveConfig() error {
 	}
 
 	// Language
-	fmt.Printf("Language (empty for auto-detect, current: %s): ", cfg.Transcription.Language)
+	if cfg.Transcription.Provider == "groq-translation" {
+		fmt.Printf("\nSource language hint (empty for auto-detect, current: %s): ", cfg.Transcription.Language)
+		fmt.Println("\n  Note: Translation always outputs English. Language hints at source audio language.")
+	} else {
+		fmt.Printf("\nLanguage (empty for auto-detect, current: %s): ", cfg.Transcription.Language)
+	}
 	if scanner.Scan() {
 		input := strings.TrimSpace(scanner.Text())
 		cfg.Transcription.Language = input
@@ -303,12 +382,12 @@ func saveConfig(cfg *config.Config) error {
   channel_buffer_size = %d     # Audio frame buffer size (frames to buffer)
   timeout = "%s"               # Maximum recording duration (e.g., "30s", "2m", "5m")
 
-# Speech Transcription Configuration  
+# Speech Transcription Configuration
 [transcription]
-  provider = "%s"          # Transcription service ("openai" only currently supported)
-  api_key = "%s"                 # OpenAI API key (or set OPENAI_API_KEY environment variable)
+  provider = "%s"          # Transcription service: "openai", "groq-transcription", or "groq-translation"
+  api_key = "%s"                 # API key (or set OPENAI_API_KEY/GROQ_API_KEY environment variable)
   language = "%s"                # Language code (empty for auto-detect, "en", "it", "es", "fr", etc.)
-  model = "%s"          # OpenAI model name ("whisper-1" recommended)
+  model = "%s"          # Model: OpenAI="whisper-1", Groq="whisper-large-v3" or "whisper-large-v3-turbo"
 
 # Text Injection Configuration
 [injection]
@@ -324,11 +403,19 @@ func saveConfig(cfg *config.Config) error {
 
 # Mode explanations:
 # - "clipboard": Copy text to clipboard only
-# - "type": Direct typing via wtype only  
+# - "type": Direct typing via wtype only
 # - "fallback": Try typing first, fallback to clipboard if it fails
+#
+# Provider explanations:
+# - "openai": OpenAI Whisper API (cloud-based, requires OPENAI_API_KEY)
+# - "groq-transcription": Groq Whisper API for transcription (fast, requires GROQ_API_KEY)
+#     Models: whisper-large-v3 or whisper-large-v3-turbo
+# - "groq-translation": Groq Whisper API for translation to English (always outputs English text)
+#     Models: whisper-large-v3 only (turbo not supported for translation)
 #
 # Language codes: Use empty string ("") for automatic detection, or specific codes like:
 # "en" (English), "it" (Italian), "es" (Spanish), "fr" (French), "de" (German), etc.
+# For groq-translation, the language field hints at the source audio language for better accuracy.
 `,
 		cfg.Recording.SampleRate,
 		cfg.Recording.Channels,

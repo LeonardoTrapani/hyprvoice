@@ -39,6 +39,18 @@ func NewTranscriber(config Config) (Transcriber, error) {
 		}
 		adapter = NewOpenAIAdapter(config)
 
+	case "groq-transcription":
+		if config.APIKey == "" {
+			return nil, fmt.Errorf("Groq API key required")
+		}
+		adapter = NewGroqTranscriptionAdapter(config)
+
+	case "groq-translation":
+		if config.APIKey == "" {
+			return nil, fmt.Errorf("Groq API key required")
+		}
+		adapter = NewGroqTranslationAdapter(config)
+
 	default:
 		return nil, fmt.Errorf("unsupported provider: %s", config.Provider)
 	}

@@ -69,8 +69,14 @@ func (c *Config) ToTranscriberConfig() transcriber.Config {
 		Model:    c.Transcription.Model,
 	}
 
+	// Check for API key in environment variables if not in config
 	if config.APIKey == "" {
-		config.APIKey = os.Getenv("OPENAI_API_KEY")
+		switch c.Transcription.Provider {
+		case "openai":
+			config.APIKey = os.Getenv("OPENAI_API_KEY")
+		case "groq-transcription", "groq-translation":
+			config.APIKey = os.Getenv("GROQ_API_KEY")
+		}
 	}
 
 	return config
@@ -110,7 +116,10 @@ func (c *Config) Validate() error {
 	if c.Transcription.Provider == "" {
 		return fmt.Errorf("invalid transcription.provider: empty")
 	}
-	if c.Transcription.Provider == "openai" {
+
+	// Validate provider-specific settings
+	switch c.Transcription.Provider {
+	case "openai":
 		apiKey := c.Transcription.APIKey
 		if apiKey == "" {
 			apiKey = os.Getenv("OPENAI_API_KEY")
@@ -123,7 +132,50 @@ func (c *Config) Validate() error {
 		if c.Transcription.Language != "" && !isValidLanguageCode(c.Transcription.Language) {
 			return fmt.Errorf("invalid transcription.language: %s (use empty string for auto-detect or ISO-639-1 codes like 'en', 'es', 'fr')", c.Transcription.Language)
 		}
+
+	case "groq-transcription":
+		apiKey := c.Transcription.APIKey
+		if apiKey == "" {
+			apiKey = os.Getenv("GROQ_API_KEY")
+		}
+		if apiKey == "" {
+			return fmt.Errorf("Groq API key required: not found in config (transcription.api_key) or environment variable (GROQ_API_KEY)")
+		}
+
+		// Validate language code if provided (empty string means auto-detect)
+		if c.Transcription.Language != "" && !isValidLanguageCode(c.Transcription.Language) {
+			return fmt.Errorf("invalid transcription.language: %s (use empty string for auto-detect or ISO-639-1 codes like 'en', 'es', 'fr')", c.Transcription.Language)
+		}
+
+		// Validate Groq model
+		validGroqModels := map[string]bool{"whisper-large-v3": true, "whisper-large-v3-turbo": true}
+		if c.Transcription.Model != "" && !validGroqModels[c.Transcription.Model] {
+			return fmt.Errorf("invalid model for groq-transcription: %s (must be whisper-large-v3 or whisper-large-v3-turbo)", c.Transcription.Model)
+		}
+
+	case "groq-translation":
+		apiKey := c.Transcription.APIKey
+		if apiKey == "" {
+			apiKey = os.Getenv("GROQ_API_KEY")
+		}
+		if apiKey == "" {
+			return fmt.Errorf("Groq API key required: not found in config (transcription.api_key) or environment variable (GROQ_API_KEY)")
+		}
+
+		// For translation, language field hints at source language (output is always English)
+		if c.Transcription.Language != "" && !isValidLanguageCode(c.Transcription.Language) {
+			return fmt.Errorf("invalid transcription.language: %s (use empty string for auto-detect or ISO-639-1 codes like 'en', 'es', 'fr')", c.Transcription.Language)
+		}
+
+		// Validate Groq translation model - only whisper-large-v3 is supported (no turbo)
+		if c.Transcription.Model != "" && c.Transcription.Model != "whisper-large-v3" {
+			return fmt.Errorf("invalid model for groq-translation: %s (must be whisper-large-v3, turbo version not supported for translation)", c.Transcription.Model)
+		}
+
+	default:
+		return fmt.Errorf("unsupported transcription.provider: %s (must be openai, groq-transcription, or groq-translation)", c.Transcription.Provider)
 	}
+
 	if c.Transcription.Model == "" {
 		return fmt.Errorf("invalid transcription.model: empty")
 	}
@@ -235,12 +287,12 @@ func SaveDefaultConfig() error {
   channel_buffer_size = 30     # Audio frame buffer size (frames to buffer)
   timeout = "5m"               # Maximum recording duration (e.g., "30s", "2m", "5m")
 
-# Speech Transcription Configuration  
+# Speech Transcription Configuration
 [transcription]
-  provider = "openai"          # Transcription service ("openai" only currently supported)
-  api_key = ""                 # OpenAI API key (or set OPENAI_API_KEY environment variable)
+  provider = "openai"          # Transcription service: "openai", "groq-transcription", or "groq-translation"
+  api_key = ""                 # API key (or set OPENAI_API_KEY/GROQ_API_KEY environment variable)
   language = ""                # Language code (empty for auto-detect, "en", "it", "es", "fr", etc.)
-  model = "whisper-1"          # OpenAI model name ("whisper-1" recommended)
+  model = "whisper-1"          # Model: OpenAI="whisper-1", Groq="whisper-large-v3" or "whisper-large-v3-turbo"
 
 # Text Injection Configuration
 [injection]
@@ -256,11 +308,19 @@ func SaveDefaultConfig() error {
 
 # Mode explanations:
 # - "clipboard": Copy text to clipboard only
-# - "type": Direct typing via wtype only  
+# - "type": Direct typing via wtype only
 # - "fallback": Try typing first, fallback to clipboard if it fails
+#
+# Provider explanations:
+# - "openai": OpenAI Whisper API (cloud-based, requires OPENAI_API_KEY)
+# - "groq-transcription": Groq Whisper API for transcription (fast, requires GROQ_API_KEY)
+#     Models: whisper-large-v3 or whisper-large-v3-turbo
+# - "groq-translation": Groq Whisper API for translation to English (always outputs English text)
+#     Models: whisper-large-v3 only (turbo not supported for translation)
 #
 # Language codes: Use empty string ("") for automatic detection, or specific codes like:
 # "en" (English), "it" (Italian), "es" (Spanish), "fr" (French), "de" (German), etc.
+# For groq-translation, the language field hints at the source audio language for better accuracy.
 `
 
 	if _, err := file.WriteString(configContent); err != nil {
