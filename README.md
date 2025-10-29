@@ -7,7 +7,7 @@ Press a toggle key, speak, and get instant text input. Built natively for Waylan
 - **Toggle workflow**: Press once to start recording, press again to stop and inject text
 - **Wayland native**: Purpose-built for Wayland compositors - no legacy X11 dependencies or hacky workarounds
 - **Real-time feedback**: Desktop notifications for recording states and transcription status
-- **Multiple transcription backends**: OpenAI Whisper (planned: whisper.cpp for local processing, and more)
+- **Multiple transcription backends**: OpenAI Whisper and Groq (planned: whisper.cpp for local processing, gemini, and more)
 - **Smart text injection**: Clipboard save/restore with direct typing fallback
 - **Daemon architecture**: Lightweight control plane with efficient pipeline management
 
