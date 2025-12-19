@@ -179,7 +179,8 @@ func runInteractiveConfig() error {
 	}
 
 	// Model selection based on provider
-	if cfg.Transcription.Provider == "openai" {
+	switch cfg.Transcription.Provider {
+	case "openai":
 		fmt.Println("\nOpenAI Model:")
 		fmt.Printf("Model (current: %s): ", cfg.Transcription.Model)
 		if scanner.Scan() {
@@ -190,7 +191,7 @@ func runInteractiveConfig() error {
 				cfg.Transcription.Model = "whisper-1"
 			}
 		}
-	} else if cfg.Transcription.Provider == "groq-transcription" {
+	case "groq-transcription":
 		fmt.Println("\nGroq Transcription Model:")
 		fmt.Println("  1. whisper-large-v3       - Standard model")
 		fmt.Println("  2. whisper-large-v3-turbo - Faster model")
@@ -210,7 +211,7 @@ func runInteractiveConfig() error {
 				}
 			}
 		}
-	} else if cfg.Transcription.Provider == "groq-translation" {
+	case "groq-translation":
 		fmt.Println("\nGroq Translation Model:")
 		fmt.Println("  Note: Translation only supports whisper-large-v3 (turbo not available)")
 		fmt.Printf("Model (current: %s, press Enter for whisper-large-v3): ", cfg.Transcription.Model)
@@ -257,21 +258,40 @@ func runInteractiveConfig() error {
 	// Configure injection
 	fmt.Println("⌨️  Text Injection Configuration")
 	fmt.Println("--------------------------------")
-	fmt.Printf("Injection mode [clipboard/type/fallback] (current: %s): ", cfg.Injection.Mode)
+	fmt.Println("Backends are tried in order until one succeeds (fallback chain):")
+	fmt.Println("  - ydotool:   Best for Chromium/Electron apps (requires ydotoold daemon)")
+	fmt.Println("  - wtype:     Native Wayland typing (may fail on some Chromium apps)")
+	fmt.Println("  - clipboard: Copies to clipboard only (most reliable, needs manual paste)")
+	fmt.Println()
+	fmt.Println("Recommended: ydotool,wtype,clipboard (full fallback chain)")
+	fmt.Println()
+	fmt.Printf("Backends (comma-separated) (current: %s): ", strings.Join(cfg.Injection.Backends, ","))
 	if scanner.Scan() {
 		input := strings.TrimSpace(scanner.Text())
-		if input != "" && (input == "clipboard" || input == "type" || input == "fallback") {
-			cfg.Injection.Mode = input
+		if input != "" {
+			backends := strings.Split(input, ",")
+			validBackends := make([]string, 0)
+			for _, b := range backends {
+				b = strings.TrimSpace(b)
+				if b == "ydotool" || b == "wtype" || b == "clipboard" {
+					validBackends = append(validBackends, b)
+				}
+			}
+			if len(validBackends) > 0 {
+				cfg.Injection.Backends = validBackends
+			}
 		}
 	}
 
-	fmt.Printf("Restore clipboard after injection [y/n] (current: %v): ", cfg.Injection.RestoreClipboard)
-	if scanner.Scan() {
-		switch strings.TrimSpace(strings.ToLower(scanner.Text())) {
-		case "y", "yes":
-			cfg.Injection.RestoreClipboard = true
-		case "n", "no":
-			cfg.Injection.RestoreClipboard = false
+	// Check if ydotool is selected and warn about daemon requirement
+	for _, b := range cfg.Injection.Backends {
+		if b == "ydotool" {
+			fmt.Println()
+			fmt.Println("⚠️  ydotool requires the ydotoold daemon to be running!")
+			fmt.Println("   Start it with: systemctl --user enable --now ydotool")
+			fmt.Println("   Or ensure your user has access to /dev/uinput (input group)")
+			fmt.Println()
+			break
 		}
 	}
 
@@ -329,21 +349,43 @@ func runInteractiveConfig() error {
 		serviceRunning = true
 	}
 
+	// Check if ydotool is in backends
+	hasYdotool := false
+	for _, b := range cfg.Injection.Backends {
+		if b == "ydotool" {
+			hasYdotool = true
+			break
+		}
+	}
+
 	// Show next steps
 	fmt.Println("🚀 Next Steps:")
-	if !serviceRunning {
-		fmt.Println("1. Start the service: systemctl --user start hyprvoice.service")
-		fmt.Println("2. Test voice input: hyprvoice toggle")
-	} else {
-		fmt.Println("1. Restart the service to apply changes: systemctl --user restart hyprvoice.service")
-		fmt.Println("2. Test voice input: hyprvoice toggle")
+	step := 1
+	if hasYdotool {
+		fmt.Printf("%d. Ensure ydotoold is running: systemctl --user enable --now ydotool\n", step)
+		step++
 	}
+	if !serviceRunning {
+		fmt.Printf("%d. Start the service: systemctl --user start hyprvoice.service\n", step)
+	} else {
+		fmt.Printf("%d. Restart the service to apply changes: systemctl --user restart hyprvoice.service\n", step)
+	}
+	step++
+	fmt.Printf("%d. Test voice input: hyprvoice toggle (or use keybind you configured in hyprland config)\n", step)
 	fmt.Println()
 
 	configPath, _ := config.GetConfigPath()
 	fmt.Printf("📁 Config file location: %s\n", configPath)
 
 	return nil
+}
+
+func formatBackends(backends []string) string {
+	quoted := make([]string, len(backends))
+	for i, b := range backends {
+		quoted[i] = fmt.Sprintf(`"%s"`, b)
+	}
+	return strings.Join(quoted, ", ")
 }
 
 func maskAPIKey(key string) string {
@@ -391,9 +433,9 @@ func saveConfig(cfg *config.Config) error {
 
 # Text Injection Configuration
 [injection]
-  mode = "%s"            # Injection method ("clipboard", "type", "fallback")
-  restore_clipboard = %v     # Restore original clipboard after injection
-  wtype_timeout = "%s"         # Timeout for direct typing via wtype
+  backends = [%s]  # Ordered fallback chain (tries each until one succeeds)
+  ydotool_timeout = "%s"       # Timeout for ydotool commands
+  wtype_timeout = "%s"         # Timeout for wtype commands
   clipboard_timeout = "%s"     # Timeout for clipboard operations
 
 # Desktop Notification Configuration
@@ -401,10 +443,12 @@ func saveConfig(cfg *config.Config) error {
   enabled = %v               # Enable desktop notifications
   type = "%s"             # Notification type ("desktop", "log", "none")
 
-# Mode explanations:
-# - "clipboard": Copy text to clipboard only
-# - "type": Direct typing via wtype only
-# - "fallback": Try typing first, fallback to clipboard if it fails
+# Backend explanations:
+# - "ydotool": Uses ydotool (requires ydotoold daemon running). Most compatible with Chromium/Electron apps.
+# - "wtype": Uses wtype for Wayland. May have issues with some Chromium-based apps.
+# - "clipboard": Copies text to clipboard only (most reliable, but requires manual paste).
+#
+# The backends are tried in order. First successful one wins.
 #
 # Provider explanations:
 # - "openai": OpenAI Whisper API (cloud-based, requires OPENAI_API_KEY)
@@ -428,8 +472,8 @@ func saveConfig(cfg *config.Config) error {
 		cfg.Transcription.APIKey,
 		cfg.Transcription.Language,
 		cfg.Transcription.Model,
-		cfg.Injection.Mode,
-		cfg.Injection.RestoreClipboard,
+		formatBackends(cfg.Injection.Backends),
+		cfg.Injection.YdotoolTimeout,
 		cfg.Injection.WtypeTimeout,
 		cfg.Injection.ClipboardTimeout,
 		cfg.Notifications.Enabled,

@@ -31,8 +31,8 @@ func TestConfig() *config.Config {
 			Model:    "whisper-1",
 		},
 		Injection: config.InjectionConfig{
-			Mode:             "fallback",
-			RestoreClipboard: true,
+			Backends:         []string{"ydotool", "wtype", "clipboard"},
+			YdotoolTimeout:   5 * time.Second,
 			WtypeTimeout:     5 * time.Second,
 			ClipboardTimeout: 3 * time.Second,
 		},
@@ -60,9 +60,10 @@ func TestConfigWithInvalidValues() *config.Config {
 			Model:    "", // Invalid
 		},
 		Injection: config.InjectionConfig{
-			Mode:             "invalid", // Invalid
-			WtypeTimeout:     0,         // Invalid
-			ClipboardTimeout: 0,         // Invalid
+			Backends:         []string{}, // Invalid (empty)
+			YdotoolTimeout:   0,          // Invalid
+			WtypeTimeout:     0,          // Invalid
+			ClipboardTimeout: 0,          // Invalid
 		},
 		Notifications: config.NotificationsConfig{
 			Type: "invalid", // Invalid

@@ -3,6 +3,7 @@ package injection
 import (
 	"context"
 	"fmt"
+	"log"
 	"time"
 )
 
@@ -11,19 +12,42 @@ type Injector interface {
 }
 
 type Config struct {
-	Mode             string        // "clipboard", "type", "fallback"
-	RestoreClipboard bool          // Restore original clipboard after injection
+	Backends         []string      // Ordered list: "ydotool", "wtype", "clipboard"
+	YdotoolTimeout   time.Duration // Timeout for ydotool commands
 	WtypeTimeout     time.Duration // Timeout for wtype commands
 	ClipboardTimeout time.Duration // Timeout for clipboard operations
 }
 
 type injector struct {
-	config Config
+	config   Config
+	backends []Backend
 }
 
 func NewInjector(config Config) Injector {
+	// Build backend chain from config
+	backends := make([]Backend, 0, len(config.Backends))
+	for _, name := range config.Backends {
+		switch name {
+		case "ydotool":
+			backends = append(backends, NewYdotoolBackend())
+		case "wtype":
+			backends = append(backends, NewWtypeBackend())
+		case "clipboard":
+			backends = append(backends, NewClipboardBackend())
+		default:
+			log.Printf("Injection: unknown backend %q, skipping", name)
+		}
+	}
+
+	// Default to clipboard if no valid backends
+	if len(backends) == 0 {
+		log.Printf("Injection: no valid backends configured, defaulting to clipboard")
+		backends = append(backends, NewClipboardBackend())
+	}
+
 	return &injector{
-		config: config,
+		config:   config,
+		backends: backends,
 	}
 }
 
@@ -32,58 +56,31 @@ func (i *injector) Inject(ctx context.Context, text string) error {
 		return fmt.Errorf("cannot inject empty text")
 	}
 
-	// Copy to clipboard for clipboard mode and fallback mode
-	var originalClipboard string
-	var err error
-
-	if i.config.Mode == "clipboard" || i.config.Mode == "fallback" {
-		if err := checkClipboardAvailable(); err != nil {
-			return fmt.Errorf("clipboard tools not available: %w", err)
-		}
-
-		if i.config.RestoreClipboard {
-			originalClipboard, _ = getClipboard(ctx, i.config.ClipboardTimeout)
-		}
-
-		if err := setClipboard(ctx, text, i.config.ClipboardTimeout); err != nil {
-			return fmt.Errorf("failed to copy text to clipboard: %w", err)
-		}
-	}
-
-	// Handle different injection modes
-	switch i.config.Mode {
-	case "clipboard":
-		// Already handled above
-		return nil
-
-	case "type":
-		err = typeText(ctx, text, i.config.WtypeTimeout)
-		if err != nil {
-			return fmt.Errorf("failed to type text: %w", err)
-		}
-
-	case "fallback":
-		// Try typing first, fallback to clipboard
-		err = typeText(ctx, text, i.config.WtypeTimeout)
-		if err != nil {
-			// Typing failed, but clipboard is already set from above
-			// Just log the typing error but don't fail the injection
+	// Try each backend in order
+	var lastErr error
+	for _, backend := range i.backends {
+		timeout := i.getTimeout(backend.Name())
+		err := backend.Inject(ctx, text, timeout)
+		if err == nil {
+			log.Printf("Injection: success via %s", backend.Name())
 			return nil
 		}
+		log.Printf("Injection: %s failed: %v, trying next backend", backend.Name(), err)
+		lastErr = err
+	}
 
+	return fmt.Errorf("all injection backends failed, last error: %w", lastErr)
+}
+
+func (i *injector) getTimeout(backendName string) time.Duration {
+	switch backendName {
+	case "ydotool":
+		return i.config.YdotoolTimeout
+	case "wtype":
+		return i.config.WtypeTimeout
+	case "clipboard":
+		return i.config.ClipboardTimeout
 	default:
-		return fmt.Errorf("unsupported injection mode: %s", i.config.Mode)
+		return 5 * time.Second
 	}
-
-	// Restore original clipboard if configured and we have it
-	if i.config.RestoreClipboard && originalClipboard != "" {
-		go func() {
-			time.Sleep(100 * time.Millisecond)
-			restoreCtx, cancel := context.WithTimeout(ctx, i.config.ClipboardTimeout)
-			defer cancel()
-			setClipboard(restoreCtx, originalClipboard, i.config.ClipboardTimeout)
-		}()
-	}
-
-	return nil
 }

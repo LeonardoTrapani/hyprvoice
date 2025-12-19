@@ -38,8 +38,8 @@ type TranscriptionConfig struct {
 }
 
 type InjectionConfig struct {
-	Mode             string        `toml:"mode"`
-	RestoreClipboard bool          `toml:"restore_clipboard"`
+	Backends         []string      `toml:"backends"`
+	YdotoolTimeout   time.Duration `toml:"ydotool_timeout"`
 	WtypeTimeout     time.Duration `toml:"wtype_timeout"`
 	ClipboardTimeout time.Duration `toml:"clipboard_timeout"`
 }
@@ -84,8 +84,8 @@ func (c *Config) ToTranscriberConfig() transcriber.Config {
 
 func (c *Config) ToInjectionConfig() injection.Config {
 	return injection.Config{
-		Mode:             c.Injection.Mode,
-		RestoreClipboard: c.Injection.RestoreClipboard,
+		Backends:         c.Injection.Backends,
+		YdotoolTimeout:   c.Injection.YdotoolTimeout,
 		WtypeTimeout:     c.Injection.WtypeTimeout,
 		ClipboardTimeout: c.Injection.ClipboardTimeout,
 	}
@@ -181,9 +181,17 @@ func (c *Config) Validate() error {
 	}
 
 	// Injection
-	validModes := map[string]bool{"clipboard": true, "type": true, "fallback": true}
-	if !validModes[c.Injection.Mode] {
-		return fmt.Errorf("invalid injection.mode: %s (must be clipboard, type, or fallback)", c.Injection.Mode)
+	if len(c.Injection.Backends) == 0 {
+		return fmt.Errorf("invalid injection.backends: empty (must have at least one backend)")
+	}
+	validBackends := map[string]bool{"ydotool": true, "wtype": true, "clipboard": true}
+	for _, backend := range c.Injection.Backends {
+		if !validBackends[backend] {
+			return fmt.Errorf("invalid injection.backends: unknown backend %q (must be ydotool, wtype, or clipboard)", backend)
+		}
+	}
+	if c.Injection.YdotoolTimeout <= 0 {
+		return fmt.Errorf("invalid injection.ydotool_timeout: %v", c.Injection.YdotoolTimeout)
 	}
 	if c.Injection.WtypeTimeout <= 0 {
 		return fmt.Errorf("invalid injection.wtype_timeout: %v", c.Injection.WtypeTimeout)
@@ -235,6 +243,15 @@ func GetConfigPath() (string, error) {
 	return filepath.Join(hyprvoiceDir, "config.toml"), nil
 }
 
+// legacyInjectionConfig for migration from old mode-based config
+type legacyInjectionConfig struct {
+	Mode string `toml:"mode"`
+}
+
+type legacyConfig struct {
+	Injection legacyInjectionConfig `toml:"injection"`
+}
+
 func Load() (*Config, error) {
 	configPath, err := GetConfigPath()
 	if err != nil {
@@ -257,8 +274,43 @@ func Load() (*Config, error) {
 		return nil, fmt.Errorf("failed to parse config file %s: %w", configPath, err)
 	}
 
+	// Migrate legacy mode-based config to backends
+	if len(config.Injection.Backends) == 0 {
+		var legacy legacyConfig
+		toml.DecodeFile(configPath, &legacy)
+		config.migrateInjectionMode(legacy.Injection.Mode)
+	}
+
 	log.Printf("Config: configuration loaded successfully")
 	return &config, nil
+}
+
+// migrateInjectionMode converts old mode field to new backends array
+func (c *Config) migrateInjectionMode(mode string) {
+	switch mode {
+	case "clipboard":
+		c.Injection.Backends = []string{"clipboard"}
+		log.Printf("Config: migrated injection.mode='clipboard' to backends=['clipboard']")
+	case "type":
+		c.Injection.Backends = []string{"wtype"}
+		log.Printf("Config: migrated injection.mode='type' to backends=['wtype']")
+	case "fallback":
+		c.Injection.Backends = []string{"wtype", "clipboard"}
+		log.Printf("Config: migrated injection.mode='fallback' to backends=['wtype', 'clipboard']")
+	default:
+		// Default for new installs or unknown modes
+		c.Injection.Backends = []string{"ydotool", "wtype", "clipboard"}
+		if mode != "" {
+			log.Printf("Config: unknown injection.mode='%s', using default backends", mode)
+		}
+	}
+
+	// Set default ydotool timeout if not set
+	if c.Injection.YdotoolTimeout == 0 {
+		c.Injection.YdotoolTimeout = 5 * time.Second
+	}
+
+	log.Printf("Config: legacy 'mode' config detected - please update your config.toml to use 'backends' instead")
 }
 
 func SaveDefaultConfig() error {
@@ -296,9 +348,9 @@ func SaveDefaultConfig() error {
 
 # Text Injection Configuration
 [injection]
-  mode = "fallback"            # Injection method ("clipboard", "type", "fallback")
-  restore_clipboard = true     # Restore original clipboard after injection
-  wtype_timeout = "5s"         # Timeout for direct typing via wtype
+  backends = ["ydotool", "wtype", "clipboard"]  # Ordered fallback chain (tries each until one succeeds)
+  ydotool_timeout = "5s"       # Timeout for ydotool commands
+  wtype_timeout = "5s"         # Timeout for wtype commands
   clipboard_timeout = "3s"     # Timeout for clipboard operations
 
 # Desktop Notification Configuration
@@ -306,10 +358,16 @@ func SaveDefaultConfig() error {
   enabled = true               # Enable desktop notifications
   type = "desktop"             # Notification type ("desktop", "log", "none")
 
-# Mode explanations:
-# - "clipboard": Copy text to clipboard only
-# - "type": Direct typing via wtype only
-# - "fallback": Try typing first, fallback to clipboard if it fails
+# Backend explanations:
+# - "ydotool": Uses ydotool (requires ydotoold daemon running). Most compatible with Chromium/Electron apps.
+# - "wtype": Uses wtype for Wayland. May have issues with some Chromium-based apps.
+# - "clipboard": Copies text to clipboard only (most reliable, but requires manual paste).
+#
+# The backends are tried in order. First successful one wins.
+# Example configurations:
+#   backends = ["clipboard"]                      # Clipboard only (safest)
+#   backends = ["wtype", "clipboard"]             # wtype with clipboard fallback
+#   backends = ["ydotool", "wtype", "clipboard"]  # Full fallback chain (default)
 #
 # Provider explanations:
 # - "openai": OpenAI Whisper API (cloud-based, requires OPENAI_API_KEY)

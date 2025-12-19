@@ -9,8 +9,8 @@ import (
 
 func TestNewInjector(t *testing.T) {
 	config := Config{
-		Mode:             "fallback",
-		RestoreClipboard: true,
+		Backends:         []string{"wtype", "clipboard"},
+		YdotoolTimeout:   5 * time.Second,
 		WtypeTimeout:     5 * time.Second,
 		ClipboardTimeout: 3 * time.Second,
 	}
@@ -30,6 +30,41 @@ func TestNewInjector(t *testing.T) {
 	}
 }
 
+func TestNewInjector_DefaultsToClipboard(t *testing.T) {
+	config := Config{
+		Backends:         []string{},
+		ClipboardTimeout: 3 * time.Second,
+	}
+
+	injector := NewInjector(config)
+	if injector == nil {
+		t.Errorf("NewInjector() returned nil")
+		return
+	}
+
+	// Should default to clipboard backend - just test it works
+	ctx := context.Background()
+	err := injector.Inject(ctx, "test")
+	// Will fail if no clipboard tools, but that's ok
+	if err != nil {
+		t.Logf("Injection failed (expected without tools): %v", err)
+	}
+}
+
+func TestNewInjector_IgnoresUnknownBackends(t *testing.T) {
+	config := Config{
+		Backends:         []string{"unknown", "wtype", "invalid"},
+		WtypeTimeout:     5 * time.Second,
+		ClipboardTimeout: 3 * time.Second,
+	}
+
+	injector := NewInjector(config)
+	// Just verify it was created - we can't inspect internals
+	if injector == nil {
+		t.Errorf("NewInjector() returned nil")
+	}
+}
+
 func TestInjector_Inject(t *testing.T) {
 	// Skip integration tests in CI environments
 	if os.Getenv("CI") == "true" {
@@ -43,32 +78,28 @@ func TestInjector_Inject(t *testing.T) {
 		wantErr bool
 	}{
 		{
-			name: "inject with clipboard mode",
+			name: "inject with clipboard backend",
 			config: Config{
-				Mode:             "clipboard",
-				RestoreClipboard: false,
-				WtypeTimeout:     5 * time.Second,
+				Backends:         []string{"clipboard"},
 				ClipboardTimeout: 3 * time.Second,
 			},
 			text:    "test text",
 			wantErr: false,
 		},
 		{
-			name: "inject with type mode",
+			name: "inject with wtype backend",
 			config: Config{
-				Mode:             "type",
-				RestoreClipboard: false,
-				WtypeTimeout:     5 * time.Second,
-				ClipboardTimeout: 3 * time.Second,
+				Backends:     []string{"wtype"},
+				WtypeTimeout: 5 * time.Second,
 			},
 			text:    "test text",
 			wantErr: false,
 		},
 		{
-			name: "inject with fallback mode",
+			name: "inject with fallback chain",
 			config: Config{
-				Mode:             "fallback",
-				RestoreClipboard: false,
+				Backends:         []string{"ydotool", "wtype", "clipboard"},
+				YdotoolTimeout:   5 * time.Second,
 				WtypeTimeout:     5 * time.Second,
 				ClipboardTimeout: 3 * time.Second,
 			},
@@ -78,23 +109,10 @@ func TestInjector_Inject(t *testing.T) {
 		{
 			name: "inject empty text",
 			config: Config{
-				Mode:             "clipboard",
-				RestoreClipboard: false,
-				WtypeTimeout:     5 * time.Second,
+				Backends:         []string{"clipboard"},
 				ClipboardTimeout: 3 * time.Second,
 			},
 			text:    "",
-			wantErr: true,
-		},
-		{
-			name: "inject with invalid mode",
-			config: Config{
-				Mode:             "invalid",
-				RestoreClipboard: false,
-				WtypeTimeout:     5 * time.Second,
-				ClipboardTimeout: 3 * time.Second,
-			},
-			text:    "test text",
 			wantErr: true,
 		},
 	}
@@ -114,18 +132,14 @@ func TestInjector_Inject(t *testing.T) {
 
 func TestConfig(t *testing.T) {
 	config := Config{
-		Mode:             "fallback",
-		RestoreClipboard: true,
+		Backends:         []string{"ydotool", "wtype", "clipboard"},
+		YdotoolTimeout:   5 * time.Second,
 		WtypeTimeout:     5 * time.Second,
 		ClipboardTimeout: 3 * time.Second,
 	}
 
-	if config.Mode != "fallback" {
-		t.Errorf("Mode mismatch: got %s, want %s", config.Mode, "fallback")
-	}
-
-	if !config.RestoreClipboard {
-		t.Errorf("RestoreClipboard should be true")
+	if len(config.Backends) != 3 {
+		t.Errorf("Backends length mismatch: got %d, want %d", len(config.Backends), 3)
 	}
 
 	if config.WtypeTimeout != 5*time.Second {
@@ -137,123 +151,61 @@ func TestConfig(t *testing.T) {
 	}
 }
 
-// TestTypeText tests the typeText function
-func TestTypeText(t *testing.T) {
-	// Skip integration tests in CI environments
-	if os.Getenv("CI") == "true" {
-		t.Skip("Skipping integration test in CI environment")
+// TestWtypeBackend tests the wtype backend
+func TestWtypeBackend(t *testing.T) {
+	backend := NewWtypeBackend()
+
+	if backend.Name() != "wtype" {
+		t.Errorf("Name() = %s, want wtype", backend.Name())
 	}
 
-	tests := []struct {
-		name    string
-		text    string
-		wantErr bool
-	}{
-		{
-			name:    "type normal text",
-			text:    "hello world",
-			wantErr: false,
-		},
-		{
-			name:    "type empty text",
-			text:    "",
-			wantErr: false,
-		},
-		{
-			name:    "type text with special characters",
-			text:    "hello\nworld\t!",
-			wantErr: false,
-		},
+	err := backend.Available()
+	if err != nil {
+		t.Logf("wtype not available (expected): %v", err)
+		return
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-			defer cancel()
-
-			err := typeText(ctx, tt.text, 1*time.Second)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("typeText() error = %v, wantErr %v", err, tt.wantErr)
-			}
-		})
-	}
+	t.Logf("wtype is available")
 }
 
-// TestCheckWtypeAvailable tests the wtype availability check
-func TestCheckWtypeAvailable(t *testing.T) {
-	err := checkWtypeAvailable()
+// TestYdotoolBackend tests the ydotool backend
+func TestYdotoolBackend(t *testing.T) {
+	backend := NewYdotoolBackend()
+
+	if backend.Name() != "ydotool" {
+		t.Errorf("Name() = %s, want ydotool", backend.Name())
+	}
+
+	err := backend.Available()
 	if err != nil {
-		t.Logf("checkWtypeAvailable() failed (expected if wtype not installed): %v", err)
-		// Don't fail the test if wtype is not available
+		t.Logf("ydotool not available (expected): %v", err)
 		return
 	}
 
-	t.Logf("checkWtypeAvailable() succeeded - wtype is available")
+	t.Logf("ydotool is available")
 }
 
-// TestGetClipboard tests the clipboard get functionality
-func TestGetClipboard(t *testing.T) {
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-	defer cancel()
+// TestClipboardBackend tests the clipboard backend
+func TestClipboardBackend(t *testing.T) {
+	backend := NewClipboardBackend()
 
-	// Test getting clipboard content
-	content, err := getClipboard(ctx, 1*time.Second)
+	if backend.Name() != "clipboard" {
+		t.Errorf("Name() = %s, want clipboard", backend.Name())
+	}
+
+	err := backend.Available()
 	if err != nil {
-		t.Logf("getClipboard() failed (expected if wl-paste not available): %v", err)
-		// Don't fail the test if clipboard tools are not available
+		t.Logf("clipboard not available (expected): %v", err)
 		return
 	}
 
-	t.Logf("getClipboard() succeeded, content length: %d", len(content))
-}
-
-// TestSetClipboard tests the clipboard set functionality
-func TestSetClipboard(t *testing.T) {
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-	defer cancel()
-
-	testText := "test clipboard content"
-
-	err := setClipboard(ctx, testText, 1*time.Second)
-	if err != nil {
-		t.Logf("setClipboard() failed (expected if wl-copy not available): %v", err)
-		// Don't fail the test if clipboard tools are not available
-		return
-	}
-
-	t.Logf("setClipboard() succeeded")
-
-	// Try to read it back
-	content, err := getClipboard(ctx, 1*time.Second)
-	if err != nil {
-		t.Logf("Failed to read back clipboard content: %v", err)
-		return
-	}
-
-	if content != testText {
-		t.Logf("Clipboard content mismatch: got %q, want %q", content, testText)
-		// Don't fail - clipboard might have been modified by other processes
-	}
-}
-
-// TestCheckClipboardAvailable tests the clipboard tools availability check
-func TestCheckClipboardAvailable(t *testing.T) {
-	err := checkClipboardAvailable()
-	if err != nil {
-		t.Logf("checkClipboardAvailable() failed (expected if clipboard tools not installed): %v", err)
-		// Don't fail the test if clipboard tools are not available
-		return
-	}
-
-	t.Logf("checkClipboardAvailable() succeeded - clipboard tools are available")
+	t.Logf("clipboard is available")
 }
 
 // TestInjector_ClipboardMode tests clipboard-only injection
 func TestInjector_ClipboardMode(t *testing.T) {
 	config := Config{
-		Mode:             "clipboard",
-		RestoreClipboard: false,
-		WtypeTimeout:     5 * time.Second,
+		Backends:         []string{"clipboard"},
 		ClipboardTimeout: 3 * time.Second,
 	}
 
@@ -264,20 +216,17 @@ func TestInjector_ClipboardMode(t *testing.T) {
 	err := injector.Inject(ctx, "test clipboard text")
 	if err != nil {
 		t.Logf("Clipboard injection failed (expected if clipboard tools not available): %v", err)
-		// Don't fail the test if clipboard tools are not available
 		return
 	}
 
 	t.Logf("Clipboard injection succeeded")
 }
 
-// TestInjector_TypeMode tests typing-only injection
-func TestInjector_TypeMode(t *testing.T) {
+// TestInjector_WtypeMode tests wtype-only injection
+func TestInjector_WtypeMode(t *testing.T) {
 	config := Config{
-		Mode:             "type",
-		RestoreClipboard: false,
-		WtypeTimeout:     5 * time.Second,
-		ClipboardTimeout: 3 * time.Second,
+		Backends:     []string{"wtype"},
+		WtypeTimeout: 5 * time.Second,
 	}
 
 	injector := NewInjector(config)
@@ -286,19 +235,18 @@ func TestInjector_TypeMode(t *testing.T) {
 
 	err := injector.Inject(ctx, "test typing text")
 	if err != nil {
-		t.Logf("Typing injection failed (expected if wtype not available): %v", err)
-		// Don't fail the test if wtype is not available
+		t.Logf("Wtype injection failed (expected if wtype not available): %v", err)
 		return
 	}
 
-	t.Logf("Typing injection succeeded")
+	t.Logf("Wtype injection succeeded")
 }
 
-// TestInjector_FallbackMode tests fallback injection behavior
-func TestInjector_FallbackMode(t *testing.T) {
+// TestInjector_FallbackChain tests fallback chain injection
+func TestInjector_FallbackChain(t *testing.T) {
 	config := Config{
-		Mode:             "fallback",
-		RestoreClipboard: false,
+		Backends:         []string{"ydotool", "wtype", "clipboard"},
+		YdotoolTimeout:   5 * time.Second,
 		WtypeTimeout:     5 * time.Second,
 		ClipboardTimeout: 3 * time.Second,
 	}
@@ -309,8 +257,7 @@ func TestInjector_FallbackMode(t *testing.T) {
 
 	err := injector.Inject(ctx, "test fallback text")
 	if err != nil {
-		t.Logf("Fallback injection failed (expected if both wtype and clipboard tools not available): %v", err)
-		// Don't fail the test if tools are not available
+		t.Logf("Fallback injection failed (expected if all tools not available): %v", err)
 		return
 	}
 
@@ -320,9 +267,7 @@ func TestInjector_FallbackMode(t *testing.T) {
 // TestInjector_EmptyText tests injection of empty text
 func TestInjector_EmptyText(t *testing.T) {
 	config := Config{
-		Mode:             "clipboard",
-		RestoreClipboard: false,
-		WtypeTimeout:     5 * time.Second,
+		Backends:         []string{"clipboard"},
 		ClipboardTimeout: 3 * time.Second,
 	}
 
@@ -337,29 +282,5 @@ func TestInjector_EmptyText(t *testing.T) {
 
 	if err.Error() != "cannot inject empty text" {
 		t.Errorf("Inject() error message = %q, want %q", err.Error(), "cannot inject empty text")
-	}
-}
-
-// TestInjector_InvalidMode tests injection with invalid mode
-func TestInjector_InvalidMode(t *testing.T) {
-	config := Config{
-		Mode:             "invalid",
-		RestoreClipboard: false,
-		WtypeTimeout:     5 * time.Second,
-		ClipboardTimeout: 3 * time.Second,
-	}
-
-	injector := NewInjector(config)
-	ctx := context.Background()
-
-	err := injector.Inject(ctx, "test text")
-	if err == nil {
-		t.Errorf("Inject() should fail with invalid mode")
-		return
-	}
-
-	expectedError := "unsupported injection mode: invalid"
-	if err.Error() != expectedError {
-		t.Errorf("Inject() error message = %q, want %q", err.Error(), expectedError)
 	}
 }

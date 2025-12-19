@@ -18,6 +18,7 @@ depends=(
 optdepends=(
     'hyprland: For Hyprland window manager integration'
     'sway: For Sway window manager integration'
+    'ydotool: Alternative text injection backend (recommended for Chromium apps)'
 )
 provides=('hyprvoice')
 conflicts=('hyprvoice')

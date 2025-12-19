@@ -26,8 +26,7 @@ func createTestConfig() *Config {
 			Model:    "whisper-1",
 		},
 		Injection: InjectionConfig{
-			Mode:             "fallback",
-			RestoreClipboard: true,
+			Backends: []string{"ydotool", "wtype", "clipboard"}, YdotoolTimeout: 5 * time.Second,
 			WtypeTimeout:     5 * time.Second,
 			ClipboardTimeout: 3 * time.Second,
 		},
@@ -55,9 +54,9 @@ func createTestConfigWithInvalidValues() *Config {
 			Model:    "", // Invalid
 		},
 		Injection: InjectionConfig{
-			Mode:             "invalid", // Invalid
-			WtypeTimeout:     0,         // Invalid
-			ClipboardTimeout: 0,         // Invalid
+			Backends: []string{"invalid"}, YdotoolTimeout: 5 * time.Second, // Invalid
+			WtypeTimeout:     0, // Invalid
+			ClipboardTimeout: 0, // Invalid
 		},
 		Notifications: NotificationsConfig{
 			Type: "invalid", // Invalid
@@ -98,7 +97,7 @@ func TestConfig_Validate(t *testing.T) {
 					Model:    "whisper-1",
 				},
 				Injection: InjectionConfig{
-					Mode:             "fallback",
+					Backends: []string{"ydotool", "wtype", "clipboard"}, YdotoolTimeout: 5 * time.Second,
 					WtypeTimeout:     time.Second,
 					ClipboardTimeout: time.Second,
 				},
@@ -125,7 +124,7 @@ func TestConfig_Validate(t *testing.T) {
 					Model:    "whisper-1",
 				},
 				Injection: InjectionConfig{
-					Mode:             "fallback",
+					Backends: []string{"ydotool", "wtype", "clipboard"}, YdotoolTimeout: 5 * time.Second,
 					WtypeTimeout:     time.Second,
 					ClipboardTimeout: time.Second,
 				},
@@ -152,7 +151,7 @@ func TestConfig_Validate(t *testing.T) {
 					Model:    "whisper-1",
 				},
 				Injection: InjectionConfig{
-					Mode:             "invalid",
+					Backends: []string{"invalid"}, YdotoolTimeout: 5 * time.Second,
 					WtypeTimeout:     time.Second,
 					ClipboardTimeout: time.Second,
 				},
@@ -179,7 +178,7 @@ func TestConfig_Validate(t *testing.T) {
 					Model:    "whisper-1",
 				},
 				Injection: InjectionConfig{
-					Mode:             "fallback",
+					Backends: []string{"ydotool", "wtype", "clipboard"}, YdotoolTimeout: 5 * time.Second,
 					WtypeTimeout:     time.Second,
 					ClipboardTimeout: time.Second,
 				},
@@ -207,7 +206,7 @@ func TestConfig_Validate(t *testing.T) {
 					Model:    "whisper-1",
 				},
 				Injection: InjectionConfig{
-					Mode:             "fallback",
+					Backends: []string{"ydotool", "wtype", "clipboard"}, YdotoolTimeout: 5 * time.Second,
 					WtypeTimeout:     time.Second,
 					ClipboardTimeout: time.Second,
 				},
@@ -235,7 +234,7 @@ func TestConfig_Validate(t *testing.T) {
 					Model:    "whisper-1",
 				},
 				Injection: InjectionConfig{
-					Mode:             "fallback",
+					Backends: []string{"ydotool", "wtype", "clipboard"}, YdotoolTimeout: 5 * time.Second,
 					WtypeTimeout:     time.Second,
 					ClipboardTimeout: time.Second,
 				},
@@ -321,7 +320,8 @@ api_key = "test-key"
 model = "whisper-1"
 
 [injection]
-mode = "fallback"
+backends = ["ydotool", "wtype", "clipboard"]
+ydotool_timeout = "5s"
 wtype_timeout = "5s"
 clipboard_timeout = "3s"
 
@@ -361,6 +361,205 @@ type = "log"`
 		}
 		if config.Transcription.Provider != "openai" {
 			t.Errorf("Expected Provider 'openai', got %s", config.Transcription.Provider)
+		}
+	})
+
+	// Test migration from legacy mode config
+	t.Run("migrates legacy mode=fallback to backends", func(t *testing.T) {
+		tempDir := t.TempDir()
+		configPath := filepath.Join(tempDir, "hyprvoice", "config.toml")
+
+		err := os.MkdirAll(filepath.Dir(configPath), 0755)
+		if err != nil {
+			t.Fatalf("Failed to create config directory: %v", err)
+		}
+
+		legacyConfig := `[recording]
+sample_rate = 16000
+channels = 1
+format = "s16"
+buffer_size = 8192
+channel_buffer_size = 30
+timeout = "5m"
+
+[transcription]
+provider = "openai"
+api_key = "test-key"
+model = "whisper-1"
+
+[injection]
+mode = "fallback"
+wtype_timeout = "5s"
+clipboard_timeout = "3s"
+
+[notifications]
+enabled = true
+type = "log"`
+
+		err = os.WriteFile(configPath, []byte(legacyConfig), 0644)
+		if err != nil {
+			t.Fatalf("Failed to create config file: %v", err)
+		}
+
+		originalConfigDir := os.Getenv("XDG_CONFIG_HOME")
+		os.Setenv("XDG_CONFIG_HOME", tempDir)
+		defer func() {
+			if originalConfigDir == "" {
+				os.Unsetenv("XDG_CONFIG_HOME")
+			} else {
+				os.Setenv("XDG_CONFIG_HOME", originalConfigDir)
+			}
+		}()
+
+		config, err := Load()
+		if err != nil {
+			t.Errorf("Load() error = %v", err)
+			return
+		}
+
+		// Should have migrated to backends
+		expectedBackends := []string{"wtype", "clipboard"}
+		if len(config.Injection.Backends) != len(expectedBackends) {
+			t.Errorf("Expected %d backends, got %d", len(expectedBackends), len(config.Injection.Backends))
+		}
+		for i, b := range expectedBackends {
+			if i < len(config.Injection.Backends) && config.Injection.Backends[i] != b {
+				t.Errorf("Expected backend[%d]=%s, got %s", i, b, config.Injection.Backends[i])
+			}
+		}
+
+		// Should have set default ydotool timeout
+		if config.Injection.YdotoolTimeout != 5*time.Second {
+			t.Errorf("Expected YdotoolTimeout=5s, got %v", config.Injection.YdotoolTimeout)
+		}
+
+		// Verify it passes validation
+		if err := config.Validate(); err != nil {
+			t.Errorf("Migrated config is invalid: %v", err)
+		}
+	})
+
+	t.Run("migrates legacy mode=clipboard to backends", func(t *testing.T) {
+		tempDir := t.TempDir()
+		configPath := filepath.Join(tempDir, "hyprvoice", "config.toml")
+
+		err := os.MkdirAll(filepath.Dir(configPath), 0755)
+		if err != nil {
+			t.Fatalf("Failed to create config directory: %v", err)
+		}
+
+		legacyConfig := `[recording]
+sample_rate = 16000
+channels = 1
+format = "s16"
+buffer_size = 8192
+channel_buffer_size = 30
+timeout = "5m"
+
+[transcription]
+provider = "openai"
+api_key = "test-key"
+model = "whisper-1"
+
+[injection]
+mode = "clipboard"
+wtype_timeout = "5s"
+clipboard_timeout = "3s"
+
+[notifications]
+enabled = true
+type = "log"`
+
+		err = os.WriteFile(configPath, []byte(legacyConfig), 0644)
+		if err != nil {
+			t.Fatalf("Failed to create config file: %v", err)
+		}
+
+		originalConfigDir := os.Getenv("XDG_CONFIG_HOME")
+		os.Setenv("XDG_CONFIG_HOME", tempDir)
+		defer func() {
+			if originalConfigDir == "" {
+				os.Unsetenv("XDG_CONFIG_HOME")
+			} else {
+				os.Setenv("XDG_CONFIG_HOME", originalConfigDir)
+			}
+		}()
+
+		config, err := Load()
+		if err != nil {
+			t.Errorf("Load() error = %v", err)
+			return
+		}
+
+		expectedBackends := []string{"clipboard"}
+		if len(config.Injection.Backends) != len(expectedBackends) {
+			t.Errorf("Expected %d backends, got %d", len(expectedBackends), len(config.Injection.Backends))
+		}
+
+		if err := config.Validate(); err != nil {
+			t.Errorf("Migrated config is invalid: %v", err)
+		}
+	})
+
+	t.Run("migrates legacy mode=type to backends", func(t *testing.T) {
+		tempDir := t.TempDir()
+		configPath := filepath.Join(tempDir, "hyprvoice", "config.toml")
+
+		err := os.MkdirAll(filepath.Dir(configPath), 0755)
+		if err != nil {
+			t.Fatalf("Failed to create config directory: %v", err)
+		}
+
+		legacyConfig := `[recording]
+sample_rate = 16000
+channels = 1
+format = "s16"
+buffer_size = 8192
+channel_buffer_size = 30
+timeout = "5m"
+
+[transcription]
+provider = "openai"
+api_key = "test-key"
+model = "whisper-1"
+
+[injection]
+mode = "type"
+wtype_timeout = "5s"
+clipboard_timeout = "3s"
+
+[notifications]
+enabled = true
+type = "log"`
+
+		err = os.WriteFile(configPath, []byte(legacyConfig), 0644)
+		if err != nil {
+			t.Fatalf("Failed to create config file: %v", err)
+		}
+
+		originalConfigDir := os.Getenv("XDG_CONFIG_HOME")
+		os.Setenv("XDG_CONFIG_HOME", tempDir)
+		defer func() {
+			if originalConfigDir == "" {
+				os.Unsetenv("XDG_CONFIG_HOME")
+			} else {
+				os.Setenv("XDG_CONFIG_HOME", originalConfigDir)
+			}
+		}()
+
+		config, err := Load()
+		if err != nil {
+			t.Errorf("Load() error = %v", err)
+			return
+		}
+
+		expectedBackends := []string{"wtype"}
+		if len(config.Injection.Backends) != len(expectedBackends) {
+			t.Errorf("Expected %d backends, got %d", len(expectedBackends), len(config.Injection.Backends))
+		}
+
+		if err := config.Validate(); err != nil {
+			t.Errorf("Migrated config is invalid: %v", err)
 		}
 	})
 }
@@ -460,11 +659,11 @@ func TestConfig_ConversionMethods(t *testing.T) {
 	t.Run("ToInjectionConfig", func(t *testing.T) {
 		injectionConfig := config.ToInjectionConfig()
 
-		if injectionConfig.Mode != config.Injection.Mode {
-			t.Errorf("Mode mismatch: got %s, want %s", injectionConfig.Mode, config.Injection.Mode)
+		if len(injectionConfig.Backends) != len(config.Injection.Backends) {
+			t.Errorf("Backends length mismatch: got %d, want %d", len(injectionConfig.Backends), len(config.Injection.Backends))
 		}
-		if injectionConfig.RestoreClipboard != config.Injection.RestoreClipboard {
-			t.Errorf("RestoreClipboard mismatch: got %t, want %t", injectionConfig.RestoreClipboard, config.Injection.RestoreClipboard)
+		if injectionConfig.YdotoolTimeout != config.Injection.YdotoolTimeout {
+			t.Errorf("YdotoolTimeout mismatch: got %v, want %v", injectionConfig.YdotoolTimeout, config.Injection.YdotoolTimeout)
 		}
 		if injectionConfig.WtypeTimeout != config.Injection.WtypeTimeout {
 			t.Errorf("WtypeTimeout mismatch: got %v, want %v", injectionConfig.WtypeTimeout, config.Injection.WtypeTimeout)
@@ -630,7 +829,7 @@ func TestConfig_Validate_OpenAI_WithoutAPIKey(t *testing.T) {
 			Model:    "whisper-1",
 		},
 		Injection: InjectionConfig{
-			Mode:             "fallback",
+			Backends: []string{"ydotool", "wtype", "clipboard"}, YdotoolTimeout: 5 * time.Second,
 			WtypeTimeout:     time.Second,
 			ClipboardTimeout: time.Second,
 		},
@@ -670,7 +869,7 @@ func TestConfig_Validate_OpenAI_WithEnvVarAPIKey(t *testing.T) {
 			Model:    "whisper-1",
 		},
 		Injection: InjectionConfig{
-			Mode:             "fallback",
+			Backends: []string{"ydotool", "wtype", "clipboard"}, YdotoolTimeout: 5 * time.Second,
 			WtypeTimeout:     time.Second,
 			ClipboardTimeout: time.Second,
 		},
@@ -712,7 +911,7 @@ func TestConfig_Validate_RecordingTimeout(t *testing.T) {
 			Model:    "whisper-1",
 		},
 		Injection: InjectionConfig{
-			Mode:             "fallback",
+			Backends: []string{"ydotool", "wtype", "clipboard"}, YdotoolTimeout: 5 * time.Second,
 			WtypeTimeout:     time.Second,
 			ClipboardTimeout: time.Second,
 		},
@@ -743,7 +942,7 @@ func TestConfig_Validate_InjectionTimeouts(t *testing.T) {
 			Model:    "whisper-1",
 		},
 		Injection: InjectionConfig{
-			Mode:             "fallback",
+			Backends: []string{"ydotool", "wtype", "clipboard"}, YdotoolTimeout: 5 * time.Second,
 			WtypeTimeout:     0, // Invalid timeout
 			ClipboardTimeout: 0, // Invalid timeout
 		},
@@ -774,7 +973,7 @@ func TestConfig_Validate_RecordingBufferSizes(t *testing.T) {
 			Model:    "whisper-1",
 		},
 		Injection: InjectionConfig{
-			Mode:             "fallback",
+			Backends: []string{"ydotool", "wtype", "clipboard"}, YdotoolTimeout: 5 * time.Second,
 			WtypeTimeout:     time.Second,
 			ClipboardTimeout: time.Second,
 		},
@@ -806,7 +1005,7 @@ func TestConfig_Validate_GroqTranscription(t *testing.T) {
 			Model:    "whisper-large-v3",
 		},
 		Injection: InjectionConfig{
-			Mode:             "fallback",
+			Backends: []string{"ydotool", "wtype", "clipboard"}, YdotoolTimeout: 5 * time.Second,
 			WtypeTimeout:     time.Second,
 			ClipboardTimeout: time.Second,
 		},
@@ -838,7 +1037,7 @@ func TestConfig_Validate_GroqTranslation(t *testing.T) {
 			Model:    "whisper-large-v3", // Translation only supports non-turbo
 		},
 		Injection: InjectionConfig{
-			Mode:             "fallback",
+			Backends: []string{"ydotool", "wtype", "clipboard"}, YdotoolTimeout: 5 * time.Second,
 			WtypeTimeout:     time.Second,
 			ClipboardTimeout: time.Second,
 		},
@@ -870,7 +1069,7 @@ func TestConfig_Validate_GroqInvalidModel(t *testing.T) {
 			Model:    "invalid-model",
 		},
 		Injection: InjectionConfig{
-			Mode:             "fallback",
+			Backends: []string{"ydotool", "wtype", "clipboard"}, YdotoolTimeout: 5 * time.Second,
 			WtypeTimeout:     time.Second,
 			ClipboardTimeout: time.Second,
 		},
@@ -901,7 +1100,7 @@ func TestConfig_Validate_GroqWithoutAPIKey(t *testing.T) {
 			Model:    "whisper-large-v3",
 		},
 		Injection: InjectionConfig{
-			Mode:             "fallback",
+			Backends: []string{"ydotool", "wtype", "clipboard"}, YdotoolTimeout: 5 * time.Second,
 			WtypeTimeout:     time.Second,
 			ClipboardTimeout: time.Second,
 		},
@@ -941,7 +1140,7 @@ func TestConfig_Validate_GroqWithEnvVarAPIKey(t *testing.T) {
 			Model:    "whisper-large-v3",
 		},
 		Injection: InjectionConfig{
-			Mode:             "fallback",
+			Backends: []string{"ydotool", "wtype", "clipboard"}, YdotoolTimeout: 5 * time.Second,
 			WtypeTimeout:     time.Second,
 			ClipboardTimeout: time.Second,
 		},
@@ -1012,7 +1211,7 @@ func TestConfig_Validate_GroqTranslation_RejectsTurbo(t *testing.T) {
 			Model:    "whisper-large-v3-turbo", // Turbo not supported for translation
 		},
 		Injection: InjectionConfig{
-			Mode:             "fallback",
+			Backends: []string{"ydotool", "wtype", "clipboard"}, YdotoolTimeout: 5 * time.Second,
 			WtypeTimeout:     time.Second,
 			ClipboardTimeout: time.Second,
 		},

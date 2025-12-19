@@ -68,7 +68,8 @@ export PATH="$HOME/.local/bin:$PATH"
 
 - `pipewire`, `pipewire-pulse`, `pipewire-audio` - Audio capture
 - `wl-clipboard` - Clipboard integration
-- `wtype` - Text typing
+- `wtype` - Text typing (Wayland)
+- `ydotool` - Text typing (universal, recommended for Chromium apps)
 - `libnotify` - Desktop notifications
 - `systemd` - User service management
 
@@ -76,10 +77,15 @@ For manual installation on other distros:
 
 ```bash
 # Ubuntu/Debian
-sudo apt install pipewire-pulse pipewire-bin wl-clipboard wtype libnotify-bin
+sudo apt install pipewire-pulse pipewire-bin wl-clipboard wtype ydotool libnotify-bin
 
 # Fedora
-sudo dnf install pipewire-utils wl-clipboard wtype libnotify
+sudo dnf install pipewire-utils wl-clipboard wtype ydotool libnotify
+
+# For ydotool, you also need to start the daemon:
+systemctl --user enable --now ydotool
+# Or add user to input group for uinput access:
+sudo usermod -aG input $USER
 ```
 
 ## Quick Start
@@ -297,9 +303,9 @@ The daemon automatically creates `~/.config/hyprvoice/config.toml` with helpful 
 
 # Text Injection Configuration
 [injection]
-  mode = "fallback"            # Injection method ("clipboard", "type", "fallback")
-  restore_clipboard = true     # Restore original clipboard after injection
-  wtype_timeout = "5s"         # Timeout for direct typing via wtype
+  backends = ["ydotool", "wtype", "clipboard"]  # Ordered fallback chain
+  ydotool_timeout = "5s"       # Timeout for ydotool commands
+  wtype_timeout = "5s"         # Timeout for wtype commands
   clipboard_timeout = "3s"     # Timeout for clipboard operations
 
 # Desktop Notification Configuration
@@ -343,26 +349,62 @@ timeout = "5m"             # Maximum recording duration (prevents runaway record
 
 #### Text Injection
 
-Configurable text injection with multiple modes:
+Configurable text injection with multiple backends:
 
 ```toml
 [injection]
-mode = "fallback"  # "clipboard", "type", or "fallback"
-restore_clipboard = true
+backends = ["ydotool", "wtype", "clipboard"]  # Ordered fallback chain
+ydotool_timeout = "5s"
 wtype_timeout = "5s"
 clipboard_timeout = "3s"
 ```
 
-**Injection Modes:**
+**Injection Backends:**
 
-- **`fallback`** (default): Try direct typing first, fallback to clipboard
-- **`type`**: Direct typing using wtype only
-- **`clipboard`**: Copy to clipboard only
+- **`ydotool`**: Uses ydotool (requires `ydotoold` daemon). Most compatible with Chromium/Electron apps.
+- **`wtype`**: Uses wtype for Wayland. May have issues with some Chromium-based apps (known upstream bug).
+- **`clipboard`**: Copies text to clipboard only. Most reliable, but requires manual paste.
+
+**Fallback Chain:**
+
+Backends are tried in order. The first successful one wins. Example configurations:
+
+```toml
+# Clipboard only (safest, always works)
+backends = ["clipboard"]
+
+# wtype with clipboard fallback
+backends = ["wtype", "clipboard"]
+
+# Full fallback chain (default) - best compatibility
+backends = ["ydotool", "wtype", "clipboard"]
+
+# ydotool only (if you have it set up)
+backends = ["ydotool"]
+```
+
+**ydotool Setup:**
+
+ydotool requires the `ydotoold` daemon running and access to `/dev/uinput`:
+
+```bash
+# Start ydotool daemon (systemd)
+systemctl --user enable --now ydotool
+
+# Or add user to input group
+sudo usermod -aG input $USER
+# Then logout/login
+
+# For Hyprland, add to config to set correct keyboard layout:
+# device:ydotoold-virtual-device {
+#     kb_layout = us
+# }
+```
 
 **Behavior:**
 
-- `restore_clipboard = true`: Save and restore original clipboard content
-- Smart fallback ensures text injection always succeeds when possible
+- Backends are tried in order until one succeeds
+- Include `clipboard` in the chain if you want text copied to clipboard as fallback
 
 #### Notifications
 
