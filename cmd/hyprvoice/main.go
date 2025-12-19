@@ -159,13 +159,19 @@ func runInteractiveConfig() error {
 	fmt.Println("------------------------------")
 
 	// Provider selection
-	fmt.Println("Select transcription provider:")
-	fmt.Println("  1. openai            - OpenAI Whisper API (cloud-based)")
-	fmt.Println("  2. groq-transcription - Groq Whisper API (fast transcription)")
-	fmt.Println("  3. groq-translation   - Groq Whisper API (translate to English)")
-	fmt.Printf("Provider [1-3] (current: %s): ", cfg.Transcription.Provider)
-	if scanner.Scan() {
+	for {
+		fmt.Println("Select transcription provider:")
+		fmt.Println("  1. openai            - OpenAI Whisper API (cloud-based)")
+		fmt.Println("  2. groq-transcription - Groq Whisper API (fast transcription)")
+		fmt.Println("  3. groq-translation   - Groq Whisper API (translate to English)")
+		fmt.Printf("Provider [1-3] (current: %s): ", cfg.Transcription.Provider)
+		if !scanner.Scan() {
+			break
+		}
 		input := strings.TrimSpace(scanner.Text())
+		if input == "" {
+			break // keep current
+		}
 		switch input {
 		case "1":
 			cfg.Transcription.Provider = "openai"
@@ -175,7 +181,12 @@ func runInteractiveConfig() error {
 			cfg.Transcription.Provider = "groq-translation"
 		case "openai", "groq-transcription", "groq-translation":
 			cfg.Transcription.Provider = input
+		default:
+			fmt.Println("❌ Error: invalid provider. Please enter 1, 2, 3 or provider name.")
+			fmt.Println()
+			continue
 		}
+		break
 	}
 
 	// Model selection based on provider
@@ -192,11 +203,14 @@ func runInteractiveConfig() error {
 			}
 		}
 	case "groq-transcription":
-		fmt.Println("\nGroq Transcription Model:")
-		fmt.Println("  1. whisper-large-v3       - Standard model")
-		fmt.Println("  2. whisper-large-v3-turbo - Faster model")
-		fmt.Printf("Model [1-2] (current: %s): ", cfg.Transcription.Model)
-		if scanner.Scan() {
+		for {
+			fmt.Println("\nGroq Transcription Model:")
+			fmt.Println("  1. whisper-large-v3       - Standard model")
+			fmt.Println("  2. whisper-large-v3-turbo - Faster model")
+			fmt.Printf("Model [1-2] (current: %s): ", cfg.Transcription.Model)
+			if !scanner.Scan() {
+				break
+			}
 			input := strings.TrimSpace(scanner.Text())
 			switch input {
 			case "1":
@@ -209,20 +223,26 @@ func runInteractiveConfig() error {
 				if cfg.Transcription.Model == "" {
 					cfg.Transcription.Model = "whisper-large-v3-turbo"
 				}
+			default:
+				fmt.Println("❌ Error: invalid model. Please enter 1, 2 or model name.")
+				continue
 			}
+			break
 		}
 	case "groq-translation":
-		fmt.Println("\nGroq Translation Model:")
-		fmt.Println("  Note: Translation only supports whisper-large-v3 (turbo not available)")
-		fmt.Printf("Model (current: %s, press Enter for whisper-large-v3): ", cfg.Transcription.Model)
-		if scanner.Scan() {
+		for {
+			fmt.Println("\nGroq Translation Model:")
+			fmt.Println("  Note: Translation only supports whisper-large-v3 (turbo not available)")
+			fmt.Printf("Model (current: %s, press Enter for whisper-large-v3): ", cfg.Transcription.Model)
+			if !scanner.Scan() {
+				break
+			}
 			input := strings.TrimSpace(scanner.Text())
 			if input == "" || input == "whisper-large-v3" || input == "1" {
 				cfg.Transcription.Model = "whisper-large-v3"
-			} else {
-				fmt.Println("  Warning: Only whisper-large-v3 is supported for translation. Using whisper-large-v3.")
-				cfg.Transcription.Model = "whisper-large-v3"
+				break
 			}
+			fmt.Println("❌ Error: only whisper-large-v3 is supported for translation.")
 		}
 	}
 
@@ -256,40 +276,54 @@ func runInteractiveConfig() error {
 	fmt.Println()
 
 	// Configure injection
-	fmt.Println("⌨️  Text Injection Configuration")
-	fmt.Println("--------------------------------")
-	fmt.Println("Backends are tried in order until one succeeds (fallback chain):")
-	fmt.Println("  - ydotool:   Best for Chromium/Electron apps (requires ydotoold daemon)")
-	fmt.Println("  - wtype:     Native Wayland typing (may fail on some Chromium apps)")
-	fmt.Println("  - clipboard: Copies to clipboard only (most reliable, needs manual paste)")
-	fmt.Println()
-	fmt.Println("Recommended: ydotool,wtype,clipboard (full fallback chain)")
-	fmt.Println()
-	fmt.Printf("Backends (comma-separated) (current: %s): ", strings.Join(cfg.Injection.Backends, ","))
-	if scanner.Scan() {
+	for {
+		fmt.Println("⌨️  Text Injection Configuration")
+		fmt.Println("--------------------------------")
+		fmt.Println("Backends are tried in order until one succeeds (fallback chain):")
+		fmt.Println("  - ydotool:   Best for Chromium/Electron apps (requires ydotoold daemon)")
+		fmt.Println("  - wtype:     Native Wayland typing (may fail on some Chromium apps)")
+		fmt.Println("  - clipboard: Copies to clipboard only (most reliable, needs manual paste)")
+		fmt.Println()
+		fmt.Println("Recommended: ydotool,wtype,clipboard (full fallback chain)")
+		fmt.Println()
+		fmt.Printf("Backends (comma-separated) (current: %s): ", strings.Join(cfg.Injection.Backends, ","))
+		if !scanner.Scan() {
+			break
+		}
 		input := strings.TrimSpace(scanner.Text())
-		if input != "" {
-			backends := strings.Split(input, ",")
-			validBackends := make([]string, 0)
-			for _, b := range backends {
-				b = strings.TrimSpace(b)
-				if b == "ydotool" || b == "wtype" || b == "clipboard" {
-					validBackends = append(validBackends, b)
-				}
-			}
-			if len(validBackends) > 0 {
-				cfg.Injection.Backends = validBackends
+		if input == "" {
+			break // keep current
+		}
+		backends := strings.Split(input, ",")
+		validBackends := make([]string, 0)
+		invalidBackends := make([]string, 0)
+		for _, b := range backends {
+			b = strings.TrimSpace(b)
+			if b == "ydotool" || b == "wtype" || b == "clipboard" {
+				validBackends = append(validBackends, b)
+			} else if b != "" {
+				invalidBackends = append(invalidBackends, b)
 			}
 		}
+		if len(invalidBackends) > 0 {
+			fmt.Printf("❌ Error: invalid backend(s): %s. Valid: ydotool, wtype, clipboard.\n", strings.Join(invalidBackends, ", "))
+			fmt.Println()
+			continue
+		}
+		if len(validBackends) == 0 {
+			fmt.Println("❌ Error: at least one backend required.")
+			fmt.Println()
+			continue
+		}
+		cfg.Injection.Backends = validBackends
+		break
 	}
 
 	// Check if ydotool is selected and warn about daemon requirement
 	for _, b := range cfg.Injection.Backends {
 		if b == "ydotool" {
 			fmt.Println()
-			fmt.Println("⚠️  ydotool requires the ydotoold daemon to be running!")
-			fmt.Println("   Start it with: systemctl --user enable --now ydotool")
-			fmt.Println("   Or ensure your user has access to /dev/uinput (input group)")
+			fmt.Println("⚠️  ydotool requires the ydotoold daemon to be running! make sure it works")
 			fmt.Println()
 			break
 		}
@@ -298,31 +332,51 @@ func runInteractiveConfig() error {
 	fmt.Println()
 
 	// Configure notifications
-	fmt.Println("🔔 Notification Configuration")
-	fmt.Println("-----------------------------")
-	fmt.Printf("Enable notifications [y/n] (current: %v): ", cfg.Notifications.Enabled)
-	if scanner.Scan() {
-		switch strings.TrimSpace(strings.ToLower(scanner.Text())) {
+	for {
+		fmt.Println("🔔 Notification Configuration")
+		fmt.Println("-----------------------------")
+		fmt.Printf("Enable notifications [y/n] (current: %v): ", cfg.Notifications.Enabled)
+		if !scanner.Scan() {
+			break
+		}
+		input := strings.TrimSpace(strings.ToLower(scanner.Text()))
+		switch input {
 		case "y", "yes":
 			cfg.Notifications.Enabled = true
 		case "n", "no":
 			cfg.Notifications.Enabled = false
+		case "":
+			// keep current
+		default:
+			fmt.Println("❌ Error: please enter y or n.")
+			fmt.Println()
+			continue
 		}
+		break
 	}
 
 	fmt.Println()
 
 	// Configure recording timeout
-	fmt.Println("⏱️  Recording Configuration")
-	fmt.Println("---------------------------")
-	fmt.Printf("Recording timeout in minutes (current: %.0f): ", cfg.Recording.Timeout.Minutes())
-	if scanner.Scan() {
-		input := strings.TrimSpace(scanner.Text())
-		if input != "" {
-			if minutes, err := strconv.Atoi(input); err == nil && minutes > 0 {
-				cfg.Recording.Timeout = time.Duration(minutes) * time.Minute
-			}
+	for {
+		fmt.Println("⏱️  Recording Configuration")
+		fmt.Println("---------------------------")
+		fmt.Printf("Recording timeout in minutes (current: %.0f): ", cfg.Recording.Timeout.Minutes())
+		if !scanner.Scan() {
+			break
 		}
+		input := strings.TrimSpace(scanner.Text())
+		if input == "" {
+			break // keep current
+		}
+		minutes, err := strconv.Atoi(input)
+		if err != nil || minutes <= 0 {
+			fmt.Println("❌ Error: please enter a positive number.")
+			fmt.Println()
+			continue
+		}
+		cfg.Recording.Timeout = time.Duration(minutes) * time.Minute
+		break
 	}
 
 	fmt.Println()
@@ -362,7 +416,7 @@ func runInteractiveConfig() error {
 	fmt.Println("🚀 Next Steps:")
 	step := 1
 	if hasYdotool {
-		fmt.Printf("%d. Ensure ydotoold is running: systemctl --user enable --now ydotool\n", step)
+		fmt.Printf("%d. Ensure ydotoold is running\n", step)
 		step++
 	}
 	if !serviceRunning {
