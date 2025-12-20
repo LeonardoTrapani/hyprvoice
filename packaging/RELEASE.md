@@ -28,7 +28,7 @@ git push origin v0.1.0
 
 ```bash
 cd packaging/
-./update-aur.sh 0.1.0
+./update-aur.sh v0.1.0
 ```
 
 That's it! The script handles everything:
