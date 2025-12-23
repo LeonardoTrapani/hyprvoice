@@ -45,8 +45,71 @@ type InjectionConfig struct {
 }
 
 type NotificationsConfig struct {
-	Enabled bool   `toml:"enabled"`
-	Type    string `toml:"type"` // "desktop", "log", "none"
+	Enabled  bool           `toml:"enabled"`
+	Type     string         `toml:"type"` // "desktop", "log", "none"
+	Messages MessagesConfig `toml:"messages"`
+}
+
+type MessageConfig struct {
+	Title string `toml:"title"`
+	Body  string `toml:"body"`
+}
+
+type MessagesConfig struct {
+	RecordingStarted   MessageConfig `toml:"recording_started"`
+	Transcribing       MessageConfig `toml:"transcribing"`
+	ConfigReloaded     MessageConfig `toml:"config_reloaded"`
+	OperationCancelled MessageConfig `toml:"operation_cancelled"`
+	RecordingAborted   MessageConfig `toml:"recording_aborted"`
+	InjectionAborted   MessageConfig `toml:"injection_aborted"`
+}
+
+func (c *Config) GetRecordingStarted() (title, body string) {
+	m := c.Notifications.Messages.RecordingStarted
+	if m.Title == "" && m.Body == "" {
+		return "Hyprvoice", "Recording Started"
+	}
+	return m.Title, m.Body
+}
+
+func (c *Config) GetTranscribing() (title, body string) {
+	m := c.Notifications.Messages.Transcribing
+	if m.Title == "" && m.Body == "" {
+		return "Hyprvoice", "Recording Ended... Transcribing"
+	}
+	return m.Title, m.Body
+}
+
+func (c *Config) GetConfigReloaded() (title, body string) {
+	m := c.Notifications.Messages.ConfigReloaded
+	if m.Title == "" && m.Body == "" {
+		return "Hyprvoice", "Config Reloaded"
+	}
+	return m.Title, m.Body
+}
+
+func (c *Config) GetOperationCancelled() (title, body string) {
+	m := c.Notifications.Messages.OperationCancelled
+	if m.Title == "" && m.Body == "" {
+		return "Hyprvoice", "Operation Cancelled"
+	}
+	return m.Title, m.Body
+}
+
+func (c *Config) GetRecordingAborted() string {
+	m := c.Notifications.Messages.RecordingAborted
+	if m.Body == "" {
+		return "Recording Aborted"
+	}
+	return m.Body
+}
+
+func (c *Config) GetInjectionAborted() string {
+	m := c.Notifications.Messages.InjectionAborted
+	if m.Body == "" {
+		return "Injection Aborted"
+	}
+	return m.Body
 }
 
 func (c *Config) ToRecordingConfig() recording.Config {
@@ -357,6 +420,37 @@ func SaveDefaultConfig() error {
 [notifications]
   enabled = true               # Enable desktop notifications
   type = "desktop"             # Notification type ("desktop", "log", "none")
+
+  # Custom notification messages (optional - defaults shown below)
+  # Uncomment and modify to customize notification text
+  # [notifications.messages]
+  #   [notifications.messages.recording_started]
+  #     title = "Hyprvoice"
+  #     body = "Recording Started"
+  #   [notifications.messages.transcribing]
+  #     title = "Hyprvoice"
+  #     body = "Recording Ended... Transcribing"
+  #   [notifications.messages.config_reloaded]
+  #     title = "Hyprvoice"
+  #     body = "Config Reloaded"
+  #   [notifications.messages.operation_cancelled]
+  #     title = "Hyprvoice"
+  #     body = "Operation Cancelled"
+  #   [notifications.messages.recording_aborted]
+  #     body = "Recording Aborted"
+  #   [notifications.messages.injection_aborted]
+  #     body = "Injection Aborted"
+  #
+  # Emoji-only example (for minimal pill-style notifications):
+  #   [notifications.messages.recording_started]
+  #     title = ""
+  #     body = "🎤"
+  #   [notifications.messages.transcribing]
+  #     title = ""
+  #     body = "⏳"
+  #   [notifications.messages.config_reloaded]
+  #     title = ""
+  #     body = "🔧"
 
 # Backend explanations:
 # - "ydotool": Uses ydotool (requires ydotoold daemon running). Most compatible with Chromium/Electron apps.

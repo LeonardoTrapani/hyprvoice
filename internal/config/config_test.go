@@ -1228,3 +1228,143 @@ func TestConfig_Validate_GroqTranslation_RejectsTurbo(t *testing.T) {
 		t.Errorf("Unexpected error message: %v", err)
 	}
 }
+
+func TestConfig_MessageGetters_Defaults(t *testing.T) {
+	config := createTestConfig()
+
+	t.Run("GetRecordingStarted returns defaults", func(t *testing.T) {
+		title, body := config.GetRecordingStarted()
+		if title != "Hyprvoice" {
+			t.Errorf("GetRecordingStarted() title = %q, want %q", title, "Hyprvoice")
+		}
+		if body != "Recording Started" {
+			t.Errorf("GetRecordingStarted() body = %q, want %q", body, "Recording Started")
+		}
+	})
+
+	t.Run("GetTranscribing returns defaults", func(t *testing.T) {
+		title, body := config.GetTranscribing()
+		if title != "Hyprvoice" {
+			t.Errorf("GetTranscribing() title = %q, want %q", title, "Hyprvoice")
+		}
+		if body != "Recording Ended... Transcribing" {
+			t.Errorf("GetTranscribing() body = %q, want %q", body, "Recording Ended... Transcribing")
+		}
+	})
+
+	t.Run("GetConfigReloaded returns defaults", func(t *testing.T) {
+		title, body := config.GetConfigReloaded()
+		if title != "Hyprvoice" {
+			t.Errorf("GetConfigReloaded() title = %q, want %q", title, "Hyprvoice")
+		}
+		if body != "Config Reloaded" {
+			t.Errorf("GetConfigReloaded() body = %q, want %q", body, "Config Reloaded")
+		}
+	})
+
+	t.Run("GetOperationCancelled returns defaults", func(t *testing.T) {
+		title, body := config.GetOperationCancelled()
+		if title != "Hyprvoice" {
+			t.Errorf("GetOperationCancelled() title = %q, want %q", title, "Hyprvoice")
+		}
+		if body != "Operation Cancelled" {
+			t.Errorf("GetOperationCancelled() body = %q, want %q", body, "Operation Cancelled")
+		}
+	})
+
+	t.Run("GetRecordingAborted returns default", func(t *testing.T) {
+		body := config.GetRecordingAborted()
+		if body != "Recording Aborted" {
+			t.Errorf("GetRecordingAborted() = %q, want %q", body, "Recording Aborted")
+		}
+	})
+
+	t.Run("GetInjectionAborted returns default", func(t *testing.T) {
+		body := config.GetInjectionAborted()
+		if body != "Injection Aborted" {
+			t.Errorf("GetInjectionAborted() = %q, want %q", body, "Injection Aborted")
+		}
+	})
+}
+
+func TestConfig_MessageGetters_Custom(t *testing.T) {
+	config := createTestConfig()
+	config.Notifications.Messages = MessagesConfig{
+		RecordingStarted: MessageConfig{
+			Title: "",
+			Body:  "🎤",
+		},
+		Transcribing: MessageConfig{
+			Title: "",
+			Body:  "⏳",
+		},
+		ConfigReloaded: MessageConfig{
+			Title: "",
+			Body:  "🔧",
+		},
+		OperationCancelled: MessageConfig{
+			Title: "Custom",
+			Body:  "Cancelled!",
+		},
+		RecordingAborted: MessageConfig{
+			Body: "Recording stopped",
+		},
+		InjectionAborted: MessageConfig{
+			Body: "Inject failed",
+		},
+	}
+
+	t.Run("GetRecordingStarted returns custom emoji", func(t *testing.T) {
+		title, body := config.GetRecordingStarted()
+		if title != "" {
+			t.Errorf("GetRecordingStarted() title = %q, want %q", title, "")
+		}
+		if body != "🎤" {
+			t.Errorf("GetRecordingStarted() body = %q, want %q", body, "🎤")
+		}
+	})
+
+	t.Run("GetTranscribing returns custom emoji", func(t *testing.T) {
+		title, body := config.GetTranscribing()
+		if title != "" {
+			t.Errorf("GetTranscribing() title = %q, want %q", title, "")
+		}
+		if body != "⏳" {
+			t.Errorf("GetTranscribing() body = %q, want %q", body, "⏳")
+		}
+	})
+
+	t.Run("GetConfigReloaded returns custom emoji", func(t *testing.T) {
+		title, body := config.GetConfigReloaded()
+		if title != "" {
+			t.Errorf("GetConfigReloaded() title = %q, want %q", title, "")
+		}
+		if body != "🔧" {
+			t.Errorf("GetConfigReloaded() body = %q, want %q", body, "🔧")
+		}
+	})
+
+	t.Run("GetOperationCancelled returns custom values", func(t *testing.T) {
+		title, body := config.GetOperationCancelled()
+		if title != "Custom" {
+			t.Errorf("GetOperationCancelled() title = %q, want %q", title, "Custom")
+		}
+		if body != "Cancelled!" {
+			t.Errorf("GetOperationCancelled() body = %q, want %q", body, "Cancelled!")
+		}
+	})
+
+	t.Run("GetRecordingAborted returns custom value", func(t *testing.T) {
+		body := config.GetRecordingAborted()
+		if body != "Recording stopped" {
+			t.Errorf("GetRecordingAborted() = %q, want %q", body, "Recording stopped")
+		}
+	})
+
+	t.Run("GetInjectionAborted returns custom value", func(t *testing.T) {
+		body := config.GetInjectionAborted()
+		if body != "Inject failed" {
+			t.Errorf("GetInjectionAborted() = %q, want %q", body, "Inject failed")
+		}
+	})
+}
