@@ -424,6 +424,30 @@ type = "desktop"           # "desktop", "log", or "none"
 
 Always keep `type = "desktop"` unless debugging.
 
+##### Custom Notification Messages
+
+You can customize notification text via the `[notifications.messages]` section.
+
+```toml
+[notifications.messages]
+  [notifications.messages.recording_started]
+    title = "Hyprvoice"
+    body = "Recording Started"
+  [notifications.messages.transcribing]
+    title = "Hyprvoice"
+    body = "Recording Ended... Transcribing"
+  [notifications.messages.config_reloaded]
+    title = "Hyprvoice"
+    body = "Config Reloaded"
+  [notifications.messages.operation_cancelled]
+    title = "Hyprvoice"
+    body = "Operation Cancelled"
+  [notifications.messages.recording_aborted]
+    body = "Recording Aborted"
+  [notifications.messages.injection_aborted]
+    body = "Injection Aborted"
+```
+
 ### Configuration Hot-Reloading
 
 The daemon automatically watches the config file for changes and applies them immediately:
