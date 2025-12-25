@@ -57,10 +57,12 @@ func (d *Daemon) onConfigReload() {
 	log.Printf("Config reloaded, restarting pipeline")
 	d.stopPipeline()
 
-	d.notifier.Notify("Hyprvoice", "Config Reloaded")
+	conf := d.configMgr.GetConfig()
+	title, body := conf.GetConfigReloaded()
+	d.notifier.Notify(title, body)
 
 	d.mu.Lock()
-	d.notifier = notify.GetNotifierBasedOnConfig(d.configMgr.GetConfig())
+	d.notifier = notify.GetNotifierBasedOnConfig(conf)
 	d.mu.Unlock()
 }
 
@@ -180,22 +182,23 @@ func (d *Daemon) handle(c net.Conn) {
 }
 
 func (d *Daemon) toggle() {
+	conf := d.configMgr.GetConfig()
 	switch d.status() {
 	case pipeline.Idle:
-		config := d.configMgr.GetConfig()
-		p := pipeline.New(config)
+		p := pipeline.New(conf)
 		p.Run(d.ctx)
 
 		d.mu.Lock()
 		d.pipeline = p
 		d.mu.Unlock()
 
-		go d.notifier.Notify("Hyprvoice", "Recording Started")
+		title, body := conf.GetRecordingStarted()
+		go d.notifier.Notify(title, body)
 		go d.monitorPipelineErrors(p)
 
 	case pipeline.Recording:
 		d.stopPipeline()
-		go d.notifier.Error("Recording Aborted")
+		go d.notifier.Error(conf.GetRecordingAborted())
 
 	case pipeline.Transcribing:
 		d.mu.RLock()
@@ -207,11 +210,12 @@ func (d *Daemon) toggle() {
 		} else {
 			d.mu.RUnlock()
 		}
-		go d.notifier.Notify("Hyprvoice", "Recording Ended... Transcribing")
+		title, body := conf.GetTranscribing()
+		go d.notifier.Notify(title, body)
 
 	case pipeline.Injecting:
 		d.stopPipeline()
-		go d.notifier.Error("Injection Aborted")
+		go d.notifier.Error(conf.GetInjectionAborted())
 	}
 }
 
@@ -221,7 +225,8 @@ func (d *Daemon) cancelPipeline() {
 		log.Printf("Daemon: Cancel requested but pipeline is idle, ignoring")
 	default:
 		d.stopPipeline()
-		go d.notifier.Notify("Hyprvoice", "Operation Cancelled")
+		title, body := d.configMgr.GetConfig().GetOperationCancelled()
+		go d.notifier.Notify(title, body)
 	}
 }
 
