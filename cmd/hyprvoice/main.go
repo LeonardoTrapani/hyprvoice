@@ -355,6 +355,125 @@ func runInteractiveConfig() error {
 		break
 	}
 
+	// Ask if user wants to customize notification messages
+	fmt.Print("Customize notification messages? [y/n] (default: n): ")
+	if scanner.Scan() {
+		input := strings.TrimSpace(strings.ToLower(scanner.Text()))
+		if input == "y" || input == "yes" {
+			fmt.Println()
+			// Get current/default values for display
+			recTitle, recBody := cfg.GetRecordingStarted()
+			transTitle, transBody := cfg.GetTranscribing()
+			reloadTitle, reloadBody := cfg.GetConfigReloaded()
+			cancelTitle, cancelBody := cfg.GetOperationCancelled()
+			abortRecBody := cfg.GetRecordingAborted()
+			abortInjBody := cfg.GetInjectionAborted()
+
+			// Recording Started
+			fmt.Println("  Recording Started notification:")
+			fmt.Printf("    Title (current: %s): ", recTitle)
+			if scanner.Scan() {
+				if t := strings.TrimSpace(scanner.Text()); t != "" {
+					cfg.Notifications.Messages.RecordingStarted.Title = t
+				} else {
+					cfg.Notifications.Messages.RecordingStarted.Title = recTitle
+				}
+			}
+			fmt.Printf("    Body (current: %s): ", recBody)
+			if scanner.Scan() {
+				if b := strings.TrimSpace(scanner.Text()); b != "" {
+					cfg.Notifications.Messages.RecordingStarted.Body = b
+				} else {
+					cfg.Notifications.Messages.RecordingStarted.Body = recBody
+				}
+			}
+			fmt.Println()
+
+			// Transcribing
+			fmt.Println("  Transcribing notification:")
+			fmt.Printf("    Title (current: %s): ", transTitle)
+			if scanner.Scan() {
+				if t := strings.TrimSpace(scanner.Text()); t != "" {
+					cfg.Notifications.Messages.Transcribing.Title = t
+				} else {
+					cfg.Notifications.Messages.Transcribing.Title = transTitle
+				}
+			}
+			fmt.Printf("    Body (current: %s): ", transBody)
+			if scanner.Scan() {
+				if b := strings.TrimSpace(scanner.Text()); b != "" {
+					cfg.Notifications.Messages.Transcribing.Body = b
+				} else {
+					cfg.Notifications.Messages.Transcribing.Body = transBody
+				}
+			}
+			fmt.Println()
+
+			// Config Reloaded
+			fmt.Println("  Config Reloaded notification:")
+			fmt.Printf("    Title (current: %s): ", reloadTitle)
+			if scanner.Scan() {
+				if t := strings.TrimSpace(scanner.Text()); t != "" {
+					cfg.Notifications.Messages.ConfigReloaded.Title = t
+				} else {
+					cfg.Notifications.Messages.ConfigReloaded.Title = reloadTitle
+				}
+			}
+			fmt.Printf("    Body (current: %s): ", reloadBody)
+			if scanner.Scan() {
+				if b := strings.TrimSpace(scanner.Text()); b != "" {
+					cfg.Notifications.Messages.ConfigReloaded.Body = b
+				} else {
+					cfg.Notifications.Messages.ConfigReloaded.Body = reloadBody
+				}
+			}
+			fmt.Println()
+
+			// Operation Cancelled
+			fmt.Println("  Operation Cancelled notification:")
+			fmt.Printf("    Title (current: %s): ", cancelTitle)
+			if scanner.Scan() {
+				if t := strings.TrimSpace(scanner.Text()); t != "" {
+					cfg.Notifications.Messages.OperationCancelled.Title = t
+				} else {
+					cfg.Notifications.Messages.OperationCancelled.Title = cancelTitle
+				}
+			}
+			fmt.Printf("    Body (current: %s): ", cancelBody)
+			if scanner.Scan() {
+				if b := strings.TrimSpace(scanner.Text()); b != "" {
+					cfg.Notifications.Messages.OperationCancelled.Body = b
+				} else {
+					cfg.Notifications.Messages.OperationCancelled.Body = cancelBody
+				}
+			}
+			fmt.Println()
+
+			// Recording Aborted (body only)
+			fmt.Println("  Recording Aborted notification:")
+			fmt.Printf("    Body (current: %s): ", abortRecBody)
+			if scanner.Scan() {
+				if b := strings.TrimSpace(scanner.Text()); b != "" {
+					cfg.Notifications.Messages.RecordingAborted.Body = b
+				} else {
+					cfg.Notifications.Messages.RecordingAborted.Body = abortRecBody
+				}
+			}
+			fmt.Println()
+
+			// Injection Aborted (body only)
+			fmt.Println("  Injection Aborted notification:")
+			fmt.Printf("    Body (current: %s): ", abortInjBody)
+			if scanner.Scan() {
+				if b := strings.TrimSpace(scanner.Text()); b != "" {
+					cfg.Notifications.Messages.InjectionAborted.Body = b
+				} else {
+					cfg.Notifications.Messages.InjectionAborted.Body = abortInjBody
+				}
+			}
+		}
+	}
+
 	fmt.Println()
 
 	// Configure recording timeout
@@ -538,5 +657,47 @@ func saveConfig(cfg *config.Config) error {
 		return fmt.Errorf("failed to write config content: %w", err)
 	}
 
+	// Write notification messages if any are configured
+	msgs := cfg.Notifications.Messages
+	if hasCustomMessages(msgs) {
+		messagesContent := "\n  [notifications.messages]\n"
+		if msgs.RecordingStarted.Title != "" || msgs.RecordingStarted.Body != "" {
+			messagesContent += fmt.Sprintf("    [notifications.messages.recording_started]\n      title = %q\n      body = %q\n",
+				msgs.RecordingStarted.Title, msgs.RecordingStarted.Body)
+		}
+		if msgs.Transcribing.Title != "" || msgs.Transcribing.Body != "" {
+			messagesContent += fmt.Sprintf("    [notifications.messages.transcribing]\n      title = %q\n      body = %q\n",
+				msgs.Transcribing.Title, msgs.Transcribing.Body)
+		}
+		if msgs.ConfigReloaded.Title != "" || msgs.ConfigReloaded.Body != "" {
+			messagesContent += fmt.Sprintf("    [notifications.messages.config_reloaded]\n      title = %q\n      body = %q\n",
+				msgs.ConfigReloaded.Title, msgs.ConfigReloaded.Body)
+		}
+		if msgs.OperationCancelled.Title != "" || msgs.OperationCancelled.Body != "" {
+			messagesContent += fmt.Sprintf("    [notifications.messages.operation_cancelled]\n      title = %q\n      body = %q\n",
+				msgs.OperationCancelled.Title, msgs.OperationCancelled.Body)
+		}
+		if msgs.RecordingAborted.Body != "" {
+			messagesContent += fmt.Sprintf("    [notifications.messages.recording_aborted]\n      body = %q\n",
+				msgs.RecordingAborted.Body)
+		}
+		if msgs.InjectionAborted.Body != "" {
+			messagesContent += fmt.Sprintf("    [notifications.messages.injection_aborted]\n      body = %q\n",
+				msgs.InjectionAborted.Body)
+		}
+		if _, err := file.WriteString(messagesContent); err != nil {
+			return fmt.Errorf("failed to write messages config: %w", err)
+		}
+	}
+
 	return nil
+}
+
+func hasCustomMessages(msgs config.MessagesConfig) bool {
+	return msgs.RecordingStarted.Title != "" || msgs.RecordingStarted.Body != "" ||
+		msgs.Transcribing.Title != "" || msgs.Transcribing.Body != "" ||
+		msgs.ConfigReloaded.Title != "" || msgs.ConfigReloaded.Body != "" ||
+		msgs.OperationCancelled.Title != "" || msgs.OperationCancelled.Body != "" ||
+		msgs.RecordingAborted.Body != "" ||
+		msgs.InjectionAborted.Body != ""
 }
