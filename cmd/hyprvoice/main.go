@@ -375,16 +375,12 @@ func runInteractiveConfig() error {
 			if scanner.Scan() {
 				if t := strings.TrimSpace(scanner.Text()); t != "" {
 					cfg.Notifications.Messages.RecordingStarted.Title = t
-				} else {
-					cfg.Notifications.Messages.RecordingStarted.Title = recTitle
 				}
 			}
 			fmt.Printf("    Body (current: %s): ", recBody)
 			if scanner.Scan() {
 				if b := strings.TrimSpace(scanner.Text()); b != "" {
 					cfg.Notifications.Messages.RecordingStarted.Body = b
-				} else {
-					cfg.Notifications.Messages.RecordingStarted.Body = recBody
 				}
 			}
 			fmt.Println()
@@ -395,16 +391,12 @@ func runInteractiveConfig() error {
 			if scanner.Scan() {
 				if t := strings.TrimSpace(scanner.Text()); t != "" {
 					cfg.Notifications.Messages.Transcribing.Title = t
-				} else {
-					cfg.Notifications.Messages.Transcribing.Title = transTitle
 				}
 			}
 			fmt.Printf("    Body (current: %s): ", transBody)
 			if scanner.Scan() {
 				if b := strings.TrimSpace(scanner.Text()); b != "" {
 					cfg.Notifications.Messages.Transcribing.Body = b
-				} else {
-					cfg.Notifications.Messages.Transcribing.Body = transBody
 				}
 			}
 			fmt.Println()
@@ -415,16 +407,12 @@ func runInteractiveConfig() error {
 			if scanner.Scan() {
 				if t := strings.TrimSpace(scanner.Text()); t != "" {
 					cfg.Notifications.Messages.ConfigReloaded.Title = t
-				} else {
-					cfg.Notifications.Messages.ConfigReloaded.Title = reloadTitle
 				}
 			}
 			fmt.Printf("    Body (current: %s): ", reloadBody)
 			if scanner.Scan() {
 				if b := strings.TrimSpace(scanner.Text()); b != "" {
 					cfg.Notifications.Messages.ConfigReloaded.Body = b
-				} else {
-					cfg.Notifications.Messages.ConfigReloaded.Body = reloadBody
 				}
 			}
 			fmt.Println()
@@ -435,16 +423,12 @@ func runInteractiveConfig() error {
 			if scanner.Scan() {
 				if t := strings.TrimSpace(scanner.Text()); t != "" {
 					cfg.Notifications.Messages.OperationCancelled.Title = t
-				} else {
-					cfg.Notifications.Messages.OperationCancelled.Title = cancelTitle
 				}
 			}
 			fmt.Printf("    Body (current: %s): ", cancelBody)
 			if scanner.Scan() {
 				if b := strings.TrimSpace(scanner.Text()); b != "" {
 					cfg.Notifications.Messages.OperationCancelled.Body = b
-				} else {
-					cfg.Notifications.Messages.OperationCancelled.Body = cancelBody
 				}
 			}
 			fmt.Println()
@@ -455,8 +439,6 @@ func runInteractiveConfig() error {
 			if scanner.Scan() {
 				if b := strings.TrimSpace(scanner.Text()); b != "" {
 					cfg.Notifications.Messages.RecordingAborted.Body = b
-				} else {
-					cfg.Notifications.Messages.RecordingAborted.Body = abortRecBody
 				}
 			}
 			fmt.Println()
@@ -467,8 +449,6 @@ func runInteractiveConfig() error {
 			if scanner.Scan() {
 				if b := strings.TrimSpace(scanner.Text()); b != "" {
 					cfg.Notifications.Messages.InjectionAborted.Body = b
-				} else {
-					cfg.Notifications.Messages.InjectionAborted.Body = abortInjBody
 				}
 			}
 		}
@@ -611,11 +591,6 @@ func saveConfig(cfg *config.Config) error {
   wtype_timeout = "%s"         # Timeout for wtype commands
   clipboard_timeout = "%s"     # Timeout for clipboard operations
 
-# Desktop Notification Configuration
-[notifications]
-  enabled = %v               # Enable desktop notifications
-  type = "%s"             # Notification type ("desktop", "log", "none")
-
 # Backend explanations:
 # - "ydotool": Uses ydotool (requires ydotoold daemon running). Most compatible with Chromium/Electron apps.
 # - "wtype": Uses wtype for Wayland. May have issues with some Chromium-based apps.
@@ -633,6 +608,11 @@ func saveConfig(cfg *config.Config) error {
 # Language codes: Use empty string ("") for automatic detection, or specific codes like:
 # "en" (English), "it" (Italian), "es" (Spanish), "fr" (French), "de" (German), etc.
 # For groq-translation, the language field hints at the source audio language for better accuracy.
+
+# Desktop Notification Configuration
+[notifications]
+  enabled = %v               # Enable desktop notifications
+  type = "%s"             # Notification type ("desktop", "log", "none")
 `,
 		cfg.Recording.SampleRate,
 		cfg.Recording.Channels,
