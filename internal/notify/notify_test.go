@@ -2,202 +2,121 @@ package notify
 
 import (
 	"testing"
-
-	"github.com/leonardotrapani/hyprvoice/internal/config"
 )
 
-func TestDesktop_Notify(t *testing.T) {
-	desktop := Desktop{}
-
-	// Test normal notification
-	desktop.Notify("Test Title", "Test Message")
-
-	// Test error notification
-	desktop.Error("Test Error Message")
-
-	// Test specific methods
-	desktop.RecordingStarted()
-	desktop.Transcribing()
+func testMessages() map[MessageType]Message {
+	return map[MessageType]Message{
+		MsgRecordingStarted:   {Title: "Hyprvoice", Body: "Recording Started", IsError: false},
+		MsgTranscribing:       {Title: "Hyprvoice", Body: "Transcribing", IsError: false},
+		MsgConfigReloaded:     {Title: "Hyprvoice", Body: "Config Reloaded", IsError: false},
+		MsgOperationCancelled: {Title: "Hyprvoice", Body: "Operation Cancelled", IsError: false},
+		MsgRecordingAborted:   {Title: "", Body: "Recording Aborted", IsError: true},
+		MsgInjectionAborted:   {Title: "", Body: "Injection Aborted", IsError: true},
+	}
 }
 
-func TestLog_Notify(t *testing.T) {
-	logNotifier := Log{}
+func TestDesktop_Send(t *testing.T) {
+	desktop := NewDesktop(testMessages())
 
-	// Test normal notification
-	logNotifier.Notify("Test Title", "Test Message")
+	// Test Send for different message types (won't actually send, just verify no panic)
+	desktop.Send(MsgRecordingStarted)
+	desktop.Send(MsgTranscribing)
+	desktop.Send(MsgRecordingAborted) // error type
+}
 
-	// Test error notification
+func TestDesktop_Error(t *testing.T) {
+	desktop := NewDesktop(testMessages())
+	desktop.Error("Test Error Message")
+}
+
+func TestLog_Send(t *testing.T) {
+	logNotifier := NewLog(testMessages())
+
+	logNotifier.Send(MsgRecordingStarted)
+	logNotifier.Send(MsgRecordingAborted) // error type
+}
+
+func TestLog_Error(t *testing.T) {
+	logNotifier := NewLog(testMessages())
 	logNotifier.Error("Test Error Message")
 }
 
-func TestNop_Notify(t *testing.T) {
+func TestNop_Send(t *testing.T) {
 	nop := Nop{}
+	nop.Send(MsgRecordingStarted)
+	nop.Send(MsgRecordingAborted)
+}
 
-	// Test that these methods don't panic
-	nop.Notify("Test Title", "Test Message")
+func TestNop_Error(t *testing.T) {
+	nop := Nop{}
 	nop.Error("Test Error Message")
 }
 
-func TestGetNotifierBasedOnConfig(t *testing.T) {
+func TestNewNotifier(t *testing.T) {
+	msgs := testMessages()
+
 	tests := []struct {
-		name     string
-		config   *config.Config
-		expected string
+		name       string
+		notifType  string
+		expectType string
 	}{
-		{
-			name: "desktop notification type",
-			config: &config.Config{
-				Notifications: config.NotificationsConfig{
-					Type: "desktop",
-				},
-			},
-			expected: "desktop",
-		},
-		{
-			name: "log notification type",
-			config: &config.Config{
-				Notifications: config.NotificationsConfig{
-					Type: "log",
-				},
-			},
-			expected: "log",
-		},
-		{
-			name: "none notification type",
-			config: &config.Config{
-				Notifications: config.NotificationsConfig{
-					Type: "none",
-				},
-			},
-			expected: "nop",
-		},
-		{
-			name: "unknown notification type",
-			config: &config.Config{
-				Notifications: config.NotificationsConfig{
-					Type: "unknown",
-				},
-			},
-			expected: "nop",
-		},
+		{"desktop", "desktop", "*notify.Desktop"},
+		{"log", "log", "*notify.Log"},
+		{"none", "none", "*notify.Nop"},
+		{"unknown", "unknown", "*notify.Nop"},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			notifier := GetNotifierBasedOnConfig(tt.config)
+			notifier := NewNotifier(tt.notifType, msgs)
 
-			// Test the notifier by calling its methods
-			notifier.Notify("Test", "Message")
+			// Test the notifier works
+			notifier.Send(MsgRecordingStarted)
 			notifier.Error("Error")
-
-			// Check the type by testing behavior
-			switch tt.expected {
-			case "desktop":
-				// Desktop notifier should not panic
-				if desktop, ok := notifier.(Desktop); ok {
-					desktop.RecordingStarted()
-					desktop.Transcribing()
-				}
-			case "log":
-				// Log notifier should not panic
-				if logNotifier, ok := notifier.(Log); ok {
-					logNotifier.Notify("Test", "Message")
-					logNotifier.Error("Error")
-				}
-			case "nop":
-				// Nop notifier should not panic
-				if nop, ok := notifier.(Nop); ok {
-					nop.Notify("Test", "Message")
-					nop.Error("Error")
-				}
-			}
 		})
 	}
-}
-
-func TestDesktop_Methods(t *testing.T) {
-	desktop := Desktop{}
-
-	// Test RecordingStarted method
-	desktop.RecordingStarted()
-
-	// Test Transcribing method
-	desktop.Transcribing()
-
-	// Test Error method
-	desktop.Error("Test error")
-
-	// Test Notify method
-	desktop.Notify("Test Title", "Test Message")
-}
-
-func TestLog_Methods(t *testing.T) {
-	logNotifier := Log{}
-
-	// Test Error method
-	logNotifier.Error("Test error")
-
-	// Test Notify method
-	logNotifier.Notify("Test Title", "Test Message")
-}
-
-func TestNop_Methods(t *testing.T) {
-	nop := Nop{}
-
-	// Test Error method
-	nop.Error("Test error")
-
-	// Test Notify method
-	nop.Notify("Test Title", "Test Message")
 }
 
 func TestNotifierInterface(t *testing.T) {
+	msgs := testMessages()
+
 	// Test that all notifiers implement the Notifier interface
 	var notifier Notifier
 
-	// Test Desktop
-	notifier = Desktop{}
-	notifier.Notify("Test", "Message")
+	notifier = NewDesktop(msgs)
+	notifier.Send(MsgRecordingStarted)
 	notifier.Error("Error")
 
-	// Test Log
-	notifier = Log{}
-	notifier.Notify("Test", "Message")
+	notifier = NewLog(msgs)
+	notifier.Send(MsgRecordingStarted)
 	notifier.Error("Error")
 
-	// Test Nop
-	notifier = Nop{}
-	notifier.Notify("Test", "Message")
+	notifier = &Nop{}
+	notifier.Send(MsgRecordingStarted)
 	notifier.Error("Error")
 }
 
-func TestNotificationTypes(t *testing.T) {
-	// Test different notification configurations
-	configs := []*config.Config{
-		{
-			Notifications: config.NotificationsConfig{
-				Type: "desktop",
-			},
-		},
-		{
-			Notifications: config.NotificationsConfig{
-				Type: "log",
-			},
-		},
-		{
-			Notifications: config.NotificationsConfig{
-				Type: "none",
-			},
-		},
+func TestMessageDefs(t *testing.T) {
+	// Verify MessageDefs contains expected entries
+	if len(MessageDefs) != 6 {
+		t.Errorf("Expected 6 MessageDefs, got %d", len(MessageDefs))
 	}
 
-	for _, cfg := range configs {
-		t.Run("type_"+cfg.Notifications.Type, func(t *testing.T) {
-			notifier := GetNotifierBasedOnConfig(cfg)
-
-			// Test that the notifier works
-			notifier.Notify("Test Title", "Test Message")
-			notifier.Error("Test Error")
-		})
+	// Verify each has required fields
+	for _, def := range MessageDefs {
+		if def.ConfigKey == "" {
+			t.Errorf("MessageDef type %d has empty ConfigKey", def.Type)
+		}
+		if def.DefaultBody == "" {
+			t.Errorf("MessageDef type %d has empty DefaultBody", def.Type)
+		}
 	}
+}
+
+func TestSend_UnknownMessageType(t *testing.T) {
+	msgs := testMessages()
+	desktop := NewDesktop(msgs)
+
+	// Should not panic with unknown message type
+	desktop.Send(MessageType(999))
 }

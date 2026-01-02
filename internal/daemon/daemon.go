@@ -32,19 +32,15 @@ type Daemon struct {
 
 func New() (*Daemon, error) {
 	configMgr, err := config.NewManager()
-
-	conf := configMgr.GetConfig()
-
 	if err != nil {
 		return nil, fmt.Errorf("failed to create config manager: %w", err)
 	}
 
+	conf := configMgr.GetConfig()
 	ctx, cancel := context.WithCancel(context.Background())
 
-	n := notify.GetNotifierBasedOnConfig(conf)
-
 	d := &Daemon{
-		notifier:  n,
+		notifier:  notify.NewNotifier(conf.Notifications.Type, conf.Notifications.Messages.Resolve()),
 		configMgr: configMgr,
 		ctx:       ctx,
 		cancel:    cancel,
@@ -58,12 +54,12 @@ func (d *Daemon) onConfigReload() {
 	d.stopPipeline()
 
 	conf := d.configMgr.GetConfig()
-	title, body := conf.GetConfigReloaded()
-	d.notifier.Notify(title, body)
 
 	d.mu.Lock()
-	d.notifier = notify.GetNotifierBasedOnConfig(conf)
+	d.notifier = notify.NewNotifier(conf.Notifications.Type, conf.Notifications.Messages.Resolve())
 	d.mu.Unlock()
+
+	d.notifier.Send(notify.MsgConfigReloaded)
 }
 
 func (d *Daemon) status() pipeline.Status {
@@ -192,13 +188,12 @@ func (d *Daemon) toggle() {
 		d.pipeline = p
 		d.mu.Unlock()
 
-		title, body := conf.GetRecordingStarted()
-		go d.notifier.Notify(title, body)
+		go d.notifier.Send(notify.MsgRecordingStarted)
 		go d.monitorPipelineErrors(p)
 
 	case pipeline.Recording:
 		d.stopPipeline()
-		go d.notifier.Error(conf.GetRecordingAborted())
+		go d.notifier.Send(notify.MsgRecordingAborted)
 
 	case pipeline.Transcribing:
 		d.mu.RLock()
@@ -210,12 +205,11 @@ func (d *Daemon) toggle() {
 		} else {
 			d.mu.RUnlock()
 		}
-		title, body := conf.GetTranscribing()
-		go d.notifier.Notify(title, body)
+		go d.notifier.Send(notify.MsgTranscribing)
 
 	case pipeline.Injecting:
 		d.stopPipeline()
-		go d.notifier.Error(conf.GetInjectionAborted())
+		go d.notifier.Send(notify.MsgInjectionAborted)
 	}
 }
 
@@ -225,8 +219,7 @@ func (d *Daemon) cancelPipeline() {
 		log.Printf("Daemon: Cancel requested but pipeline is idle, ignoring")
 	default:
 		d.stopPipeline()
-		title, body := d.configMgr.GetConfig().GetOperationCancelled()
-		go d.notifier.Notify(title, body)
+		go d.notifier.Send(notify.MsgOperationCancelled)
 	}
 }
 

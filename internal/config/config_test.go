@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"testing"
 	"time"
+
+	"github.com/leonardotrapani/hyprvoice/internal/notify"
 )
 
 // createTestConfig returns a valid configuration for testing
@@ -1229,142 +1231,52 @@ func TestConfig_Validate_GroqTranslation_RejectsTurbo(t *testing.T) {
 	}
 }
 
-func TestConfig_MessageGetters_Defaults(t *testing.T) {
-	config := createTestConfig()
+func TestMessagesConfig_Resolve_Defaults(t *testing.T) {
+	cfg := createTestConfig()
+	msgs := cfg.Notifications.Messages.Resolve()
 
-	t.Run("GetRecordingStarted returns defaults", func(t *testing.T) {
-		title, body := config.GetRecordingStarted()
-		if title != "Hyprvoice" {
-			t.Errorf("GetRecordingStarted() title = %q, want %q", title, "Hyprvoice")
-		}
-		if body != "Recording Started" {
-			t.Errorf("GetRecordingStarted() body = %q, want %q", body, "Recording Started")
-		}
-	})
-
-	t.Run("GetTranscribing returns defaults", func(t *testing.T) {
-		title, body := config.GetTranscribing()
-		if title != "Hyprvoice" {
-			t.Errorf("GetTranscribing() title = %q, want %q", title, "Hyprvoice")
-		}
-		if body != "Recording Ended... Transcribing" {
-			t.Errorf("GetTranscribing() body = %q, want %q", body, "Recording Ended... Transcribing")
-		}
-	})
-
-	t.Run("GetConfigReloaded returns defaults", func(t *testing.T) {
-		title, body := config.GetConfigReloaded()
-		if title != "Hyprvoice" {
-			t.Errorf("GetConfigReloaded() title = %q, want %q", title, "Hyprvoice")
-		}
-		if body != "Config Reloaded" {
-			t.Errorf("GetConfigReloaded() body = %q, want %q", body, "Config Reloaded")
-		}
-	})
-
-	t.Run("GetOperationCancelled returns defaults", func(t *testing.T) {
-		title, body := config.GetOperationCancelled()
-		if title != "Hyprvoice" {
-			t.Errorf("GetOperationCancelled() title = %q, want %q", title, "Hyprvoice")
-		}
-		if body != "Operation Cancelled" {
-			t.Errorf("GetOperationCancelled() body = %q, want %q", body, "Operation Cancelled")
-		}
-	})
-
-	t.Run("GetRecordingAborted returns default", func(t *testing.T) {
-		body := config.GetRecordingAborted()
-		if body != "Recording Aborted" {
-			t.Errorf("GetRecordingAborted() = %q, want %q", body, "Recording Aborted")
-		}
-	})
-
-	t.Run("GetInjectionAborted returns default", func(t *testing.T) {
-		body := config.GetInjectionAborted()
-		if body != "Injection Aborted" {
-			t.Errorf("GetInjectionAborted() = %q, want %q", body, "Injection Aborted")
-		}
-	})
+	// Check defaults are applied
+	if msgs[notify.MsgRecordingStarted].Title != "Hyprvoice" {
+		t.Errorf("MsgRecordingStarted title = %q, want %q", msgs[notify.MsgRecordingStarted].Title, "Hyprvoice")
+	}
+	if msgs[notify.MsgRecordingStarted].Body != "Recording Started" {
+		t.Errorf("MsgRecordingStarted body = %q, want %q", msgs[notify.MsgRecordingStarted].Body, "Recording Started")
+	}
+	if msgs[notify.MsgTranscribing].Body != "Recording Ended... Transcribing" {
+		t.Errorf("MsgTranscribing body = %q, want %q", msgs[notify.MsgTranscribing].Body, "Recording Ended... Transcribing")
+	}
+	if msgs[notify.MsgRecordingAborted].IsError != true {
+		t.Errorf("MsgRecordingAborted IsError = %v, want true", msgs[notify.MsgRecordingAborted].IsError)
+	}
 }
 
-func TestConfig_MessageGetters_Custom(t *testing.T) {
-	config := createTestConfig()
-	config.Notifications.Messages = MessagesConfig{
+func TestMessagesConfig_Resolve_CustomOverrides(t *testing.T) {
+	cfg := createTestConfig()
+	cfg.Notifications.Messages = MessagesConfig{
 		RecordingStarted: MessageConfig{
-			Title: "",
-			Body:  "🎤",
-		},
-		Transcribing: MessageConfig{
-			Title: "",
-			Body:  "⏳",
-		},
-		ConfigReloaded: MessageConfig{
-			Title: "",
-			Body:  "🔧",
-		},
-		OperationCancelled: MessageConfig{
-			Title: "Custom",
-			Body:  "Cancelled!",
+			Title: "Custom Title",
+			Body:  "Custom Body",
 		},
 		RecordingAborted: MessageConfig{
-			Body: "Recording stopped",
-		},
-		InjectionAborted: MessageConfig{
-			Body: "Inject failed",
+			Body: "Custom Abort",
 		},
 	}
 
-	t.Run("GetRecordingStarted returns custom emoji", func(t *testing.T) {
-		title, body := config.GetRecordingStarted()
-		if title != "" {
-			t.Errorf("GetRecordingStarted() title = %q, want %q", title, "")
-		}
-		if body != "🎤" {
-			t.Errorf("GetRecordingStarted() body = %q, want %q", body, "🎤")
-		}
-	})
+	msgs := cfg.Notifications.Messages.Resolve()
 
-	t.Run("GetTranscribing returns custom emoji", func(t *testing.T) {
-		title, body := config.GetTranscribing()
-		if title != "" {
-			t.Errorf("GetTranscribing() title = %q, want %q", title, "")
-		}
-		if body != "⏳" {
-			t.Errorf("GetTranscribing() body = %q, want %q", body, "⏳")
-		}
-	})
+	// Custom values should override defaults
+	if msgs[notify.MsgRecordingStarted].Title != "Custom Title" {
+		t.Errorf("MsgRecordingStarted title = %q, want %q", msgs[notify.MsgRecordingStarted].Title, "Custom Title")
+	}
+	if msgs[notify.MsgRecordingStarted].Body != "Custom Body" {
+		t.Errorf("MsgRecordingStarted body = %q, want %q", msgs[notify.MsgRecordingStarted].Body, "Custom Body")
+	}
+	if msgs[notify.MsgRecordingAborted].Body != "Custom Abort" {
+		t.Errorf("MsgRecordingAborted body = %q, want %q", msgs[notify.MsgRecordingAborted].Body, "Custom Abort")
+	}
 
-	t.Run("GetConfigReloaded returns custom emoji", func(t *testing.T) {
-		title, body := config.GetConfigReloaded()
-		if title != "" {
-			t.Errorf("GetConfigReloaded() title = %q, want %q", title, "")
-		}
-		if body != "🔧" {
-			t.Errorf("GetConfigReloaded() body = %q, want %q", body, "🔧")
-		}
-	})
-
-	t.Run("GetOperationCancelled returns custom values", func(t *testing.T) {
-		title, body := config.GetOperationCancelled()
-		if title != "Custom" {
-			t.Errorf("GetOperationCancelled() title = %q, want %q", title, "Custom")
-		}
-		if body != "Cancelled!" {
-			t.Errorf("GetOperationCancelled() body = %q, want %q", body, "Cancelled!")
-		}
-	})
-
-	t.Run("GetRecordingAborted returns custom value", func(t *testing.T) {
-		body := config.GetRecordingAborted()
-		if body != "Recording stopped" {
-			t.Errorf("GetRecordingAborted() = %q, want %q", body, "Recording stopped")
-		}
-	})
-
-	t.Run("GetInjectionAborted returns custom value", func(t *testing.T) {
-		body := config.GetInjectionAborted()
-		if body != "Inject failed" {
-			t.Errorf("GetInjectionAborted() = %q, want %q", body, "Inject failed")
-		}
-	})
+	// Non-customized messages should still have defaults
+	if msgs[notify.MsgTranscribing].Title != "Hyprvoice" {
+		t.Errorf("MsgTranscribing title = %q, want %q", msgs[notify.MsgTranscribing].Title, "Hyprvoice")
+	}
 }
