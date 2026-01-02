@@ -5,10 +5,12 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"reflect"
 	"time"
 
 	"github.com/BurntSushi/toml"
 	"github.com/leonardotrapani/hyprvoice/internal/injection"
+	"github.com/leonardotrapani/hyprvoice/internal/notify"
 	"github.com/leonardotrapani/hyprvoice/internal/recording"
 	"github.com/leonardotrapani/hyprvoice/internal/transcriber"
 )
@@ -64,52 +66,36 @@ type MessagesConfig struct {
 	InjectionAborted   MessageConfig `toml:"injection_aborted"`
 }
 
-func (c *Config) GetRecordingStarted() (title, body string) {
-	m := c.Notifications.Messages.RecordingStarted
-	if m.Title == "" && m.Body == "" {
-		return "Hyprvoice", "Recording Started"
-	}
-	return m.Title, m.Body
-}
+// Resolve merges user config with defaults from MessageDefs
+func (m *MessagesConfig) Resolve() map[notify.MessageType]notify.Message {
+	result := make(map[notify.MessageType]notify.Message)
 
-func (c *Config) GetTranscribing() (title, body string) {
-	m := c.Notifications.Messages.Transcribing
-	if m.Title == "" && m.Body == "" {
-		return "Hyprvoice", "Recording Ended... Transcribing"
+	// Build toml tag → field index map
+	v := reflect.ValueOf(m).Elem()
+	t := v.Type()
+	tagToField := make(map[string]int)
+	for i := 0; i < t.NumField(); i++ {
+		tagToField[t.Field(i).Tag.Get("toml")] = i
 	}
-	return m.Title, m.Body
-}
 
-func (c *Config) GetConfigReloaded() (title, body string) {
-	m := c.Notifications.Messages.ConfigReloaded
-	if m.Title == "" && m.Body == "" {
-		return "Hyprvoice", "Config Reloaded"
+	for _, def := range notify.MessageDefs {
+		msg := notify.Message{
+			Title:   def.DefaultTitle,
+			Body:    def.DefaultBody,
+			IsError: def.IsError,
+		}
+		if idx, ok := tagToField[def.ConfigKey]; ok {
+			userMsg := v.Field(idx).Interface().(MessageConfig)
+			if userMsg.Title != "" {
+				msg.Title = userMsg.Title
+			}
+			if userMsg.Body != "" {
+				msg.Body = userMsg.Body
+			}
+		}
+		result[def.Type] = msg
 	}
-	return m.Title, m.Body
-}
-
-func (c *Config) GetOperationCancelled() (title, body string) {
-	m := c.Notifications.Messages.OperationCancelled
-	if m.Title == "" && m.Body == "" {
-		return "Hyprvoice", "Operation Cancelled"
-	}
-	return m.Title, m.Body
-}
-
-func (c *Config) GetRecordingAborted() string {
-	m := c.Notifications.Messages.RecordingAborted
-	if m.Body == "" {
-		return "Recording Aborted"
-	}
-	return m.Body
-}
-
-func (c *Config) GetInjectionAborted() string {
-	m := c.Notifications.Messages.InjectionAborted
-	if m.Body == "" {
-		return "Injection Aborted"
-	}
-	return m.Body
+	return result
 }
 
 func (c *Config) ToRecordingConfig() recording.Config {

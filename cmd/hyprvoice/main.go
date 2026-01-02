@@ -12,6 +12,7 @@ import (
 	"github.com/leonardotrapani/hyprvoice/internal/bus"
 	"github.com/leonardotrapani/hyprvoice/internal/config"
 	"github.com/leonardotrapani/hyprvoice/internal/daemon"
+	"github.com/leonardotrapani/hyprvoice/internal/notify"
 	"github.com/spf13/cobra"
 )
 
@@ -361,23 +362,18 @@ func runInteractiveConfig() error {
 		input := strings.TrimSpace(strings.ToLower(scanner.Text()))
 		if input == "y" || input == "yes" {
 			fmt.Println()
-			// Get current/default values for display
-			recTitle, recBody := cfg.GetRecordingStarted()
-			transTitle, transBody := cfg.GetTranscribing()
-			reloadTitle, reloadBody := cfg.GetConfigReloaded()
-			cancelTitle, cancelBody := cfg.GetOperationCancelled()
-			abortRecBody := cfg.GetRecordingAborted()
-			abortInjBody := cfg.GetInjectionAborted()
+			// Get resolved values (user config merged with defaults)
+			msgs := cfg.Notifications.Messages.Resolve()
 
 			// Recording Started
 			fmt.Println("  Recording Started notification:")
-			fmt.Printf("    Title (current: %s): ", recTitle)
+			fmt.Printf("    Title (current: %s): ", msgs[notify.MsgRecordingStarted].Title)
 			if scanner.Scan() {
 				if t := strings.TrimSpace(scanner.Text()); t != "" {
 					cfg.Notifications.Messages.RecordingStarted.Title = t
 				}
 			}
-			fmt.Printf("    Body (current: %s): ", recBody)
+			fmt.Printf("    Body (current: %s): ", msgs[notify.MsgRecordingStarted].Body)
 			if scanner.Scan() {
 				if b := strings.TrimSpace(scanner.Text()); b != "" {
 					cfg.Notifications.Messages.RecordingStarted.Body = b
@@ -387,13 +383,13 @@ func runInteractiveConfig() error {
 
 			// Transcribing
 			fmt.Println("  Transcribing notification:")
-			fmt.Printf("    Title (current: %s): ", transTitle)
+			fmt.Printf("    Title (current: %s): ", msgs[notify.MsgTranscribing].Title)
 			if scanner.Scan() {
 				if t := strings.TrimSpace(scanner.Text()); t != "" {
 					cfg.Notifications.Messages.Transcribing.Title = t
 				}
 			}
-			fmt.Printf("    Body (current: %s): ", transBody)
+			fmt.Printf("    Body (current: %s): ", msgs[notify.MsgTranscribing].Body)
 			if scanner.Scan() {
 				if b := strings.TrimSpace(scanner.Text()); b != "" {
 					cfg.Notifications.Messages.Transcribing.Body = b
@@ -403,13 +399,13 @@ func runInteractiveConfig() error {
 
 			// Config Reloaded
 			fmt.Println("  Config Reloaded notification:")
-			fmt.Printf("    Title (current: %s): ", reloadTitle)
+			fmt.Printf("    Title (current: %s): ", msgs[notify.MsgConfigReloaded].Title)
 			if scanner.Scan() {
 				if t := strings.TrimSpace(scanner.Text()); t != "" {
 					cfg.Notifications.Messages.ConfigReloaded.Title = t
 				}
 			}
-			fmt.Printf("    Body (current: %s): ", reloadBody)
+			fmt.Printf("    Body (current: %s): ", msgs[notify.MsgConfigReloaded].Body)
 			if scanner.Scan() {
 				if b := strings.TrimSpace(scanner.Text()); b != "" {
 					cfg.Notifications.Messages.ConfigReloaded.Body = b
@@ -419,13 +415,13 @@ func runInteractiveConfig() error {
 
 			// Operation Cancelled
 			fmt.Println("  Operation Cancelled notification:")
-			fmt.Printf("    Title (current: %s): ", cancelTitle)
+			fmt.Printf("    Title (current: %s): ", msgs[notify.MsgOperationCancelled].Title)
 			if scanner.Scan() {
 				if t := strings.TrimSpace(scanner.Text()); t != "" {
 					cfg.Notifications.Messages.OperationCancelled.Title = t
 				}
 			}
-			fmt.Printf("    Body (current: %s): ", cancelBody)
+			fmt.Printf("    Body (current: %s): ", msgs[notify.MsgOperationCancelled].Body)
 			if scanner.Scan() {
 				if b := strings.TrimSpace(scanner.Text()); b != "" {
 					cfg.Notifications.Messages.OperationCancelled.Body = b
@@ -435,7 +431,7 @@ func runInteractiveConfig() error {
 
 			// Recording Aborted (body only)
 			fmt.Println("  Recording Aborted notification:")
-			fmt.Printf("    Body (current: %s): ", abortRecBody)
+			fmt.Printf("    Body (current: %s): ", msgs[notify.MsgRecordingAborted].Body)
 			if scanner.Scan() {
 				if b := strings.TrimSpace(scanner.Text()); b != "" {
 					cfg.Notifications.Messages.RecordingAborted.Body = b
@@ -445,7 +441,7 @@ func runInteractiveConfig() error {
 
 			// Injection Aborted (body only)
 			fmt.Println("  Injection Aborted notification:")
-			fmt.Printf("    Body (current: %s): ", abortInjBody)
+			fmt.Printf("    Body (current: %s): ", msgs[notify.MsgInjectionAborted].Body)
 			if scanner.Scan() {
 				if b := strings.TrimSpace(scanner.Text()); b != "" {
 					cfg.Notifications.Messages.InjectionAborted.Body = b
