@@ -76,6 +76,26 @@ func TestNewTranscriber(t *testing.T) {
 			wantErr: true,
 		},
 		{
+			name: "valid mistral-transcription config",
+			config: Config{
+				Provider: "mistral-transcription",
+				APIKey:   "test-key",
+				Language: "de",
+				Model:    "voxtral-mini-latest",
+			},
+			wantErr: false,
+		},
+		{
+			name: "mistral-transcription config without api key",
+			config: Config{
+				Provider: "mistral-transcription",
+				APIKey:   "",
+				Language: "de",
+				Model:    "voxtral-mini-latest",
+			},
+			wantErr: true,
+		},
+		{
 			name: "unsupported provider",
 			config: Config{
 				Provider: "unsupported",
