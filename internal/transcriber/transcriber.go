@@ -51,6 +51,12 @@ func NewTranscriber(config Config) (Transcriber, error) {
 		}
 		adapter = NewGroqTranslationAdapter(config)
 
+	case "mistral-transcription":
+		if config.APIKey == "" {
+			return nil, fmt.Errorf("Mistral API key required")
+		}
+		adapter = NewMistralAdapter(config)
+
 	default:
 		return nil, fmt.Errorf("unsupported provider: %s", config.Provider)
 	}

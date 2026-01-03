@@ -125,6 +125,8 @@ func (c *Config) ToTranscriberConfig() transcriber.Config {
 			config.APIKey = os.Getenv("OPENAI_API_KEY")
 		case "groq-transcription", "groq-translation":
 			config.APIKey = os.Getenv("GROQ_API_KEY")
+		case "mistral-transcription":
+			config.APIKey = os.Getenv("MISTRAL_API_KEY")
 		}
 	}
 
@@ -221,8 +223,28 @@ func (c *Config) Validate() error {
 			return fmt.Errorf("invalid model for groq-translation: %s (must be whisper-large-v3, turbo version not supported for translation)", c.Transcription.Model)
 		}
 
+	case "mistral-transcription":
+		apiKey := c.Transcription.APIKey
+		if apiKey == "" {
+			apiKey = os.Getenv("MISTRAL_API_KEY")
+		}
+		if apiKey == "" {
+			return fmt.Errorf("Mistral API key required: not found in config (transcription.api_key) or environment variable (MISTRAL_API_KEY)")
+		}
+
+		// Validate language code if provided (empty string means auto-detect)
+		if c.Transcription.Language != "" && !isValidLanguageCode(c.Transcription.Language) {
+			return fmt.Errorf("invalid transcription.language: %s (use empty string for auto-detect or ISO-639-1 codes like 'en', 'es', 'fr')", c.Transcription.Language)
+		}
+
+		// Validate Mistral model
+		validMistralModels := map[string]bool{"voxtral-mini-latest": true, "voxtral-mini-2507": true}
+		if c.Transcription.Model != "" && !validMistralModels[c.Transcription.Model] {
+			return fmt.Errorf("invalid model for mistral-transcription: %s (must be voxtral-mini-latest or voxtral-mini-2507)", c.Transcription.Model)
+		}
+
 	default:
-		return fmt.Errorf("unsupported transcription.provider: %s (must be openai, groq-transcription, or groq-translation)", c.Transcription.Provider)
+		return fmt.Errorf("unsupported transcription.provider: %s (must be openai, groq-transcription, groq-translation, or mistral-transcription)", c.Transcription.Provider)
 	}
 
 	if c.Transcription.Model == "" {
@@ -390,10 +412,10 @@ func SaveDefaultConfig() error {
 
 # Speech Transcription Configuration
 [transcription]
-  provider = "openai"          # Transcription service: "openai", "groq-transcription", or "groq-translation"
-  api_key = ""                 # API key (or set OPENAI_API_KEY/GROQ_API_KEY environment variable)
+  provider = "openai"          # Transcription service: "openai", "groq-transcription", "groq-translation", or "mistral-transcription"
+  api_key = ""                 # API key (or set OPENAI_API_KEY/GROQ_API_KEY/MISTRAL_API_KEY environment variable)
   language = ""                # Language code (empty for auto-detect, "en", "it", "es", "fr", etc.)
-  model = "whisper-1"          # Model: OpenAI="whisper-1", Groq="whisper-large-v3" or "whisper-large-v3-turbo"
+  model = "whisper-1"          # Model: OpenAI="whisper-1", Groq="whisper-large-v3", Mistral="voxtral-mini-latest"
 
 # Text Injection Configuration
 [injection]
@@ -455,6 +477,8 @@ func SaveDefaultConfig() error {
 #     Models: whisper-large-v3 or whisper-large-v3-turbo
 # - "groq-translation": Groq Whisper API for translation to English (always outputs English text)
 #     Models: whisper-large-v3 only (turbo not supported for translation)
+# - "mistral-transcription": Mistral Voxtral API (excellent for European languages, requires MISTRAL_API_KEY)
+#     Models: voxtral-mini-latest or voxtral-mini-2507
 #
 # Language codes: Use empty string ("") for automatic detection, or specific codes like:
 # "en" (English), "it" (Italian), "es" (Spanish), "fr" (French), "de" (German), etc.

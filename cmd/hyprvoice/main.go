@@ -132,7 +132,7 @@ func configureCmd() *cobra.Command {
 		Short: "Interactive configuration setup",
 		Long: `Interactive configuration wizard for hyprvoice.
 This will guide you through setting up:
-- Transcription provider (OpenAI or Groq)
+- Transcription provider (OpenAI, Groq, or Mistral)
 - API keys and model selection
 - Audio and text injection preferences
 - Notification settings`,
@@ -162,10 +162,11 @@ func runInteractiveConfig() error {
 	// Provider selection
 	for {
 		fmt.Println("Select transcription provider:")
-		fmt.Println("  1. openai            - OpenAI Whisper API (cloud-based)")
-		fmt.Println("  2. groq-transcription - Groq Whisper API (fast transcription)")
-		fmt.Println("  3. groq-translation   - Groq Whisper API (translate to English)")
-		fmt.Printf("Provider [1-3] (current: %s): ", cfg.Transcription.Provider)
+		fmt.Println("  1. openai               - OpenAI Whisper API (cloud-based)")
+		fmt.Println("  2. groq-transcription   - Groq Whisper API (fast transcription)")
+		fmt.Println("  3. groq-translation     - Groq Whisper API (translate to English)")
+		fmt.Println("  4. mistral-transcription - Mistral Voxtral API (excellent for European languages)")
+		fmt.Printf("Provider [1-4] (current: %s): ", cfg.Transcription.Provider)
 		if !scanner.Scan() {
 			break
 		}
@@ -180,10 +181,12 @@ func runInteractiveConfig() error {
 			cfg.Transcription.Provider = "groq-transcription"
 		case "3":
 			cfg.Transcription.Provider = "groq-translation"
-		case "openai", "groq-transcription", "groq-translation":
+		case "4":
+			cfg.Transcription.Provider = "mistral-transcription"
+		case "openai", "groq-transcription", "groq-translation", "mistral-transcription":
 			cfg.Transcription.Provider = input
 		default:
-			fmt.Println("❌ Error: invalid provider. Please enter 1, 2, 3 or provider name.")
+			fmt.Println("❌ Error: invalid provider. Please enter 1-4 or provider name.")
 			fmt.Println()
 			continue
 		}
@@ -245,13 +248,43 @@ func runInteractiveConfig() error {
 			}
 			fmt.Println("❌ Error: only whisper-large-v3 is supported for translation.")
 		}
+	case "mistral-transcription":
+		for {
+			fmt.Println("\nMistral Voxtral Model:")
+			fmt.Println("  1. voxtral-mini-latest - Recommended (latest version)")
+			fmt.Println("  2. voxtral-mini-2507   - Pinned version")
+			fmt.Printf("Model [1-2] (current: %s): ", cfg.Transcription.Model)
+			if !scanner.Scan() {
+				break
+			}
+			input := strings.TrimSpace(scanner.Text())
+			switch input {
+			case "1":
+				cfg.Transcription.Model = "voxtral-mini-latest"
+			case "2":
+				cfg.Transcription.Model = "voxtral-mini-2507"
+			case "voxtral-mini-latest", "voxtral-mini-2507":
+				cfg.Transcription.Model = input
+			case "":
+				if cfg.Transcription.Model == "" || !strings.HasPrefix(cfg.Transcription.Model, "voxtral") {
+					cfg.Transcription.Model = "voxtral-mini-latest"
+				}
+			default:
+				fmt.Println("❌ Error: invalid model. Please enter 1, 2 or model name.")
+				continue
+			}
+			break
+		}
 	}
 
 	// API Key (provider-aware)
 	var envVarName string
-	if cfg.Transcription.Provider == "openai" {
+	switch cfg.Transcription.Provider {
+	case "openai":
 		envVarName = "OPENAI_API_KEY"
-	} else {
+	case "mistral-transcription":
+		envVarName = "MISTRAL_API_KEY"
+	default:
 		envVarName = "GROQ_API_KEY"
 	}
 	fmt.Printf("\nAPI Key (current: %s, leave empty to use %s env var): ", maskAPIKey(cfg.Transcription.APIKey), envVarName)
@@ -575,10 +608,10 @@ func saveConfig(cfg *config.Config) error {
 
 # Speech Transcription Configuration
 [transcription]
-  provider = "%s"          # Transcription service: "openai", "groq-transcription", or "groq-translation"
-  api_key = "%s"                 # API key (or set OPENAI_API_KEY/GROQ_API_KEY environment variable)
+  provider = "%s"          # Transcription service: "openai", "groq-transcription", "groq-translation", or "mistral-transcription"
+  api_key = "%s"                 # API key (or set OPENAI_API_KEY/GROQ_API_KEY/MISTRAL_API_KEY environment variable)
   language = "%s"                # Language code (empty for auto-detect, "en", "it", "es", "fr", etc.)
-  model = "%s"          # Model: OpenAI="whisper-1", Groq="whisper-large-v3" or "whisper-large-v3-turbo"
+  model = "%s"          # Model: OpenAI="whisper-1", Groq="whisper-large-v3", Mistral="voxtral-mini-latest"
 
 # Text Injection Configuration
 [injection]
@@ -600,6 +633,8 @@ func saveConfig(cfg *config.Config) error {
 #     Models: whisper-large-v3 or whisper-large-v3-turbo
 # - "groq-translation": Groq Whisper API for translation to English (always outputs English text)
 #     Models: whisper-large-v3 only (turbo not supported for translation)
+# - "mistral-transcription": Mistral Voxtral API (excellent for European languages, requires MISTRAL_API_KEY)
+#     Models: voxtral-mini-latest or voxtral-mini-2507
 #
 # Language codes: Use empty string ("") for automatic detection, or specific codes like:
 # "en" (English), "it" (Italian), "es" (Spanish), "fr" (French), "de" (German), etc.
