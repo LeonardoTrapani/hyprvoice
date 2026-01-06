@@ -697,6 +697,16 @@ cp hyprvoice ~/.local/bin/
 export PATH="$HOME/.local/bin:$PATH"
 ```
 
+### Running Tests
+
+```bash
+# Run the full suite
+go test ./...
+
+# Skip injection backends (ydotool, wtype, clipboard) if they aren't available
+SKIP_MISSING_BACKENDS=1 go test ./...
+```
+
 ## For Maintainers
 
 ### Publishing to AUR

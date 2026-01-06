@@ -119,7 +119,7 @@ func TestInjector_Inject(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if !tt.wantErr && !hasAvailableBackend(tt.config.Backends) {
+			if !tt.wantErr && os.Getenv("SKIP_MISSING_BACKENDS") != "" && !hasAvailableBackend(tt.config.Backends) {
 				t.Skipf("Skipping %s: required backend(s) not available in this environment", tt.name)
 			}
 			injector := NewInjector(tt.config)
