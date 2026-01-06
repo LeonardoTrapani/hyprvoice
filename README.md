@@ -361,7 +361,7 @@ clipboard_timeout = "3s"
 
 **Injection Backends:**
 
-- **`ydotool`**: Uses ydotool (requires `ydotoold` daemon). Most compatible with Chromium/Electron apps.
+- **`ydotool`**: Uses ydotool (requires `ydotoold` daemon for ydotool v1.0.0+). Most compatible with Chromium/Electron apps. Compatible with Wayland and X11.
 - **`wtype`**: Uses wtype for Wayland. May have issues with some Chromium-based apps (known upstream bug).
 - **`clipboard`**: Copies text to clipboard only. Most reliable, but requires manual paste.
 
@@ -385,7 +385,7 @@ backends = ["ydotool"]
 
 **ydotool Setup:**
 
-ydotool requires the `ydotoold` daemon running and access to `/dev/uinput`:
+ydotool requires the `ydotoold` daemon running (for ydotool v1.0.0+) and access to `/dev/uinput`:
 
 ```bash
 # Start ydotool daemon (systemd)

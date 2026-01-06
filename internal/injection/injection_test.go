@@ -119,6 +119,9 @@ func TestInjector_Inject(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			if !tt.wantErr && !hasAvailableBackend(tt.config.Backends) {
+				t.Skipf("Skipping %s: required backend(s) not available in this environment", tt.name)
+			}
 			injector := NewInjector(tt.config)
 			ctx := context.Background()
 
@@ -149,6 +152,26 @@ func TestConfig(t *testing.T) {
 	if config.ClipboardTimeout != 3*time.Second {
 		t.Errorf("ClipboardTimeout mismatch: got %v, want %v", config.ClipboardTimeout, 3*time.Second)
 	}
+}
+
+func hasAvailableBackend(backends []string) bool {
+	for _, name := range backends {
+		var backend Backend
+		switch name {
+		case "ydotool":
+			backend = NewYdotoolBackend()
+		case "wtype":
+			backend = NewWtypeBackend()
+		case "clipboard":
+			backend = NewClipboardBackend()
+		default:
+			continue
+		}
+		if backend.Available() == nil {
+			return true
+		}
+	}
+	return false
 }
 
 // TestWtypeBackend tests the wtype backend

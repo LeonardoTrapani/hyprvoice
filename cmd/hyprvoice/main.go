@@ -314,7 +314,7 @@ func runInteractiveConfig() error {
 		fmt.Println("⌨️  Text Injection Configuration")
 		fmt.Println("--------------------------------")
 		fmt.Println("Backends are tried in order until one succeeds (fallback chain):")
-		fmt.Println("  - ydotool:   Best for Chromium/Electron apps (requires ydotoold daemon)")
+		fmt.Println("  - ydotool:   Best for Chromium/Electron apps (works on X11/Wayland, requires ydotoold daemon for v1.0.0+)")
 		fmt.Println("  - wtype:     Native Wayland typing (may fail on some Chromium apps)")
 		fmt.Println("  - clipboard: Copies to clipboard only (most reliable, needs manual paste)")
 		fmt.Println()

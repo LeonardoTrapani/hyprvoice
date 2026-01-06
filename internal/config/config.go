@@ -461,7 +461,7 @@ func SaveDefaultConfig() error {
   #     body = "🔧"
 
 # Backend explanations:
-# - "ydotool": Uses ydotool (requires ydotoold daemon running). Most compatible with Chromium/Electron apps.
+# - "ydotool": Uses ydotool (Wayland/X11). Most compatible with Chromium/Electron apps.
 # - "wtype": Uses wtype for Wayland. May have issues with some Chromium-based apps.
 # - "clipboard": Copies text to clipboard only (most reliable, but requires manual paste).
 #
