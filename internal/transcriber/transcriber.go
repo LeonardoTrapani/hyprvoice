@@ -57,6 +57,12 @@ func NewTranscriber(config Config) (Transcriber, error) {
 		}
 		adapter = NewMistralAdapter(config)
 
+	case "elevenlabs":
+		if config.APIKey == "" {
+			return nil, fmt.Errorf("ElevenLabs API key required")
+		}
+		adapter = NewElevenLabsAdapter(config)
+
 	default:
 		return nil, fmt.Errorf("unsupported provider: %s", config.Provider)
 	}
