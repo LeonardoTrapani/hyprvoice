@@ -25,7 +25,7 @@ func TestNew(t *testing.T) {
 			Model:    "whisper-1",
 		},
 		Injection: config.InjectionConfig{
-			Backends:         []string{"ydotool", "wtype", "clipboard"}, YdotoolTimeout:   5 * time.Second,
+			Backends: []string{"ydotool", "wtype", "clipboard"}, YdotoolTimeout: 5 * time.Second,
 			WtypeTimeout:     5 * time.Second,
 			ClipboardTimeout: 3 * time.Second,
 		},
@@ -63,7 +63,7 @@ func TestPipeline_Status(t *testing.T) {
 			Model:    "whisper-1",
 		},
 		Injection: config.InjectionConfig{
-			Backends:         []string{"ydotool", "wtype", "clipboard"}, YdotoolTimeout:   5 * time.Second,
+			Backends: []string{"ydotool", "wtype", "clipboard"}, YdotoolTimeout: 5 * time.Second,
 			WtypeTimeout:     5 * time.Second,
 			ClipboardTimeout: 3 * time.Second,
 		},
@@ -109,7 +109,7 @@ func TestPipeline_GetActionCh(t *testing.T) {
 			Model:    "whisper-1",
 		},
 		Injection: config.InjectionConfig{
-			Backends:         []string{"ydotool", "wtype", "clipboard"}, YdotoolTimeout:   5 * time.Second,
+			Backends: []string{"ydotool", "wtype", "clipboard"}, YdotoolTimeout: 5 * time.Second,
 			WtypeTimeout:     5 * time.Second,
 			ClipboardTimeout: 3 * time.Second,
 		},
@@ -153,7 +153,7 @@ func TestPipeline_GetErrorCh(t *testing.T) {
 			Model:    "whisper-1",
 		},
 		Injection: config.InjectionConfig{
-			Backends:         []string{"ydotool", "wtype", "clipboard"}, YdotoolTimeout:   5 * time.Second,
+			Backends: []string{"ydotool", "wtype", "clipboard"}, YdotoolTimeout: 5 * time.Second,
 			WtypeTimeout:     5 * time.Second,
 			ClipboardTimeout: 3 * time.Second,
 		},
@@ -197,7 +197,7 @@ func TestPipeline_Stop(t *testing.T) {
 			Model:    "whisper-1",
 		},
 		Injection: config.InjectionConfig{
-			Backends:         []string{"ydotool", "wtype", "clipboard"}, YdotoolTimeout:   5 * time.Second,
+			Backends: []string{"ydotool", "wtype", "clipboard"}, YdotoolTimeout: 5 * time.Second,
 			WtypeTimeout:     5 * time.Second,
 			ClipboardTimeout: 3 * time.Second,
 		},
@@ -234,7 +234,7 @@ func TestPipeline_Run(t *testing.T) {
 			Model:    "whisper-1",
 		},
 		Injection: config.InjectionConfig{
-			Backends:         []string{"ydotool", "wtype", "clipboard"}, YdotoolTimeout:   5 * time.Second,
+			Backends: []string{"ydotool", "wtype", "clipboard"}, YdotoolTimeout: 5 * time.Second,
 			WtypeTimeout:     5 * time.Second,
 			ClipboardTimeout: 3 * time.Second,
 		},
@@ -344,7 +344,7 @@ func TestPipeline_ConcurrentAccess(t *testing.T) {
 			Model:    "whisper-1",
 		},
 		Injection: config.InjectionConfig{
-			Backends:         []string{"ydotool", "wtype", "clipboard"}, YdotoolTimeout:   5 * time.Second,
+			Backends: []string{"ydotool", "wtype", "clipboard"}, YdotoolTimeout: 5 * time.Second,
 			WtypeTimeout:     5 * time.Second,
 			ClipboardTimeout: 3 * time.Second,
 		},

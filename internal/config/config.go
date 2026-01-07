@@ -127,6 +127,8 @@ func (c *Config) ToTranscriberConfig() transcriber.Config {
 			config.APIKey = os.Getenv("GROQ_API_KEY")
 		case "mistral-transcription":
 			config.APIKey = os.Getenv("MISTRAL_API_KEY")
+		case "elevenlabs":
+			config.APIKey = os.Getenv("ELEVENLABS_API_KEY")
 		}
 	}
 
@@ -243,8 +245,28 @@ func (c *Config) Validate() error {
 			return fmt.Errorf("invalid model for mistral-transcription: %s (must be voxtral-mini-latest or voxtral-mini-2507)", c.Transcription.Model)
 		}
 
+	case "elevenlabs":
+		apiKey := c.Transcription.APIKey
+		if apiKey == "" {
+			apiKey = os.Getenv("ELEVENLABS_API_KEY")
+		}
+		if apiKey == "" {
+			return fmt.Errorf("ElevenLabs API key required: not found in config (transcription.api_key) or environment variable (ELEVENLABS_API_KEY)")
+		}
+
+		// Validate language code if provided (empty string means auto-detect)
+		if c.Transcription.Language != "" && !isValidLanguageCode(c.Transcription.Language) {
+			return fmt.Errorf("invalid transcription.language: %s (use empty string for auto-detect or ISO-639-1 codes like 'en', 'pt', 'es')", c.Transcription.Language)
+		}
+
+		// Validate Eleven Labs model
+		validModels := map[string]bool{"scribe_v1": true, "scribe_v2": true}
+		if c.Transcription.Model != "" && !validModels[c.Transcription.Model] {
+			return fmt.Errorf("invalid model for elevenlabs: %s (must be scribe_v1 or scribe_v2)", c.Transcription.Model)
+		}
+
 	default:
-		return fmt.Errorf("unsupported transcription.provider: %s (must be openai, groq-transcription, groq-translation, or mistral-transcription)", c.Transcription.Provider)
+		return fmt.Errorf("unsupported transcription.provider: %s (must be openai, groq-transcription, groq-translation, mistral-transcription, or elevenlabs)", c.Transcription.Provider)
 	}
 
 	if c.Transcription.Model == "" {
@@ -412,10 +434,10 @@ func SaveDefaultConfig() error {
 
 # Speech Transcription Configuration
 [transcription]
-  provider = "openai"          # Transcription service: "openai", "groq-transcription", "groq-translation", or "mistral-transcription"
-  api_key = ""                 # API key (or set OPENAI_API_KEY/GROQ_API_KEY/MISTRAL_API_KEY environment variable)
+  provider = "openai"          # Transcription service: "openai", "groq-transcription", "groq-translation", "mistral-transcription", or "elevenlabs"
+  api_key = ""                 # API key (or set OPENAI_API_KEY/GROQ_API_KEY/MISTRAL_API_KEY/ELEVENLABS_API_KEY environment variable)
   language = ""                # Language code (empty for auto-detect, "en", "it", "es", "fr", etc.)
-  model = "whisper-1"          # Model: OpenAI="whisper-1", Groq="whisper-large-v3", Mistral="voxtral-mini-latest"
+  model = "whisper-1"          # Model: OpenAI="whisper-1", Groq="whisper-large-v3", Mistral="voxtral-mini-latest", ElevenLabs="scribe_v1"
 
 # Text Injection Configuration
 [injection]
@@ -479,6 +501,8 @@ func SaveDefaultConfig() error {
 #     Models: whisper-large-v3 only (turbo not supported for translation)
 # - "mistral-transcription": Mistral Voxtral API (excellent for European languages, requires MISTRAL_API_KEY)
 #     Models: voxtral-mini-latest or voxtral-mini-2507
+# - "elevenlabs": ElevenLabs Scribe API (excellent accuracy, 99 languages, requires ELEVENLABS_API_KEY)
+#     Models: scribe_v1 (99 languages, best accuracy) or scribe_v2 (90 languages, real-time)
 #
 # Language codes: Use empty string ("") for automatic detection, or specific codes like:
 # "en" (English), "it" (Italian), "es" (Spanish), "fr" (French), "de" (German), etc.
