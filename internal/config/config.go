@@ -127,6 +127,8 @@ func (c *Config) ToTranscriberConfig() transcriber.Config {
 			config.APIKey = os.Getenv("GROQ_API_KEY")
 		case "mistral-transcription":
 			config.APIKey = os.Getenv("MISTRAL_API_KEY")
+		case "elevenlabs":
+			config.APIKey = os.Getenv("ELEVENLABS_API_KEY")
 		}
 	}
 
@@ -243,8 +245,28 @@ func (c *Config) Validate() error {
 			return fmt.Errorf("invalid model for mistral-transcription: %s (must be voxtral-mini-latest or voxtral-mini-2507)", c.Transcription.Model)
 		}
 
+	case "elevenlabs":
+		apiKey := c.Transcription.APIKey
+		if apiKey == "" {
+			apiKey = os.Getenv("ELEVENLABS_API_KEY")
+		}
+		if apiKey == "" {
+			return fmt.Errorf("ElevenLabs API key required: not found in config (transcription.api_key) or environment variable (ELEVENLABS_API_KEY)")
+		}
+
+		// Validate language code if provided (empty string means auto-detect)
+		if c.Transcription.Language != "" && !isValidLanguageCode(c.Transcription.Language) {
+			return fmt.Errorf("invalid transcription.language: %s (use empty string for auto-detect or ISO-639-1 codes like 'en', 'pt', 'es')", c.Transcription.Language)
+		}
+
+		// Validate Eleven Labs model
+		validModels := map[string]bool{"scribe_v1": true, "scribe_v2": true}
+		if c.Transcription.Model != "" && !validModels[c.Transcription.Model] {
+			return fmt.Errorf("invalid model for elevenlabs: %s (must be scribe_v1 or scribe_v2)", c.Transcription.Model)
+		}
+
 	default:
-		return fmt.Errorf("unsupported transcription.provider: %s (must be openai, groq-transcription, groq-translation, or mistral-transcription)", c.Transcription.Provider)
+		return fmt.Errorf("unsupported transcription.provider: %s (must be openai, groq-transcription, groq-translation, mistral-transcription, or elevenlabs)", c.Transcription.Provider)
 	}
 
 	if c.Transcription.Model == "" {
