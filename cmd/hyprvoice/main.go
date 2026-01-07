@@ -652,10 +652,10 @@ func saveConfig(cfg *config.Config) error {
 
 # Speech Transcription Configuration
 [transcription]
-  provider = "%s"          # Transcription service: "openai", "groq-transcription", "groq-translation", or "mistral-transcription"
-  api_key = "%s"                 # API key (or set OPENAI_API_KEY/GROQ_API_KEY/MISTRAL_API_KEY environment variable)
+  provider = "%s"          # Transcription service: "openai", "groq-transcription", "groq-translation", "mistral-transcription", or "elevenlabs"
+  api_key = "%s"                 # API key (or set OPENAI_API_KEY/GROQ_API_KEY/MISTRAL_API_KEY/ELEVENLABS_API_KEY environment variable)
   language = "%s"                # Language code (empty for auto-detect, "en", "it", "es", "fr", etc.)
-  model = "%s"          # Model: OpenAI="whisper-1", Groq="whisper-large-v3", Mistral="voxtral-mini-latest"
+  model = "%s"          # Model: OpenAI="whisper-1", Groq="whisper-large-v3", Mistral="voxtral-mini-latest", ElevenLabs="scribe_v1" or "scribe_v2"
 
 # Text Injection Configuration
 [injection]
@@ -679,6 +679,8 @@ func saveConfig(cfg *config.Config) error {
 #     Models: whisper-large-v3 only (turbo not supported for translation)
 # - "mistral-transcription": Mistral Voxtral API (excellent for European languages, requires MISTRAL_API_KEY)
 #     Models: voxtral-mini-latest or voxtral-mini-2507
+# - "elevenlabs": ElevenLabs Scribe API (excellent accuracy, 99 languages, requires ELEVENLABS_API_KEY)
+#     Models: scribe_v1 (99 languages, best accuracy) or scribe_v2 (90 languages, real-time)
 #
 # Language codes: Use empty string ("") for automatic detection, or specific codes like:
 # "en" (English), "it" (Italian), "es" (Spanish), "fr" (French), "de" (German), etc.
