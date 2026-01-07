@@ -166,7 +166,8 @@ func runInteractiveConfig() error {
 		fmt.Println("  2. groq-transcription   - Groq Whisper API (fast transcription)")
 		fmt.Println("  3. groq-translation     - Groq Whisper API (translate to English)")
 		fmt.Println("  4. mistral-transcription - Mistral Voxtral API (excellent for European languages)")
-		fmt.Printf("Provider [1-4] (current: %s): ", cfg.Transcription.Provider)
+		fmt.Println("  5. elevenlabs           - ElevenLabs Scribe API (99 languages, excellent accuracy)")
+		fmt.Printf("Provider [1-5] (current: %s): ", cfg.Transcription.Provider)
 		if !scanner.Scan() {
 			break
 		}
@@ -183,10 +184,12 @@ func runInteractiveConfig() error {
 			cfg.Transcription.Provider = "groq-translation"
 		case "4":
 			cfg.Transcription.Provider = "mistral-transcription"
-		case "openai", "groq-transcription", "groq-translation", "mistral-transcription":
+		case "5":
+			cfg.Transcription.Provider = "elevenlabs"
+		case "openai", "groq-transcription", "groq-translation", "mistral-transcription", "elevenlabs":
 			cfg.Transcription.Provider = input
 		default:
-			fmt.Println("❌ Error: invalid provider. Please enter 1-4 or provider name.")
+			fmt.Println("❌ Error: invalid provider. Please enter 1-5 or provider name.")
 			fmt.Println()
 			continue
 		}
@@ -275,6 +278,38 @@ func runInteractiveConfig() error {
 			}
 			break
 		}
+	case "elevenlabs":
+		for {
+			fmt.Println("\nElevenLabs Scribe Model:")
+			fmt.Println("  Language Support:")
+			fmt.Println("    scribe_v1: 99 languages (96.7% accuracy for English, ≤5% WER for Portuguese)")
+			fmt.Println("    scribe_v2: 90 languages (real-time optimized, lower latency)")
+			fmt.Println()
+			fmt.Println("  Available Models:")
+			fmt.Println("    1. scribe_v1  - Best accuracy, full timestamps (recommended)")
+			fmt.Println("    2. scribe_v2  - Real-time streaming, lower latency")
+			fmt.Printf("Model [1-2] (current: %s): ", cfg.Transcription.Model)
+			if !scanner.Scan() {
+				break
+			}
+			input := strings.TrimSpace(scanner.Text())
+			switch input {
+			case "1":
+				cfg.Transcription.Model = "scribe_v1"
+			case "2":
+				cfg.Transcription.Model = "scribe_v2"
+			case "scribe_v1", "scribe_v2":
+				cfg.Transcription.Model = input
+			case "":
+				if cfg.Transcription.Model == "" {
+					cfg.Transcription.Model = "scribe_v1"
+				}
+			default:
+				fmt.Println("❌ Error: invalid model. Please enter 1, 2 or model name.")
+				continue
+			}
+			break
+		}
 	}
 
 	// API Key (provider-aware)
@@ -284,6 +319,8 @@ func runInteractiveConfig() error {
 		envVarName = "OPENAI_API_KEY"
 	case "mistral-transcription":
 		envVarName = "MISTRAL_API_KEY"
+	case "elevenlabs":
+		envVarName = "ELEVENLABS_API_KEY"
 	default:
 		envVarName = "GROQ_API_KEY"
 	}
@@ -299,6 +336,13 @@ func runInteractiveConfig() error {
 	if cfg.Transcription.Provider == "groq-translation" {
 		fmt.Printf("\nSource language hint (empty for auto-detect, current: %s): ", cfg.Transcription.Language)
 		fmt.Println("\n  Note: Translation always outputs English. Language hints at source audio language.")
+	} else if cfg.Transcription.Provider == "elevenlabs" {
+		fmt.Println("\nLanguage Performance:")
+		fmt.Println("  Excellent (≤5% WER): English, Portuguese, +25 languages")
+		fmt.Println("  High (5-10% WER): French, German, Spanish, Italian, etc.")
+		fmt.Println("  Good (10-20% WER): Most supported languages")
+		fmt.Println("  Leave empty for auto-detection (recommended)")
+		fmt.Printf("Language (current: %s): ", cfg.Transcription.Language)
 	} else {
 		fmt.Printf("\nLanguage (empty for auto-detect, current: %s): ", cfg.Transcription.Language)
 	}
