@@ -7,7 +7,7 @@ Press a toggle key, speak, and get instant text input. Built natively for Waylan
 - **Toggle workflow**: Press once to start recording, press again to stop and inject text
 - **Wayland native**: Purpose-built for Wayland compositors - no legacy X11 dependencies or hacky workarounds
 - **Real-time feedback**: Desktop notifications for recording states and transcription status
-- **Multiple transcription backends**: OpenAI Whisper and Groq (planned: whisper.cpp for local processing, gemini, and more)
+- **Multiple transcription backends**: OpenAI Whisper, Groq, Mistral Voxtral, and Eleven Labs Scribe (99 languages, excellent accuracy)
 - **Smart text injection**: Clipboard save/restore with direct typing fallback
 - **Daemon architecture**: Lightweight control plane with efficient pipeline management
 
@@ -62,7 +62,7 @@ export PATH="$HOME/.local/bin:$PATH"
 
 - **Wayland desktop** (Hyprland, Niri, GNOME, KDE, etc.)
 - **PipeWire audio system** with tools
-- **API key for transcription**: OpenAI API key or Groq API key (Groq offers faster processing and free tier)
+- **API key for transcription**: OpenAI, Groq, Mistral, or Eleven Labs API key (check each provider's pricing)
 
 **System packages** (automatically installed with AUR package):
 
@@ -96,7 +96,7 @@ After installing via AUR:
 ```bash
 hyprvoice configure
 ```
-This wizard will guide you through setting up your OpenAI API key, audio preferences, and other settings.
+This wizard will guide you through setting up your transcription provider, API key, audio preferences, and other settings.
 
 2. **Enable and start the service:**
 ```bash
