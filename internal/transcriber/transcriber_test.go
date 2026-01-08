@@ -96,6 +96,36 @@ func TestNewTranscriber(t *testing.T) {
 			wantErr: true,
 		},
 		{
+			name: "valid elevenlabs config with scribe_v1",
+			config: Config{
+				Provider: "elevenlabs",
+				APIKey:   "test-key",
+				Language: "en",
+				Model:    "scribe_v1",
+			},
+			wantErr: false,
+		},
+		{
+			name: "valid elevenlabs config with scribe_v2",
+			config: Config{
+				Provider: "elevenlabs",
+				APIKey:   "test-key",
+				Language: "pt",
+				Model:    "scribe_v2",
+			},
+			wantErr: false,
+		},
+		{
+			name: "elevenlabs config without api key",
+			config: Config{
+				Provider: "elevenlabs",
+				APIKey:   "",
+				Language: "en",
+				Model:    "scribe_v1",
+			},
+			wantErr: true,
+		},
+		{
 			name: "unsupported provider",
 			config: Config{
 				Provider: "unsupported",
