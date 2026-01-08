@@ -58,6 +58,16 @@ cp hyprvoice ~/.local/bin/
 export PATH="$HOME/.local/bin:$PATH"
 ```
 
+### Using Nix
+
+```bash
+# Build and run
+nix run github:leonardotrapani/hyprvoice
+
+# Or add to NixOS configuration
+# See flake.nix for integration
+```
+
 ## Requirements
 
 - **Wayland desktop** (Hyprland, Niri, GNOME, KDE, etc.)
