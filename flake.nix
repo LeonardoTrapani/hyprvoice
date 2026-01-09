@@ -20,6 +20,14 @@
         system:
         let
           pkgs = nixpkgsFor.${system};
+
+          runtimeDeps = with pkgs; [
+            pipewire
+            wl-clipboard
+            wtype
+            ydotool
+            libnotify
+          ];
         in
         {
           default = pkgs.buildGoModule {
@@ -28,6 +36,21 @@
             src = ./.;
 
             vendorHash = "sha256-qYZGccprn+pRbpVeO1qzSOb8yz/j/jdzPMxFyIB9BNA=";
+
+            meta = {
+              description = "Voice-powered typing for Hyprland/Wayland";
+              homepage = "https://github.com/LeonardoTrapani/hyprvoice";
+              license = pkgs.lib.licenses.mit;
+              platforms = pkgs.lib.platforms.unix;
+              mainProgram = "hyprvoice";
+            };
+
+            nativeBuildInputs = [ pkgs.makeWrapper ];
+
+            postInstall = ''
+              wrapProgram $out/bin/hyprvoice \
+                --prefix PATH : ${pkgs.lib.makeBinPath runtimeDeps}
+            '';
 
             subPackages = [ "cmd/hyprvoice" ];
           };
