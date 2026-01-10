@@ -358,7 +358,7 @@ func runInteractiveConfig() error {
 		fmt.Println("⌨️  Text Injection Configuration")
 		fmt.Println("--------------------------------")
 		fmt.Println("Backends are tried in order until one succeeds (fallback chain):")
-		fmt.Println("  - ydotool:   Best for Chromium/Electron apps (requires ydotoold daemon)")
+		fmt.Println("  - ydotool:   Best for Chromium/Electron apps (requires ydotoold daemon for ydotool v1.0.0+)")
 		fmt.Println("  - wtype:     Native Wayland typing (may fail on some Chromium apps)")
 		fmt.Println("  - clipboard: Copies to clipboard only (most reliable, needs manual paste)")
 		fmt.Println()
@@ -665,7 +665,7 @@ func saveConfig(cfg *config.Config) error {
   clipboard_timeout = "%s"     # Timeout for clipboard operations
 
 # Backend explanations:
-# - "ydotool": Uses ydotool (requires ydotoold daemon running). Most compatible with Chromium/Electron apps.
+# - "ydotool": Uses ydotool (requires ydotoold daemon running for ydotool v1.0.0+). Most compatible with Chromium/Electron apps.
 # - "wtype": Uses wtype for Wayland. May have issues with some Chromium-based apps.
 # - "clipboard": Copies text to clipboard only (most reliable, but requires manual paste).
 #

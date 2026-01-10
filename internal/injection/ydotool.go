@@ -25,18 +25,19 @@ func (y *ydotoolBackend) Available() error {
 		return fmt.Errorf("ydotool not found: %w (install ydotool package)", err)
 	}
 
-	// Check if ydotoold is running by checking socket
-	socketPath := y.getSocketPath()
-	if socketPath == "" {
-		return fmt.Errorf("ydotoold socket not found - ensure ydotoold is running")
-	}
+	// Only check socket if ydotoold exists
+	if _, err := exec.LookPath("ydotoold"); err == nil {
+		socketPath := y.getSocketPath()
+		if socketPath == "" {
+			return fmt.Errorf("ydotoold socket not found - ensure ydotoold is running")
+		}
 
-	// Try to connect to verify daemon is responsive
-	conn, err := net.DialTimeout("unix", socketPath, 500*time.Millisecond)
-	if err != nil {
-		return fmt.Errorf("ydotoold not responding at %s: %w", socketPath, err)
+		conn, err := net.DialTimeout("unix", socketPath, 500*time.Millisecond)
+		if err != nil {
+			return fmt.Errorf("ydotoold not responding at %s: %w", socketPath, err)
+		}
+		conn.Close()
 	}
-	conn.Close()
 
 	return nil
 }
