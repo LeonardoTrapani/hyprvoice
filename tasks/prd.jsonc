@@ -116,7 +116,7 @@
         "Styles render in terminal",
         "Typecheck passes"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "title": "Create TUI configure - fresh install flow",

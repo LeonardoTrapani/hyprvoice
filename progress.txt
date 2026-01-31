@@ -93,3 +93,19 @@ Key decisions:
 - Keywords joined with ", " to form a single string for the Prompt field
 - Whisper uses this as "initial_prompt" to help with spelling/terminology
 - Only added to adapters that clearly support it (OpenAI/Groq via go-openai lib)
+
+## Task 6: Add TUI dependencies and base components - COMPLETE
+
+Added Charmbracelet TUI stack:
+- bubbletea v1.3.10, lipgloss v1.1.0, huh v0.8.0
+- Created internal/tui package
+
+Files created:
+- `internal/tui/theme.go` - color palette (purple primary, cyan secondary, status colors)
+- `internal/tui/styles.go` - lipgloss styles (header, label, success, error, muted, highlight, selected, box styles)
+- `Logo()` function for ASCII branding
+
+Key decisions:
+- Purple (#7C3AED) as primary accent, matches hyprvoice "voice" theme
+- Dark slate backgrounds for terminal aesthetics
+- Box styles with rounded borders for form containers
