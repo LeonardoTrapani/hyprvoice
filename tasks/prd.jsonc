@@ -236,7 +236,7 @@
         "Migration documented",
         "Keywords explained"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "title": "End-to-end testing",

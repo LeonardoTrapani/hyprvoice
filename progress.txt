@@ -205,3 +205,26 @@ Key decisions:
 - Notification channel approach (vs direct notifier access) keeps pipeline decoupled
 - Notification sent at same time status changes to Processing
 - Configurable like all other notifications via `[notifications.messages.llm_processing]`
+
+## Task 12: Update README documentation - COMPLETE
+
+Updated README.md with comprehensive LLM post-processing documentation:
+- Added LLM feature to Features list at top
+- Added "Unified Provider System" section with API key configuration examples
+- Added "LLM Post-Processing" section with full configuration guide
+- Added post-processing options documentation (remove_stutters, add_punctuation, etc.)
+- Added custom prompt documentation with use cases
+- Added "Keywords" section explaining how they help transcription + LLM
+- Added 4 example configurations: fast transcription only, high quality, budget-friendly, mixed providers
+- Added "Migration from Old Config Format" section with before/after examples
+- Updated Development Status table: added Mistral, ElevenLabs, LLM post-processing, TUI setup
+- Updated architecture diagrams to show processing state
+- Updated state machine description: idle → recording → transcribing → processing → injecting
+- Updated project structure to include new packages (config, llm, provider, tui)
+- Added llm_processing to custom notification messages example
+
+Key decisions:
+- Put Unified Provider System before Transcription Providers (sets context)
+- LLM section after transcription providers (logical flow)
+- Example configs ordered by use case (fast → quality → budget → mixed)
+- Migration section shows both old and new format side by side
