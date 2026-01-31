@@ -40,3 +40,13 @@ Started: Sun Feb  1 12:22:47 AM CET 2026
 - Updated TUI files to use ModelsOfType instead of old SupportsTranscription/SupportsLLM
 - Added comprehensive tests for all new helper functions
 - All tests passing, typecheck passes
+
+### Task 5: Define BatchAdapter and StreamingAdapter interfaces
+- Renamed `TranscriptionAdapter` to `BatchAdapter` in transcriber.go
+- Updated all adapters (openai, groq, mistral, elevenlabs) to reference BatchAdapter in comments
+- Updated SimpleTranscriber to use BatchAdapter
+- Updated test mocks (MockTranscriptionAdapter -> MockBatchAdapter)
+- Created `internal/transcriber/streaming.go` with:
+  - `TranscriptionResult` struct: Text, IsFinal, Error fields
+  - `StreamingAdapter` interface: Start, SendChunk, Results, Close methods
+- All tests passing, typecheck passes

@@ -12,7 +12,7 @@ import (
 	"time"
 )
 
-// ElevenLabsAdapter implements TranscriptionAdapter for ElevenLabs Scribe API
+// ElevenLabsAdapter implements BatchAdapter for ElevenLabs Scribe API
 type ElevenLabsAdapter struct {
 	client *http.Client
 	config Config

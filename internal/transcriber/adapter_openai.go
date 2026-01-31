@@ -11,7 +11,7 @@ import (
 	"github.com/sashabaranov/go-openai"
 )
 
-// OpenAIAdapter implements TranscriptionAdapter for OpenAI Whisper API
+// OpenAIAdapter implements BatchAdapter for OpenAI Whisper API
 type OpenAIAdapter struct {
 	client *openai.Client
 	config Config

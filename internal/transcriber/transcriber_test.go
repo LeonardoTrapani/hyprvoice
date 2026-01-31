@@ -195,12 +195,12 @@ func TestConfig(t *testing.T) {
 	}
 }
 
-// MockTranscriptionAdapter implements TranscriptionAdapter for testing
-type MockTranscriptionAdapter struct {
+// MockBatchAdapter implements BatchAdapter for testing
+type MockBatchAdapter struct {
 	TranscribeFunc func(ctx context.Context, audioData []byte) (string, error)
 }
 
-func (m *MockTranscriptionAdapter) Transcribe(ctx context.Context, audioData []byte) (string, error) {
+func (m *MockBatchAdapter) Transcribe(ctx context.Context, audioData []byte) (string, error) {
 	if m.TranscribeFunc != nil {
 		return m.TranscribeFunc(ctx, audioData)
 	}
@@ -215,7 +215,7 @@ func TestSimpleTranscriber_Start(t *testing.T) {
 		Model:    "whisper-1",
 	}
 
-	adapter := &MockTranscriptionAdapter{}
+	adapter := &MockBatchAdapter{}
 	transcriber := NewSimpleTranscriber(config, adapter)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -255,7 +255,7 @@ func TestSimpleTranscriber_Stop(t *testing.T) {
 		Model:    "whisper-1",
 	}
 
-	adapter := &MockTranscriptionAdapter{}
+	adapter := &MockBatchAdapter{}
 	transcriber := NewSimpleTranscriber(config, adapter)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
@@ -299,7 +299,7 @@ func TestSimpleTranscriber_GetFinalTranscription(t *testing.T) {
 		Model:    "whisper-1",
 	}
 
-	adapter := &MockTranscriptionAdapter{
+	adapter := &MockBatchAdapter{
 		TranscribeFunc: func(ctx context.Context, audioData []byte) (string, error) {
 			return "test transcription", nil
 		},
@@ -327,7 +327,7 @@ func TestSimpleTranscriber_CollectAudio(t *testing.T) {
 		Model:    "whisper-1",
 	}
 
-	adapter := &MockTranscriptionAdapter{}
+	adapter := &MockBatchAdapter{}
 	transcriber := NewSimpleTranscriber(config, adapter)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
@@ -411,7 +411,7 @@ func TestSimpleTranscriber_TranscribeAll(t *testing.T) {
 				Model:    "whisper-1",
 			}
 
-			adapter := &MockTranscriptionAdapter{
+			adapter := &MockBatchAdapter{
 				TranscribeFunc: func(ctx context.Context, audioData []byte) (string, error) {
 					return tt.mockResult, tt.mockError
 				},
@@ -452,7 +452,7 @@ func TestNewSimpleTranscriber(t *testing.T) {
 		Model:    "whisper-1",
 	}
 
-	adapter := &MockTranscriptionAdapter{}
+	adapter := &MockBatchAdapter{}
 	transcriber := NewSimpleTranscriber(config, adapter)
 
 	if transcriber == nil {
@@ -478,7 +478,7 @@ func TestNewSimpleTranscriber(t *testing.T) {
 }
 
 func TestTranscriptionAdapter(t *testing.T) {
-	adapter := &MockTranscriptionAdapter{
+	adapter := &MockBatchAdapter{
 		TranscribeFunc: func(ctx context.Context, audioData []byte) (string, error) {
 			return "test result", nil
 		},

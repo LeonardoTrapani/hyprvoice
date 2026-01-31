@@ -14,8 +14,8 @@ type Transcriber interface {
 	GetFinalTranscription() (string, error)
 }
 
-// Adapter interface for different transcription backends
-type TranscriptionAdapter interface {
+// BatchAdapter interface for batch transcription backends (collect all audio, transcribe at end)
+type BatchAdapter interface {
 	Transcribe(ctx context.Context, audioData []byte) (string, error)
 }
 
@@ -31,7 +31,7 @@ type Config struct {
 // NewTranscriber creates a new simple transcriber
 func NewTranscriber(config Config) (Transcriber, error) {
 	// Create the appropriate adapter
-	var adapter TranscriptionAdapter
+	var adapter BatchAdapter
 
 	switch config.Provider {
 	case "openai":

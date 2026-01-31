@@ -11,7 +11,7 @@ import (
 	"github.com/sashabaranov/go-openai"
 )
 
-// GroqTranslationAdapter implements TranscriptionAdapter for Groq Translation API
+// GroqTranslationAdapter implements BatchAdapter for Groq Translation API
 // Translates audio to English text. The Language field in config hints at the source language.
 type GroqTranslationAdapter struct {
 	client *openai.Client

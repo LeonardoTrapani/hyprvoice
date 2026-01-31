@@ -129,7 +129,7 @@
 				"TranscriptionResult has Text, IsFinal, Error fields",
 				"Typecheck passes"
 			],
-			"passes": false
+			"passes": true
 		},
 		{
 			"title": "Create StreamingTranscriber wrapper",

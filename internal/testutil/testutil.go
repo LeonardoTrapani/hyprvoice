@@ -122,7 +122,7 @@ func MockAudioFrame(data []byte) recording.AudioFrame {
 	}
 }
 
-// MockTranscriberAdapter implements transcriber.TranscriptionAdapter for testing
+// MockTranscriberAdapter implements transcriber.BatchAdapter for testing
 type MockTranscriberAdapter struct {
 	TranscribeFunc func(ctx context.Context, audioData []byte) (string, error)
 }

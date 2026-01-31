@@ -10,7 +10,7 @@ import (
 	"github.com/sashabaranov/go-openai"
 )
 
-// MistralAdapter implements TranscriptionAdapter for Mistral Voxtral API
+// MistralAdapter implements BatchAdapter for Mistral Voxtral API
 type MistralAdapter struct {
 	client *openai.Client
 	config Config

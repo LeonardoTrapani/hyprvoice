@@ -11,7 +11,7 @@ import (
 	"github.com/sashabaranov/go-openai"
 )
 
-// GroqTranscriptionAdapter implements TranscriptionAdapter for Groq Whisper API
+// GroqTranscriptionAdapter implements BatchAdapter for Groq Whisper API
 type GroqTranscriptionAdapter struct {
 	client *openai.Client
 	config Config
