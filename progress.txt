@@ -123,3 +123,14 @@ Started: Sun Feb  1 12:22:47 AM CET 2026
 - Updated `transcriber.go` factory to use consolidated OpenAI adapter for groq-transcription and mistral-transcription
 - Both now use `NewOpenAIAdapter` with their respective endpoints
 - All tests passing, typecheck passes
+
+### Task 14: Update ElevenLabs BatchAdapter to use EndpointConfig
+- Refactored `internal/transcriber/adapter_elevenlabs.go` to use EndpointConfig
+- New constructor: `NewElevenLabsAdapter(endpoint *EndpointConfig, apiKey, model, lang string)`
+- Uses `endpoint.BaseURL + endpoint.Path` for URL (no hardcoded URL)
+- Language converted via `language.ToProviderFormat(a.language, "elevenlabs")`
+- Kept `xi-api-key` header for ElevenLabs-specific auth
+- Added `NewElevenLabsAdapterFromConfig` for backward compatibility
+- Updated factory to use `NewElevenLabsAdapterFromConfig`
+- Updated tests for new constructor signature
+- All tests passing, typecheck passes

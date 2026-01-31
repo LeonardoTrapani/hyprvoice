@@ -349,7 +349,7 @@
 				"Still uses xi-api-key header (ElevenLabs-specific)",
 				"Typecheck passes"
 			],
-			"passes": false
+			"passes": true
 		},
 		{
 			"title": "Update transcriber factory to use Model metadata",

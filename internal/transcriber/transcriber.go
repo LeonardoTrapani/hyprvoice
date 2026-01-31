@@ -67,7 +67,7 @@ func NewTranscriber(config Config) (Transcriber, error) {
 		if config.APIKey == "" {
 			return nil, fmt.Errorf("ElevenLabs API key required")
 		}
-		adapter = NewElevenLabsAdapter(config)
+		adapter = NewElevenLabsAdapterFromConfig(config)
 
 	default:
 		return nil, fmt.Errorf("unsupported provider: %s", config.Provider)
