@@ -109,3 +109,25 @@ Key decisions:
 - Purple (#7C3AED) as primary accent, matches hyprvoice "voice" theme
 - Dark slate backgrounds for terminal aesthetics
 - Box styles with rounded borders for form containers
+
+## Task 7: Create TUI configure - fresh install flow - COMPLETE
+
+Created internal/tui/configure.go with full TUI wizard:
+- `Run(existingConfig)` entry point returning ConfigureResult
+- `runFreshInstall()` - linear flow through all configuration steps
+- `selectProviders()` - multi-select for OpenAI, Groq, Mistral, ElevenLabs
+- `inputAPIKey()` - password-masked input with validation per provider
+- `configureTranscription()` - provider dropdown (only configured+capable), model dropdown, language input
+- `configureLLM()` - enable confirm (defaults YES, labeled "Recommended"), provider, model, post-processing toggles, custom prompt
+- `inputKeywords()` - comma-separated input
+- `selectBackends()` - multi-select with descriptions
+- `configureNotifications()` - enable toggle
+- `showSummary()` - displays all config, confirm button
+- `getTheme()` - applies hyprvoice color scheme to huh forms
+
+Key decisions:
+- Linear flow for fresh installs, all steps required
+- Transcription providers mapped: groq -> groq-transcription + groq-translation options
+- LLM enabled by default, "Yes (Recommended)" as affirmative text
+- Post-processing options all default to true
+- Uses huh library forms with custom theme matching styles.go colors

@@ -140,7 +140,7 @@
         "LLM defaults to enabled, Yes is recommended",
         "Typecheck passes"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "title": "Create TUI configure - edit existing flow",
