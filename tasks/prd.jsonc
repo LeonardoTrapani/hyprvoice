@@ -265,7 +265,7 @@
 				"Endpoint.BaseURL is 'https://api.mistral.ai'",
 				"Typecheck passes"
 			],
-			"passes": false
+			"passes": true
 		},
 		{
 			"title": "Migrate ElevenLabs provider to new Model structure",

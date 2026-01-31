@@ -86,3 +86,12 @@ Started: Sun Feb  1 12:22:47 AM CET 2026
 - distil-whisper-large-v3-en correctly has SupportedLanguages=['en'] (English only)
 - Multilingual models have all 57 language codes
 - All verification items confirmed working
+
+### Task 10: Migrate Mistral provider to new Model structure
+- Implementation was already complete from previous work
+- Verified 2 models: voxtral-mini-latest, voxtral-mini-2507
+- All models use AdapterType='openai' (Mistral transcription is OpenAI-compatible)
+- Endpoint.BaseURL='https://api.mistral.ai' with Path='/v1/audio/transcriptions'
+- SupportedLanguages set to all 57 language codes (multilingual per Mistral docs)
+- Researched Mistral API docs - language parameter is optional, no specific list of restrictions
+- All tests passing, typecheck passes
