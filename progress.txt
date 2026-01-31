@@ -95,3 +95,12 @@ Started: Sun Feb  1 12:22:47 AM CET 2026
 - SupportedLanguages set to all 57 language codes (multilingual per Mistral docs)
 - Researched Mistral API docs - language parameter is optional, no specific list of restrictions
 - All tests passing, typecheck passes
+
+### Task 11: Migrate ElevenLabs provider to new Model structure
+- Added 4 models: 2 batch (scribe_v1, scribe_v2) + 2 streaming (scribe_v1-streaming, scribe_v2-streaming)
+- Batch models: AdapterType='elevenlabs', Streaming=false, Endpoint.BaseURL='https://api.elevenlabs.io'
+- Streaming models: AdapterType='elevenlabs-streaming', Streaming=true, Endpoint.BaseURL='wss://api.elevenlabs.io'
+- Researched ElevenLabs docs: Scribe supports 90+ languages, including all 57 from our master list
+- SupportedLanguages set to all 57 language codes
+- Added TestElevenLabsProvider test verifying all requirements
+- All tests passing, typecheck passes

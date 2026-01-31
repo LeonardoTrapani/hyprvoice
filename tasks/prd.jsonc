@@ -288,7 +288,7 @@
 				"All models have explicit SupportedLanguages list from docs (subset of our 57)",
 				"Typecheck passes"
 			],
-			"passes": false
+			"passes": true
 		},
 		// ============================================================================
 		// PHASE 3: CONSOLIDATE BATCH ADAPTER IMPLEMENTATIONS

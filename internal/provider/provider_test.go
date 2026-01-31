@@ -262,3 +262,70 @@ func TestValidateModelLanguage(t *testing.T) {
 		t.Error("ValidateModelLanguage with unknown model should return error")
 	}
 }
+
+func TestElevenLabsProvider(t *testing.T) {
+	p := GetProvider("elevenlabs")
+	if p == nil {
+		t.Fatal("GetProvider('elevenlabs') returned nil")
+	}
+
+	models := p.Models()
+
+	// ElevenLabsProvider.Models() returns 4 models
+	if len(models) != 4 {
+		t.Errorf("ElevenLabsProvider.Models() = %d models, want 4", len(models))
+	}
+
+	// Check batch models
+	scribeV1, err := GetModel("elevenlabs", "scribe_v1")
+	if err != nil {
+		t.Fatalf("GetModel('elevenlabs', 'scribe_v1') error: %v", err)
+	}
+	if scribeV1.Streaming {
+		t.Error("scribe_v1 should have Streaming=false")
+	}
+	if scribeV1.AdapterType != "elevenlabs" {
+		t.Errorf("scribe_v1 AdapterType=%q, want 'elevenlabs'", scribeV1.AdapterType)
+	}
+
+	scribeV2, err := GetModel("elevenlabs", "scribe_v2")
+	if err != nil {
+		t.Fatalf("GetModel('elevenlabs', 'scribe_v2') error: %v", err)
+	}
+	if scribeV2.Streaming {
+		t.Error("scribe_v2 should have Streaming=false")
+	}
+	if scribeV2.AdapterType != "elevenlabs" {
+		t.Errorf("scribe_v2 AdapterType=%q, want 'elevenlabs'", scribeV2.AdapterType)
+	}
+
+	// Check streaming models
+	scribeV1S, err := GetModel("elevenlabs", "scribe_v1-streaming")
+	if err != nil {
+		t.Fatalf("GetModel('elevenlabs', 'scribe_v1-streaming') error: %v", err)
+	}
+	if !scribeV1S.Streaming {
+		t.Error("scribe_v1-streaming should have Streaming=true")
+	}
+	if scribeV1S.AdapterType != "elevenlabs-streaming" {
+		t.Errorf("scribe_v1-streaming AdapterType=%q, want 'elevenlabs-streaming'", scribeV1S.AdapterType)
+	}
+
+	scribeV2S, err := GetModel("elevenlabs", "scribe_v2-streaming")
+	if err != nil {
+		t.Fatalf("GetModel('elevenlabs', 'scribe_v2-streaming') error: %v", err)
+	}
+	if !scribeV2S.Streaming {
+		t.Error("scribe_v2-streaming should have Streaming=true")
+	}
+	if scribeV2S.AdapterType != "elevenlabs-streaming" {
+		t.Errorf("scribe_v2-streaming AdapterType=%q, want 'elevenlabs-streaming'", scribeV2S.AdapterType)
+	}
+
+	// All models have explicit SupportedLanguages from docs (subset of our 57)
+	for _, m := range models {
+		if len(m.SupportedLanguages) != 57 {
+			t.Errorf("model %q has %d languages, want 57", m.ID, len(m.SupportedLanguages))
+		}
+	}
+}
