@@ -244,7 +244,7 @@
 				"distil-whisper-large-v3-en.SupportsLanguage('') returns true (auto always supported)",
 				"Typecheck passes"
 			],
-			"passes": false
+			"passes": true
 		},
 		{
 			"title": "Migrate Mistral provider to new Model structure",
