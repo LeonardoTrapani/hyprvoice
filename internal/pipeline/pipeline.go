@@ -8,6 +8,7 @@ import (
 
 	"github.com/leonardotrapani/hyprvoice/internal/config"
 	"github.com/leonardotrapani/hyprvoice/internal/injection"
+	"github.com/leonardotrapani/hyprvoice/internal/llm"
 	"github.com/leonardotrapani/hyprvoice/internal/recording"
 	"github.com/leonardotrapani/hyprvoice/internal/transcriber"
 )
@@ -25,6 +26,7 @@ const (
 	Idle         Status = "idle"
 	Recording    Status = "recording"
 	Transcribing Status = "transcribing"
+	Processing   Status = "processing" // LLM post-processing
 	Injecting    Status = "injecting"
 )
 
@@ -226,9 +228,41 @@ func (p *pipeline) handleInjectAction(ctx context.Context, recorder *recording.R
 	}
 	log.Printf("Pipeline: Final transcription text: %s", transcriptionText)
 
+	// LLM post-processing phase
+	textToInject := transcriptionText
+	if p.config.IsLLMEnabled() {
+		p.setStatus(Processing)
+		log.Printf("Pipeline: LLM post-processing enabled, processing text")
+
+		llmCfg := p.config.ToLLMConfig()
+		adapter, err := llm.NewAdapter(llm.Config{
+			Provider:          llmCfg.Provider,
+			APIKey:            llmCfg.APIKey,
+			Model:             llmCfg.Model,
+			RemoveStutters:    llmCfg.RemoveStutters,
+			AddPunctuation:    llmCfg.AddPunctuation,
+			FixGrammar:        llmCfg.FixGrammar,
+			RemoveFillerWords: llmCfg.RemoveFillerWords,
+			CustomPrompt:      llmCfg.CustomPrompt,
+			Keywords:          llmCfg.Keywords,
+		})
+		if err != nil {
+			log.Printf("Pipeline: Failed to create LLM adapter: %v, using raw transcription", err)
+		} else {
+			processed, err := adapter.Process(ctx, transcriptionText)
+			if err != nil {
+				log.Printf("Pipeline: LLM processing failed: %v, using raw transcription", err)
+			} else {
+				textToInject = processed
+				log.Printf("Pipeline: LLM processed text: %s", textToInject)
+			}
+		}
+		p.setStatus(Injecting)
+	}
+
 	injector := injection.NewInjector(p.config.ToInjectionConfig())
 
-	if err := injector.Inject(ctx, transcriptionText); err != nil {
+	if err := injector.Inject(ctx, textToInject); err != nil {
 		p.sendError("Injection Error", "Failed to inject text", err)
 	} else {
 		log.Printf("Pipeline: Text injection completed successfully")

@@ -84,7 +84,7 @@
         "Graceful fallback on LLM error",
         "Typecheck passes"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "title": "Pass keywords to transcription adapters",

@@ -64,3 +64,17 @@ Key decisions:
 - System prompt builds dynamically based on enabled options
 - Keywords included in system prompt for correct spelling hints
 - Custom prompt prepended to user prompt if enabled
+
+## Task 4: Integrate LLM phase into pipeline - COMPLETE
+
+Updated internal/pipeline/pipeline.go:
+- Added `Processing` status for LLM post-processing phase
+- After transcription, checks `config.IsLLMEnabled()` before LLM processing
+- Creates LLM adapter using config.ToLLMConfig()
+- Processes text with adapter, uses result for injection
+- Graceful fallback: logs warning and uses raw transcription text on any error
+
+Key decisions:
+- LLM processing happens between transcription and injection
+- Adapter creation and processing errors are logged but don't fail the pipeline
+- Sets status to Processing during LLM phase, then back to Injecting
