@@ -80,7 +80,7 @@
 				"SupportsAllLanguages() returns false for English-only model",
 				"Typecheck passes"
 			],
-			"passes": false
+			"passes": true
 		},
 		{
 			"title": "Refactor Provider interface to return Models",

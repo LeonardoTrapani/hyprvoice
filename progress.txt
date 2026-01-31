@@ -16,3 +16,13 @@ Started: Sun Feb  1 12:22:47 AM CET 2026
 - Deepgram locale mappings: en->en-US, pt->pt-BR, zh->zh-CN
 - Added comprehensive test coverage for all provider formats
 - All tests passing, typecheck passes
+
+### Task 3: Create Model type with full metadata
+- Created `internal/provider/model.go`
+- ModelType enum: Transcription, LLM
+- Model struct: ID, Name, Description, Type, Streaming, Local, AdapterType, SupportedLanguages, Endpoint, LocalInfo
+- EndpointConfig: BaseURL, Path
+- LocalModelInfo: Filename, Size, DownloadURL
+- Helper methods: NeedsDownload(), IsStreaming(), SupportsLanguage(code), SupportsAllLanguages()
+- SupportsLanguage("") always returns true (auto always allowed)
+- All tests passing, typecheck passes
