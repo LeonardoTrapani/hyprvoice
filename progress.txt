@@ -9,3 +9,10 @@ Started: Sun Feb  1 12:22:47 AM CET 2026
 - Implemented FromCode, List, Codes, AllLanguageCodes, IsValidCode
 - Full 57 language list from OpenAI Whisper
 - All tests passing, typecheck passes
+
+### Task 2: Add language list and provider-specific mappings
+- Added `ToProviderFormat(code string, providerName string) string` function
+- Handles auto-detect: whisper-cpp uses "auto", others use ""
+- Deepgram locale mappings: en->en-US, pt->pt-BR, zh->zh-CN
+- Added comprehensive test coverage for all provider formats
+- All tests passing, typecheck passes

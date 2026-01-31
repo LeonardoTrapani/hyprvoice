@@ -118,3 +118,49 @@ func IsValidCode(code string) bool {
 	_, ok := codeIndex[code]
 	return ok
 }
+
+// ToProviderFormat converts a canonical language code to the format expected by a specific provider.
+// Each provider may have different expectations:
+//   - whisper-cpp: uses standard codes like 'en', 'auto' for auto-detect
+//   - openai: uses standard codes like 'en', empty string for auto-detect
+//   - groq: same as openai (OpenAI-compatible)
+//   - mistral: same as openai (OpenAI-compatible)
+//   - deepgram: uses locale codes like 'en-US', 'es' for Spanish
+//   - elevenlabs: uses standard codes or full names depending on API version
+func ToProviderFormat(code string, providerName string) string {
+	// handle auto-detect (empty code)
+	if code == "" {
+		switch providerName {
+		case "whisper-cpp":
+			return "auto"
+		default:
+			// most providers use empty string or omit the parameter
+			return ""
+		}
+	}
+
+	switch providerName {
+	case "deepgram":
+		// deepgram prefers locale codes for some languages
+		return toDeepgramFormat(code)
+	default:
+		// whisper-cpp, openai, groq, mistral, elevenlabs use standard codes
+		return code
+	}
+}
+
+// toDeepgramFormat maps standard codes to Deepgram's preferred format
+func toDeepgramFormat(code string) string {
+	// deepgram uses locale codes for English variants, standard for most others
+	deepgramMappings := map[string]string{
+		"en": "en-US",
+		"es": "es",    // Spanish uses base code
+		"pt": "pt-BR", // Portuguese defaults to Brazilian
+		"zh": "zh-CN", // Chinese defaults to Simplified
+	}
+
+	if mapped, ok := deepgramMappings[code]; ok {
+		return mapped
+	}
+	return code
+}

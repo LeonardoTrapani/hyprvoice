@@ -29,11 +29,11 @@
 			"passes": true
 		},
 		{
-			"title": "Add language list and provider-specific mappings",
+"title": "Add language list and provider-specific mappings",
 			"steps": [
 				"Update internal/language/language.go with full language list",
 				"Master language list derived from OpenAI Whisper's 57 supported languages (source: https://platform.openai.com/docs/guides/speech-to-text#supported-languages)",
-				"Add all 57 languages: af/Afrikaans, ar/Arabic/العربية, hy/Armenian/Հայdelays, az/Azerbaijani/Azərbaycan, be/Belarusian/Беларуская, bs/Bosnian/Bosanski, bg/Bulgarian/Български, ca/Catalan/Català, zh/Chinese/中文, hr/Croatian/Hrvatski, cs/Czech/Čeština, da/Danish/Dansk, nl/Dutch/Nederlands, en/English, et/Estonian/Eesti, fi/Finnish/Suomi, fr/French/Français, gl/Galician/Galego, de/German/Deutsch, el/Greek/Ελληνικά, he/Hebrew/עברית, hi/Hindi/हिन्दी, hu/Hungarian/Magyar, is/Icelandic/Íslenska, id/Indonesian/Bahasa Indonesia, it/Italian/Italiano, ja/Japanese/日本語, kn/Kannada/ಕನ್ನಡ, kk/Kazakh/Қазақ, ko/Korean/한국어, lv/Latvian/Latviešu, lt/Lithuanian/Lietuvių, mk/Macedonian/Македонски, ms/Malay/Bahasa Melayu, mr/Marathi/मराठी, mi/Maori/Māori, ne/Nepali/नेपाली, no/Norwegian/Norsk, fa/Persian/فارسی, pl/Polish/Polski, pt/Portuguese/Português, ro/Romanian/Română, ru/Russian/Русский, sr/Serbian/Српски, sk/Slovak/Slovenčina, sl/Slovenian/Slovenščina, es/Spanish/Español, sw/Swahili/Kiswahili, sv/Swedish/Svenska, tl/Tagalog, ta/Tamil/தமிழ், th/Thai/ไทย, tr/Turkish/Türkçe, uk/Ukrainian/Українська, ur/Urdu/اردو, vi/Vietnamese/Tiếng Việt, cy/Welsh/Cymraeg",
+				"Add all 57 languages: af/Afrikaans, ar/Arabic/العربية, hy/Armenian/Հdelays, az/Azerbaijani/Azərbaycan, be/Belarusian/Беларуская, bs/Bosnian/Bosanski, bg/Bulgarian/Български, ca/Catalan/Català, zh/Chinese/中文, hr/Croatian/Hrvatski, cs/Czech/Čeština, da/Danish/Dansk, nl/Dutch/Nederlands, en/English, et/Estonian/Eesti, fi/Finnish/Suomi, fr/French/Français, gl/Galician/Galego, de/German/Deutsch, el/Greek/Ελληνικά, he/Hebrew/עברית, hi/Hindi/हिन्दी, hu/Hungarian/Magyar, is/Icelandic/Íslenska, id/Indonesian/Bahasa Indonesia, it/Italian/Italiano, ja/Japanese/日本語, kn/Kannada/ಕನ್ನಡ, kk/Kazakh/Қазақ, ko/Korean/한국어, lv/Latvian/Latviešu, lt/Lithuanian/Lietuvių, mk/Macedonian/Македонски, ms/Malay/Bahasa Melayu, mr/Marathi/मराठी, mi/Maori/Māori, ne/Nepali/नेपाली, no/Norwegian/Norsk, fa/Persian/فارسی, pl/Polish/Polski, pt/Portuguese/Português, ro/Romanian/Română, ru/Russian/Русский, sr/Serbian/Српски, sk/Slovak/Slovenčina, sl/Slovenian/Slovenščina, es/Spanish/Español, sw/Swahili/Kiswahili, sv/Swedish/Svenska, tl/Tagalog, ta/Tamil/தமிழ், th/Thai/ไทย, tr/Turkish/Türkçe, uk/Ukrainian/Українська, ur/Urdu/اردو, vi/Vietnamese/Tiếng Việt, cy/Welsh/Cymraeg",
 				"Implement ToProviderFormat(code string, providerName string) string - maps our code to provider-specific format",
 				"Provider mappings: whisper-cpp uses 'en'/'auto', some APIs use 'english', Deepgram uses 'en-US'",
 				"Each provider can handle Auto ('') differently via ToProviderFormat"
@@ -47,7 +47,7 @@
 				"ToProviderFormat('', 'openai') returns '' or appropriate auto value",
 				"Typecheck passes"
 			],
-			"passes": false
+			"passes": true
 		},
 		{
 			"title": "Create Model type with full metadata",

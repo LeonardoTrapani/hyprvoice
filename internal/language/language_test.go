@@ -117,3 +117,49 @@ func TestAuto(t *testing.T) {
 		t.Errorf("Auto.Name = %q, want 'Auto-detect'", Auto.Name)
 	}
 }
+
+func TestToProviderFormat(t *testing.T) {
+	tests := []struct {
+		code     string
+		provider string
+		want     string
+	}{
+		// whisper-cpp
+		{"en", "whisper-cpp", "en"},
+		{"es", "whisper-cpp", "es"},
+		{"", "whisper-cpp", "auto"},
+
+		// openai
+		{"en", "openai", "en"},
+		{"", "openai", ""},
+
+		// groq (openai-compatible)
+		{"en", "groq", "en"},
+		{"", "groq", ""},
+
+		// mistral (openai-compatible)
+		{"en", "mistral", "en"},
+		{"", "mistral", ""},
+
+		// deepgram (uses locale codes)
+		{"en", "deepgram", "en-US"},
+		{"es", "deepgram", "es"},
+		{"pt", "deepgram", "pt-BR"},
+		{"zh", "deepgram", "zh-CN"},
+		{"fr", "deepgram", "fr"}, // no special mapping, passthrough
+		{"", "deepgram", ""},
+
+		// elevenlabs
+		{"en", "elevenlabs", "en"},
+		{"", "elevenlabs", ""},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.code+"_"+tt.provider, func(t *testing.T) {
+			got := ToProviderFormat(tt.code, tt.provider)
+			if got != tt.want {
+				t.Errorf("ToProviderFormat(%q, %q) = %q, want %q", tt.code, tt.provider, got, tt.want)
+			}
+		})
+	}
+}
