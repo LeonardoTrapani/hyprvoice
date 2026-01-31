@@ -199,7 +199,7 @@
         "Comments clear",
         "Typecheck passes"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "title": "Add LLM processing notification",

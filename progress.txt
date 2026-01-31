@@ -170,3 +170,22 @@ Key decisions:
 - Config saved only if user confirms in TUI summary
 - Validation runs before save, errors displayed cleanly
 - Next steps shown after successful save
+
+## Task 10: Update default config template - COMPLETE
+
+Updated SaveDefaultConfig() in internal/config/config.go:
+- Added `keywords = []` at top level (before any TOML tables)
+- Added `[providers.openai]` and `[providers.groq]` sections with api_key
+- Added `[llm]` section with enabled = true, provider = "openai", model = "gpt-4o-mini"
+- Added `[llm.post_processing]` with all 4 options = true
+- Added `[llm.custom_prompt]` with enabled = false
+- Added MIGRATION NOTE in header about old format upgrade
+- Reorganized with clear section headers (box-drawing chars)
+- Removed `transcription.api_key` from default (uses providers map now)
+- Simplified and consolidated reference docs at bottom
+
+Key decisions:
+- LLM enabled by default with OpenAI gpt-4o-mini (best cost/quality)
+- Providers section at top for visibility
+- Keywords before any table definitions (TOML syntax requirement)
+- Concise comments, full reference at bottom
