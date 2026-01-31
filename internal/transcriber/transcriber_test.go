@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/leonardotrapani/hyprvoice/internal/provider"
 	"github.com/leonardotrapani/hyprvoice/internal/recording"
 )
 
@@ -495,6 +496,118 @@ func TestTranscriptionAdapter(t *testing.T) {
 
 	if result != "test result" {
 		t.Errorf("Transcribe() = %q, want %q", result, "test result")
+	}
+}
+
+func TestOpenAIAdapter_Creation(t *testing.T) {
+	tests := []struct {
+		name         string
+		endpoint     *provider.EndpointConfig
+		apiKey       string
+		model        string
+		language     string
+		keywords     []string
+		providerName string
+	}{
+		{
+			name:         "openai with nil endpoint uses default",
+			endpoint:     nil,
+			apiKey:       "sk-test-key",
+			model:        "whisper-1",
+			language:     "en",
+			keywords:     []string{"hello", "world"},
+			providerName: "openai",
+		},
+		{
+			name:         "openai with explicit endpoint",
+			endpoint:     &provider.EndpointConfig{BaseURL: "https://api.openai.com", Path: "/v1/audio/transcriptions"},
+			apiKey:       "sk-test-key",
+			model:        "whisper-1",
+			language:     "es",
+			keywords:     nil,
+			providerName: "openai",
+		},
+		{
+			name:         "groq with custom endpoint",
+			endpoint:     &provider.EndpointConfig{BaseURL: "https://api.groq.com/openai", Path: "/v1/audio/transcriptions"},
+			apiKey:       "gsk-test-key",
+			model:        "whisper-large-v3",
+			language:     "fr",
+			keywords:     []string{"bonjour"},
+			providerName: "groq",
+		},
+		{
+			name:         "mistral with custom endpoint",
+			endpoint:     &provider.EndpointConfig{BaseURL: "https://api.mistral.ai", Path: "/v1/audio/transcriptions"},
+			apiKey:       "mistral-test-key",
+			model:        "voxtral-mini-latest",
+			language:     "de",
+			keywords:     nil,
+			providerName: "mistral",
+		},
+		{
+			name:         "auto language",
+			endpoint:     nil,
+			apiKey:       "sk-test-key",
+			model:        "whisper-1",
+			language:     "", // auto
+			keywords:     nil,
+			providerName: "openai",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			adapter := NewOpenAIAdapter(tt.endpoint, tt.apiKey, tt.model, tt.language, tt.keywords, tt.providerName)
+			if adapter == nil {
+				t.Errorf("NewOpenAIAdapter() returned nil")
+				return
+			}
+
+			if adapter.model != tt.model {
+				t.Errorf("model = %q, want %q", adapter.model, tt.model)
+			}
+
+			if adapter.language != tt.language {
+				t.Errorf("language = %q, want %q", adapter.language, tt.language)
+			}
+
+			if adapter.providerName != tt.providerName {
+				t.Errorf("providerName = %q, want %q", adapter.providerName, tt.providerName)
+			}
+
+			if len(adapter.keywords) != len(tt.keywords) {
+				t.Errorf("keywords len = %d, want %d", len(adapter.keywords), len(tt.keywords))
+			}
+		})
+	}
+}
+
+func TestOpenAIAdapterFromConfig(t *testing.T) {
+	config := Config{
+		Provider: "openai",
+		APIKey:   "sk-test-key",
+		Model:    "whisper-1",
+		Language: "en",
+		Keywords: []string{"test"},
+	}
+
+	adapter := NewOpenAIAdapterFromConfig(config)
+	if adapter == nil {
+		t.Errorf("NewOpenAIAdapterFromConfig() returned nil")
+		return
+	}
+
+	if adapter.model != config.Model {
+		t.Errorf("model = %q, want %q", adapter.model, config.Model)
+	}
+
+	if adapter.language != config.Language {
+		t.Errorf("language = %q, want %q", adapter.language, config.Language)
+	}
+
+	if adapter.providerName != "openai" {
+		t.Errorf("providerName = %q, want %q", adapter.providerName, "openai")
 	}
 }
 

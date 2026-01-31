@@ -104,3 +104,14 @@ Started: Sun Feb  1 12:22:47 AM CET 2026
 - SupportedLanguages set to all 57 language codes
 - Added TestElevenLabsProvider test verifying all requirements
 - All tests passing, typecheck passes
+
+### Task 12: Create consolidated OpenAI-compatible BatchAdapter
+- Refactored `internal/transcriber/adapter_openai.go` to be configurable
+- New constructor: `NewOpenAIAdapter(endpoint *EndpointConfig, apiKey, model, lang string, keywords []string, providerName string)`
+- Removed hardcoded base URL, now uses `endpoint.BaseURL + "/v1"` when endpoint provided
+- Added `NewOpenAIAdapterFromConfig(config Config)` for backward compatibility during migration
+- Language code converted to provider format via `language.ToProviderFormat(lang, providerName)`
+- Log messages now include provider name for better debugging
+- Added tests: `TestOpenAIAdapter_Creation`, `TestOpenAIAdapterFromConfig`
+- Updated factory to use `NewOpenAIAdapterFromConfig` for now (will be updated in Task 15)
+- All tests passing, typecheck passes

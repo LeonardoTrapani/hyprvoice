@@ -38,7 +38,7 @@ func NewTranscriber(config Config) (Transcriber, error) {
 		if config.APIKey == "" {
 			return nil, fmt.Errorf("OpenAI API key required")
 		}
-		adapter = NewOpenAIAdapter(config)
+		adapter = NewOpenAIAdapterFromConfig(config)
 
 	case "groq-transcription":
 		if config.APIKey == "" {

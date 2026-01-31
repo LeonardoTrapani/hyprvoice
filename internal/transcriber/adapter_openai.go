@@ -8,21 +8,54 @@ import (
 	"strings"
 	"time"
 
+	"github.com/leonardotrapani/hyprvoice/internal/language"
+	"github.com/leonardotrapani/hyprvoice/internal/provider"
 	"github.com/sashabaranov/go-openai"
 )
 
-// OpenAIAdapter implements BatchAdapter for OpenAI Whisper API
+// OpenAIAdapter implements BatchAdapter for any OpenAI-compatible API
+// Works with OpenAI, Groq, Mistral, and any other OpenAI-compatible endpoint
 type OpenAIAdapter struct {
-	client *openai.Client
-	config Config
+	client       *openai.Client
+	model        string
+	language     string
+	keywords     []string
+	providerName string
 }
 
-func NewOpenAIAdapter(config Config) *OpenAIAdapter {
-	client := openai.NewClient(config.APIKey)
-	return &OpenAIAdapter{
-		client: client,
-		config: config,
+// NewOpenAIAdapter creates an adapter for OpenAI-compatible transcription APIs
+// endpoint: the BaseURL for the API (e.g., "https://api.openai.com", "https://api.groq.com/openai")
+// apiKey: the API key for authentication
+// model: model ID to use
+// lang: canonical language code (will be converted to provider format)
+// keywords: optional spelling hints
+// providerName: used for logging and language format conversion
+func NewOpenAIAdapter(endpoint *provider.EndpointConfig, apiKey, model, lang string, keywords []string, providerName string) *OpenAIAdapter {
+	var client *openai.Client
+
+	if endpoint != nil && endpoint.BaseURL != "" {
+		// use custom endpoint
+		clientConfig := openai.DefaultConfig(apiKey)
+		clientConfig.BaseURL = endpoint.BaseURL + "/v1"
+		client = openai.NewClientWithConfig(clientConfig)
+	} else {
+		// default to OpenAI
+		client = openai.NewClient(apiKey)
 	}
+
+	return &OpenAIAdapter{
+		client:       client,
+		model:        model,
+		language:     lang,
+		keywords:     keywords,
+		providerName: providerName,
+	}
+}
+
+// NewOpenAIAdapterFromConfig creates an adapter using the legacy Config struct
+// This is for backwards compatibility during migration
+func NewOpenAIAdapterFromConfig(config Config) *OpenAIAdapter {
+	return NewOpenAIAdapter(nil, config.APIKey, config.Model, config.Language, config.Keywords, "openai")
 }
 
 func (a *OpenAIAdapter) Transcribe(ctx context.Context, audioData []byte) (string, error) {
@@ -36,17 +69,20 @@ func (a *OpenAIAdapter) Transcribe(ctx context.Context, audioData []byte) (strin
 		return "", fmt.Errorf("convert to WAV: %w", err)
 	}
 
+	// Convert language code to provider format
+	providerLang := language.ToProviderFormat(a.language, a.providerName)
+
 	// Create transcription request
 	req := openai.AudioRequest{
-		Model:    a.config.Model,
+		Model:    a.model,
 		Reader:   bytes.NewReader(wavData),
 		FilePath: "audio.wav",
-		Language: a.config.Language,
+		Language: providerLang,
 	}
 
 	// Add keywords as initial_prompt to help with spelling hints
-	if len(a.config.Keywords) > 0 {
-		req.Prompt = strings.Join(a.config.Keywords, ", ")
+	if len(a.keywords) > 0 {
+		req.Prompt = strings.Join(a.keywords, ", ")
 	}
 
 	start := time.Now()
@@ -54,10 +90,10 @@ func (a *OpenAIAdapter) Transcribe(ctx context.Context, audioData []byte) (strin
 	duration := time.Since(start)
 
 	if err != nil {
-		log.Printf("openai-adapter: API call failed after %v: %v", duration, err)
-		return "", fmt.Errorf("openai transcription: %w", err)
+		log.Printf("%s-adapter: API call failed after %v: %v", a.providerName, duration, err)
+		return "", fmt.Errorf("%s transcription: %w", a.providerName, err)
 	}
 
-	log.Printf("openai-adapter: transcribed %d bytes in %v: %q", len(audioData), duration, resp.Text)
+	log.Printf("%s-adapter: transcribed %d bytes in %v: %q", a.providerName, len(audioData), duration, resp.Text)
 	return resp.Text, nil
 }

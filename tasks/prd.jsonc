@@ -313,7 +313,7 @@
 				"Transcribe() works with Groq endpoint (different BaseURL)",
 				"Typecheck passes"
 			],
-			"passes": false
+			"passes": true
 		},
 		{
 			"title": "Remove redundant Groq and Mistral transcription adapters",
