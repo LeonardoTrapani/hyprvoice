@@ -26,3 +26,17 @@ Started: Sun Feb  1 12:22:47 AM CET 2026
 - Helper methods: NeedsDownload(), IsStreaming(), SupportsLanguage(code), SupportsAllLanguages()
 - SupportsLanguage("") always returns true (auto always allowed)
 - All tests passing, typecheck passes
+
+### Task 4: Refactor Provider interface to return Models
+- Updated `internal/provider/provider.go` Provider interface
+- Replaced old methods with: Models() []Model, DefaultModel(t ModelType) string, IsLocal() bool
+- Added package-level helpers:
+  - GetModel(providerName, modelID string) (*Model, error)
+  - ModelsOfType(p Provider, t ModelType) []Model
+  - FindModelByID(modelID string) (*Model, Provider, error)
+  - ModelsForLanguage(p Provider, t ModelType, langCode string) []Model
+  - ValidateModelLanguage(providerName, modelID, langCode string) error
+- Updated all providers (openai, groq, mistral, elevenlabs) with full Model metadata
+- Updated TUI files to use ModelsOfType instead of old SupportsTranscription/SupportsLLM
+- Added comprehensive tests for all new helper functions
+- All tests passing, typecheck passes

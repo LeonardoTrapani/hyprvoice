@@ -1,5 +1,7 @@
 package provider
 
+import "github.com/leonardotrapani/hyprvoice/internal/language"
+
 // MistralProvider implements Provider for Mistral services (transcription only)
 type MistralProvider struct{}
 
@@ -16,26 +18,43 @@ func (p *MistralProvider) ValidateAPIKey(key string) bool {
 	return len(key) > 0
 }
 
-func (p *MistralProvider) SupportsTranscription() bool {
-	return true
-}
-
-func (p *MistralProvider) SupportsLLM() bool {
+func (p *MistralProvider) IsLocal() bool {
 	return false
 }
 
-func (p *MistralProvider) DefaultTranscriptionModel() string {
-	return "voxtral-mini-latest"
+func (p *MistralProvider) Models() []Model {
+	allLangs := language.AllLanguageCodes()
+
+	return []Model{
+		{
+			ID:                 "voxtral-mini-latest",
+			Name:               "Voxtral Mini Latest",
+			Description:        "Latest Voxtral model, best for most uses",
+			Type:               Transcription,
+			Streaming:          false,
+			Local:              false,
+			AdapterType:        "openai",
+			SupportedLanguages: allLangs,
+			Endpoint:           &EndpointConfig{BaseURL: "https://api.mistral.ai", Path: "/v1/audio/transcriptions"},
+		},
+		{
+			ID:                 "voxtral-mini-2507",
+			Name:               "Voxtral Mini 2507",
+			Description:        "Stable Voxtral version from July 2025",
+			Type:               Transcription,
+			Streaming:          false,
+			Local:              false,
+			AdapterType:        "openai",
+			SupportedLanguages: allLangs,
+			Endpoint:           &EndpointConfig{BaseURL: "https://api.mistral.ai", Path: "/v1/audio/transcriptions"},
+		},
+	}
 }
 
-func (p *MistralProvider) DefaultLLMModel() string {
+func (p *MistralProvider) DefaultModel(t ModelType) string {
+	switch t {
+	case Transcription:
+		return "voxtral-mini-latest"
+	}
 	return ""
-}
-
-func (p *MistralProvider) TranscriptionModels() []string {
-	return []string{"voxtral-mini-latest", "voxtral-mini-2507"}
-}
-
-func (p *MistralProvider) LLMModels() []string {
-	return nil
 }

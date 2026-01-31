@@ -1,5 +1,7 @@
 package provider
 
+import "github.com/leonardotrapani/hyprvoice/internal/language"
+
 // ElevenLabsProvider implements Provider for ElevenLabs services (transcription only)
 type ElevenLabsProvider struct{}
 
@@ -16,26 +18,43 @@ func (p *ElevenLabsProvider) ValidateAPIKey(key string) bool {
 	return len(key) > 0
 }
 
-func (p *ElevenLabsProvider) SupportsTranscription() bool {
-	return true
-}
-
-func (p *ElevenLabsProvider) SupportsLLM() bool {
+func (p *ElevenLabsProvider) IsLocal() bool {
 	return false
 }
 
-func (p *ElevenLabsProvider) DefaultTranscriptionModel() string {
-	return "scribe_v1"
+func (p *ElevenLabsProvider) Models() []Model {
+	allLangs := language.AllLanguageCodes()
+
+	return []Model{
+		{
+			ID:                 "scribe_v1",
+			Name:               "Scribe v1",
+			Description:        "99 languages, best accuracy",
+			Type:               Transcription,
+			Streaming:          false,
+			Local:              false,
+			AdapterType:        "elevenlabs",
+			SupportedLanguages: allLangs,
+			Endpoint:           &EndpointConfig{BaseURL: "https://api.elevenlabs.io", Path: "/v1/speech-to-text"},
+		},
+		{
+			ID:                 "scribe_v2",
+			Name:               "Scribe v2",
+			Description:        "Lower latency, real-time optimized",
+			Type:               Transcription,
+			Streaming:          false,
+			Local:              false,
+			AdapterType:        "elevenlabs",
+			SupportedLanguages: allLangs,
+			Endpoint:           &EndpointConfig{BaseURL: "https://api.elevenlabs.io", Path: "/v1/speech-to-text"},
+		},
+	}
 }
 
-func (p *ElevenLabsProvider) DefaultLLMModel() string {
+func (p *ElevenLabsProvider) DefaultModel(t ModelType) string {
+	switch t {
+	case Transcription:
+		return "scribe_v1"
+	}
 	return ""
-}
-
-func (p *ElevenLabsProvider) TranscriptionModels() []string {
-	return []string{"scribe_v1", "scribe_v2"}
-}
-
-func (p *ElevenLabsProvider) LLMModels() []string {
-	return nil
 }

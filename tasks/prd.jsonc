@@ -110,7 +110,7 @@
 				"ValidateModelLanguage returns nil for '' (auto) on any model",
 				"Typecheck passes"
 			],
-			"passes": false
+			"passes": true
 		},
 		{
 			"title": "Define BatchAdapter and StreamingAdapter interfaces",

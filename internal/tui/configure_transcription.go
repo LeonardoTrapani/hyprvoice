@@ -13,7 +13,7 @@ func editTranscription(cfg *config.Config, configuredProviders []string) ([]stri
 	var transcriptionOptions []huh.Option[string]
 	for _, name := range configuredProviders {
 		p := provider.GetProvider(name)
-		if p != nil && p.SupportsTranscription() {
+		if p != nil && len(provider.ModelsOfType(p, provider.Transcription)) > 0 {
 			switch name {
 			case "openai":
 				transcriptionOptions = append(transcriptionOptions,

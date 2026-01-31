@@ -13,7 +13,7 @@ func editLLM(cfg *config.Config, configuredProviders []string) ([]string, error)
 	var llmProviders []string
 	for _, name := range configuredProviders {
 		p := provider.GetProvider(name)
-		if p != nil && p.SupportsLLM() {
+		if p != nil && len(provider.ModelsOfType(p, provider.LLM)) > 0 {
 			llmProviders = append(llmProviders, name)
 		}
 	}

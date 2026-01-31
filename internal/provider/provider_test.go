@@ -10,13 +10,14 @@ func TestProviderInterface(t *testing.T) {
 		name              string
 		hasTranscription  bool
 		hasLLM            bool
+		isLocal           bool
 		defaultTransModel string
 		defaultLLMModel   string
 	}{
-		{"openai", true, true, "whisper-1", "gpt-4o-mini"},
-		{"groq", true, true, "whisper-large-v3-turbo", "llama-3.3-70b-versatile"},
-		{"mistral", true, false, "voxtral-mini-latest", ""},
-		{"elevenlabs", true, false, "scribe_v1", ""},
+		{"openai", true, true, false, "whisper-1", "gpt-4o-mini"},
+		{"groq", true, true, false, "whisper-large-v3-turbo", "llama-3.3-70b-versatile"},
+		{"mistral", true, false, false, "voxtral-mini-latest", ""},
+		{"elevenlabs", true, false, false, "scribe_v1", ""},
 	}
 
 	for _, tc := range providers {
@@ -30,32 +31,38 @@ func TestProviderInterface(t *testing.T) {
 				t.Errorf("Name() = %q, want %q", p.Name(), tc.name)
 			}
 
-			if p.SupportsTranscription() != tc.hasTranscription {
-				t.Errorf("SupportsTranscription() = %v, want %v", p.SupportsTranscription(), tc.hasTranscription)
+			hasTranscription := len(ModelsOfType(p, Transcription)) > 0
+			if hasTranscription != tc.hasTranscription {
+				t.Errorf("hasTranscription = %v, want %v", hasTranscription, tc.hasTranscription)
 			}
 
-			if p.SupportsLLM() != tc.hasLLM {
-				t.Errorf("SupportsLLM() = %v, want %v", p.SupportsLLM(), tc.hasLLM)
+			hasLLM := len(ModelsOfType(p, LLM)) > 0
+			if hasLLM != tc.hasLLM {
+				t.Errorf("hasLLM = %v, want %v", hasLLM, tc.hasLLM)
 			}
 
-			if p.DefaultTranscriptionModel() != tc.defaultTransModel {
-				t.Errorf("DefaultTranscriptionModel() = %q, want %q", p.DefaultTranscriptionModel(), tc.defaultTransModel)
+			if p.IsLocal() != tc.isLocal {
+				t.Errorf("IsLocal() = %v, want %v", p.IsLocal(), tc.isLocal)
 			}
 
-			if p.DefaultLLMModel() != tc.defaultLLMModel {
-				t.Errorf("DefaultLLMModel() = %q, want %q", p.DefaultLLMModel(), tc.defaultLLMModel)
+			if p.DefaultModel(Transcription) != tc.defaultTransModel {
+				t.Errorf("DefaultModel(Transcription) = %q, want %q", p.DefaultModel(Transcription), tc.defaultTransModel)
+			}
+
+			if p.DefaultModel(LLM) != tc.defaultLLMModel {
+				t.Errorf("DefaultModel(LLM) = %q, want %q", p.DefaultModel(LLM), tc.defaultLLMModel)
 			}
 
 			if !p.RequiresAPIKey() {
-				t.Error("RequiresAPIKey() should be true for all providers")
+				t.Error("RequiresAPIKey() should be true for all cloud providers")
 			}
 
-			if tc.hasTranscription && len(p.TranscriptionModels()) == 0 {
-				t.Error("TranscriptionModels() should not be empty for transcription provider")
+			if tc.hasTranscription && len(ModelsOfType(p, Transcription)) == 0 {
+				t.Error("should have transcription models")
 			}
 
-			if tc.hasLLM && len(p.LLMModels()) == 0 {
-				t.Error("LLMModels() should not be empty for LLM provider")
+			if tc.hasLLM && len(ModelsOfType(p, LLM)) == 0 {
+				t.Error("should have LLM models")
 			}
 		})
 	}
@@ -135,5 +142,121 @@ func TestValidateAPIKey(t *testing.T) {
 				t.Errorf("ValidateAPIKey(%q) = %v, want %v", tc.key, !tc.valid, tc.valid)
 			}
 		})
+	}
+}
+
+func TestGetModel(t *testing.T) {
+	// valid provider and model
+	m, err := GetModel("openai", "whisper-1")
+	if err != nil {
+		t.Errorf("GetModel('openai', 'whisper-1') unexpected error: %v", err)
+	}
+	if m == nil {
+		t.Fatal("GetModel returned nil model")
+	}
+	if m.ID != "whisper-1" {
+		t.Errorf("GetModel returned model with ID %q, want 'whisper-1'", m.ID)
+	}
+
+	// unknown provider
+	_, err = GetModel("nonexistent", "whisper-1")
+	if err == nil {
+		t.Error("GetModel('nonexistent', ...) should return error")
+	}
+
+	// unknown model
+	_, err = GetModel("openai", "nonexistent")
+	if err == nil {
+		t.Error("GetModel('openai', 'nonexistent') should return error")
+	}
+}
+
+func TestModelsOfType(t *testing.T) {
+	p := GetProvider("openai")
+	trans := ModelsOfType(p, Transcription)
+	llm := ModelsOfType(p, LLM)
+
+	if len(trans) != 1 {
+		t.Errorf("ModelsOfType(Transcription) = %d, want 1", len(trans))
+	}
+	if len(llm) != 4 {
+		t.Errorf("ModelsOfType(LLM) = %d, want 4", len(llm))
+	}
+}
+
+func TestFindModelByID(t *testing.T) {
+	// find model that exists
+	m, p, err := FindModelByID("whisper-1")
+	if err != nil {
+		t.Errorf("FindModelByID('whisper-1') unexpected error: %v", err)
+	}
+	if m == nil || p == nil {
+		t.Fatal("FindModelByID returned nil")
+	}
+	if m.ID != "whisper-1" {
+		t.Errorf("FindModelByID returned model %q, want 'whisper-1'", m.ID)
+	}
+	if p.Name() != "openai" {
+		t.Errorf("FindModelByID returned provider %q, want 'openai'", p.Name())
+	}
+
+	// model not found
+	_, _, err = FindModelByID("nonexistent")
+	if err == nil {
+		t.Error("FindModelByID('nonexistent') should return error")
+	}
+}
+
+func TestModelsForLanguage(t *testing.T) {
+	groq := GetProvider("groq")
+
+	// en should include all models (distil supports en)
+	enModels := ModelsForLanguage(groq, Transcription, "en")
+	if len(enModels) != 3 {
+		t.Errorf("ModelsForLanguage('en') = %d, want 3", len(enModels))
+	}
+
+	// es should exclude distil-whisper-large-v3-en
+	esModels := ModelsForLanguage(groq, Transcription, "es")
+	if len(esModels) != 2 {
+		t.Errorf("ModelsForLanguage('es') = %d, want 2 (distil excluded)", len(esModels))
+	}
+
+	// auto ("") should include all models
+	autoModels := ModelsForLanguage(groq, Transcription, "")
+	if len(autoModels) != 3 {
+		t.Errorf("ModelsForLanguage('') = %d, want 3 (auto returns all)", len(autoModels))
+	}
+}
+
+func TestValidateModelLanguage(t *testing.T) {
+	// valid language for multilingual model
+	err := ValidateModelLanguage("groq", "whisper-large-v3", "es")
+	if err != nil {
+		t.Errorf("ValidateModelLanguage(whisper-large-v3, 'es') unexpected error: %v", err)
+	}
+
+	// invalid language for English-only model
+	err = ValidateModelLanguage("groq", "distil-whisper-large-v3-en", "es")
+	if err == nil {
+		t.Error("ValidateModelLanguage(distil-whisper, 'es') should return error")
+	}
+
+	// auto always passes
+	err = ValidateModelLanguage("groq", "distil-whisper-large-v3-en", "")
+	if err != nil {
+		t.Errorf("ValidateModelLanguage(distil-whisper, '') should pass (auto): %v", err)
+	}
+
+	// unknown provider
+	err = ValidateModelLanguage("nonexistent", "whisper-1", "en")
+	if err == nil {
+		t.Error("ValidateModelLanguage with unknown provider should return error")
+	}
+
+	// unknown model
+	err = ValidateModelLanguage("openai", "nonexistent", "en")
+	if err == nil {
+		t.Error("ValidateModelLanguage with unknown model should return error")
 	}
 }
