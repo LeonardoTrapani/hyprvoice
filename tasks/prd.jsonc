@@ -47,7 +47,7 @@
         "Typecheck passes",
         "go test ./internal/config/... passes"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "title": "Create LLM adapter interface and implementations",

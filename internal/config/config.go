@@ -16,10 +16,41 @@ import (
 )
 
 type Config struct {
-	Recording     RecordingConfig     `toml:"recording"`
-	Transcription TranscriptionConfig `toml:"transcription"`
-	Injection     InjectionConfig     `toml:"injection"`
-	Notifications NotificationsConfig `toml:"notifications"`
+	Recording     RecordingConfig           `toml:"recording"`
+	Transcription TranscriptionConfig       `toml:"transcription"`
+	Injection     InjectionConfig           `toml:"injection"`
+	Notifications NotificationsConfig       `toml:"notifications"`
+	Providers     map[string]ProviderConfig `toml:"providers"`
+	Keywords      []string                  `toml:"keywords"`
+	LLM           LLMConfig                 `toml:"llm"`
+}
+
+// ProviderConfig holds API key for a provider
+type ProviderConfig struct {
+	APIKey string `toml:"api_key"`
+}
+
+// LLMConfig configures the LLM post-processing phase
+type LLMConfig struct {
+	Enabled        bool                    `toml:"enabled"`
+	Provider       string                  `toml:"provider"`
+	Model          string                  `toml:"model"`
+	PostProcessing LLMPostProcessingConfig `toml:"post_processing"`
+	CustomPrompt   LLMCustomPromptConfig   `toml:"custom_prompt"`
+}
+
+// LLMPostProcessingConfig controls text cleanup options
+type LLMPostProcessingConfig struct {
+	RemoveStutters    bool `toml:"remove_stutters"`
+	AddPunctuation    bool `toml:"add_punctuation"`
+	FixGrammar        bool `toml:"fix_grammar"`
+	RemoveFillerWords bool `toml:"remove_filler_words"`
+}
+
+// LLMCustomPromptConfig allows custom prompts
+type LLMCustomPromptConfig struct {
+	Enabled bool   `toml:"enabled"`
+	Prompt  string `toml:"prompt"`
 }
 
 type RecordingConfig struct {
@@ -113,26 +144,122 @@ func (c *Config) ToRecordingConfig() recording.Config {
 func (c *Config) ToTranscriberConfig() transcriber.Config {
 	config := transcriber.Config{
 		Provider: c.Transcription.Provider,
-		APIKey:   c.Transcription.APIKey,
 		Language: c.Transcription.Language,
 		Model:    c.Transcription.Model,
 	}
 
-	// Check for API key in environment variables if not in config
-	if config.APIKey == "" {
-		switch c.Transcription.Provider {
-		case "openai":
-			config.APIKey = os.Getenv("OPENAI_API_KEY")
-		case "groq-transcription", "groq-translation":
-			config.APIKey = os.Getenv("GROQ_API_KEY")
-		case "mistral-transcription":
-			config.APIKey = os.Getenv("MISTRAL_API_KEY")
-		case "elevenlabs":
-			config.APIKey = os.Getenv("ELEVENLABS_API_KEY")
+	// Resolve API key: providers map -> legacy transcription.api_key -> environment variable
+	config.APIKey = c.resolveAPIKeyForProvider(c.Transcription.Provider)
+
+	return config
+}
+
+// resolveAPIKeyForProvider returns the API key for a provider from multiple sources
+func (c *Config) resolveAPIKeyForProvider(provider string) string {
+	// Map transcription provider names to provider registry names
+	providerName := provider
+	envVar := ""
+	switch provider {
+	case "openai":
+		providerName = "openai"
+		envVar = "OPENAI_API_KEY"
+	case "groq-transcription", "groq-translation":
+		providerName = "groq"
+		envVar = "GROQ_API_KEY"
+	case "mistral-transcription":
+		providerName = "mistral"
+		envVar = "MISTRAL_API_KEY"
+	case "elevenlabs":
+		providerName = "elevenlabs"
+		envVar = "ELEVENLABS_API_KEY"
+	}
+
+	// 1. Check providers map
+	if c.Providers != nil {
+		if pc, ok := c.Providers[providerName]; ok && pc.APIKey != "" {
+			return pc.APIKey
 		}
 	}
 
+	// 2. Check legacy transcription.api_key (backward compatibility)
+	if c.Transcription.APIKey != "" {
+		return c.Transcription.APIKey
+	}
+
+	// 3. Check environment variable
+	if envVar != "" {
+		return os.Getenv(envVar)
+	}
+
+	return ""
+}
+
+// LLMAdapterConfig is the configuration passed to the LLM adapter
+type LLMAdapterConfig struct {
+	Provider          string
+	APIKey            string
+	Model             string
+	RemoveStutters    bool
+	AddPunctuation    bool
+	FixGrammar        bool
+	RemoveFillerWords bool
+	CustomPrompt      string
+	Keywords          []string
+}
+
+// ToLLMConfig returns the LLM adapter configuration
+func (c *Config) ToLLMConfig() LLMAdapterConfig {
+	config := LLMAdapterConfig{
+		Provider:          c.LLM.Provider,
+		Model:             c.LLM.Model,
+		RemoveStutters:    c.LLM.PostProcessing.RemoveStutters,
+		AddPunctuation:    c.LLM.PostProcessing.AddPunctuation,
+		FixGrammar:        c.LLM.PostProcessing.FixGrammar,
+		RemoveFillerWords: c.LLM.PostProcessing.RemoveFillerWords,
+		Keywords:          c.Keywords,
+	}
+
+	// Resolve API key for LLM provider
+	if c.LLM.Provider != "" {
+		config.APIKey = c.resolveAPIKeyForLLMProvider(c.LLM.Provider)
+	}
+
+	// Add custom prompt if enabled
+	if c.LLM.CustomPrompt.Enabled && c.LLM.CustomPrompt.Prompt != "" {
+		config.CustomPrompt = c.LLM.CustomPrompt.Prompt
+	}
+
 	return config
+}
+
+// resolveAPIKeyForLLMProvider returns the API key for an LLM provider
+func (c *Config) resolveAPIKeyForLLMProvider(provider string) string {
+	envVar := ""
+	switch provider {
+	case "openai":
+		envVar = "OPENAI_API_KEY"
+	case "groq":
+		envVar = "GROQ_API_KEY"
+	}
+
+	// 1. Check providers map
+	if c.Providers != nil {
+		if pc, ok := c.Providers[provider]; ok && pc.APIKey != "" {
+			return pc.APIKey
+		}
+	}
+
+	// 2. Check environment variable
+	if envVar != "" {
+		return os.Getenv(envVar)
+	}
+
+	return ""
+}
+
+// IsLLMEnabled returns true if LLM post-processing is enabled and configured
+func (c *Config) IsLLMEnabled() bool {
+	return c.LLM.Enabled && c.LLM.Provider != "" && c.LLM.Model != ""
 }
 
 func (c *Config) ToInjectionConfig() injection.Config {
@@ -170,15 +297,13 @@ func (c *Config) Validate() error {
 		return fmt.Errorf("invalid transcription.provider: empty")
 	}
 
-	// Validate provider-specific settings
+	// Validate provider-specific settings using unified API key resolution
+	apiKey := c.resolveAPIKeyForProvider(c.Transcription.Provider)
+
 	switch c.Transcription.Provider {
 	case "openai":
-		apiKey := c.Transcription.APIKey
 		if apiKey == "" {
-			apiKey = os.Getenv("OPENAI_API_KEY")
-		}
-		if apiKey == "" {
-			return fmt.Errorf("OpenAI API key required: not found in config (transcription.api_key) or environment variable (OPENAI_API_KEY)")
+			return fmt.Errorf("OpenAI API key required: not found in config (providers.openai.api_key, transcription.api_key) or environment variable (OPENAI_API_KEY)")
 		}
 
 		// Validate language code if provided (empty string means auto-detect)
@@ -187,12 +312,8 @@ func (c *Config) Validate() error {
 		}
 
 	case "groq-transcription":
-		apiKey := c.Transcription.APIKey
 		if apiKey == "" {
-			apiKey = os.Getenv("GROQ_API_KEY")
-		}
-		if apiKey == "" {
-			return fmt.Errorf("Groq API key required: not found in config (transcription.api_key) or environment variable (GROQ_API_KEY)")
+			return fmt.Errorf("Groq API key required: not found in config (providers.groq.api_key, transcription.api_key) or environment variable (GROQ_API_KEY)")
 		}
 
 		// Validate language code if provided (empty string means auto-detect)
@@ -207,12 +328,8 @@ func (c *Config) Validate() error {
 		}
 
 	case "groq-translation":
-		apiKey := c.Transcription.APIKey
 		if apiKey == "" {
-			apiKey = os.Getenv("GROQ_API_KEY")
-		}
-		if apiKey == "" {
-			return fmt.Errorf("Groq API key required: not found in config (transcription.api_key) or environment variable (GROQ_API_KEY)")
+			return fmt.Errorf("Groq API key required: not found in config (providers.groq.api_key, transcription.api_key) or environment variable (GROQ_API_KEY)")
 		}
 
 		// For translation, language field hints at source language (output is always English)
@@ -226,12 +343,8 @@ func (c *Config) Validate() error {
 		}
 
 	case "mistral-transcription":
-		apiKey := c.Transcription.APIKey
 		if apiKey == "" {
-			apiKey = os.Getenv("MISTRAL_API_KEY")
-		}
-		if apiKey == "" {
-			return fmt.Errorf("Mistral API key required: not found in config (transcription.api_key) or environment variable (MISTRAL_API_KEY)")
+			return fmt.Errorf("Mistral API key required: not found in config (providers.mistral.api_key, transcription.api_key) or environment variable (MISTRAL_API_KEY)")
 		}
 
 		// Validate language code if provided (empty string means auto-detect)
@@ -246,12 +359,8 @@ func (c *Config) Validate() error {
 		}
 
 	case "elevenlabs":
-		apiKey := c.Transcription.APIKey
 		if apiKey == "" {
-			apiKey = os.Getenv("ELEVENLABS_API_KEY")
-		}
-		if apiKey == "" {
-			return fmt.Errorf("ElevenLabs API key required: not found in config (transcription.api_key) or environment variable (ELEVENLABS_API_KEY)")
+			return fmt.Errorf("ElevenLabs API key required: not found in config (providers.elevenlabs.api_key, transcription.api_key) or environment variable (ELEVENLABS_API_KEY)")
 		}
 
 		// Validate language code if provided (empty string means auto-detect)
@@ -271,6 +380,33 @@ func (c *Config) Validate() error {
 
 	if c.Transcription.Model == "" {
 		return fmt.Errorf("invalid transcription.model: empty")
+	}
+
+	// LLM (only validate if enabled)
+	if c.LLM.Enabled {
+		if c.LLM.Provider == "" {
+			return fmt.Errorf("llm.provider required when llm.enabled = true")
+		}
+		if c.LLM.Model == "" {
+			return fmt.Errorf("llm.model required when llm.enabled = true")
+		}
+
+		// Validate LLM provider
+		validLLMProviders := map[string]bool{"openai": true, "groq": true}
+		if !validLLMProviders[c.LLM.Provider] {
+			return fmt.Errorf("invalid llm.provider: %s (must be openai or groq)", c.LLM.Provider)
+		}
+
+		// Check API key for LLM provider
+		llmAPIKey := c.resolveAPIKeyForLLMProvider(c.LLM.Provider)
+		if llmAPIKey == "" {
+			switch c.LLM.Provider {
+			case "openai":
+				return fmt.Errorf("OpenAI API key required for LLM: not found in config (providers.openai.api_key) or environment variable (OPENAI_API_KEY)")
+			case "groq":
+				return fmt.Errorf("Groq API key required for LLM: not found in config (providers.groq.api_key) or environment variable (GROQ_API_KEY)")
+			}
+		}
 	}
 
 	// Injection
@@ -341,8 +477,14 @@ type legacyInjectionConfig struct {
 	Mode string `toml:"mode"`
 }
 
+// legacyTranscriptionConfig for migration from old api_key in transcription
+type legacyTranscriptionConfig struct {
+	APIKey string `toml:"api_key"`
+}
+
 type legacyConfig struct {
-	Injection legacyInjectionConfig `toml:"injection"`
+	Injection     legacyInjectionConfig     `toml:"injection"`
+	Transcription legacyTranscriptionConfig `toml:"transcription"`
 }
 
 func Load() (*Config, error) {
@@ -367,15 +509,74 @@ func Load() (*Config, error) {
 		return nil, fmt.Errorf("failed to parse config file %s: %w", configPath, err)
 	}
 
+	// Parse legacy config for migrations
+	var legacy legacyConfig
+	toml.DecodeFile(configPath, &legacy)
+
 	// Migrate legacy mode-based config to backends
 	if len(config.Injection.Backends) == 0 {
-		var legacy legacyConfig
-		toml.DecodeFile(configPath, &legacy)
 		config.migrateInjectionMode(legacy.Injection.Mode)
 	}
 
+	// Migrate legacy transcription.api_key to providers map
+	if legacy.Transcription.APIKey != "" && config.Providers == nil {
+		config.migrateTranscriptionAPIKey(legacy.Transcription.APIKey)
+	}
+
+	// Initialize providers map if nil
+	if config.Providers == nil {
+		config.Providers = make(map[string]ProviderConfig)
+	}
+
+	// Set LLM defaults if not configured
+	config.applyLLMDefaults()
+
 	log.Printf("Config: configuration loaded successfully")
 	return &config, nil
+}
+
+// migrateTranscriptionAPIKey migrates old transcription.api_key to providers map
+func (c *Config) migrateTranscriptionAPIKey(apiKey string) {
+	if c.Providers == nil {
+		c.Providers = make(map[string]ProviderConfig)
+	}
+
+	// Determine which provider this key is for based on transcription.provider
+	providerName := c.Transcription.Provider
+	switch providerName {
+	case "openai":
+		c.Providers["openai"] = ProviderConfig{APIKey: apiKey}
+	case "groq-transcription", "groq-translation":
+		c.Providers["groq"] = ProviderConfig{APIKey: apiKey}
+	case "mistral-transcription":
+		c.Providers["mistral"] = ProviderConfig{APIKey: apiKey}
+	case "elevenlabs":
+		c.Providers["elevenlabs"] = ProviderConfig{APIKey: apiKey}
+	default:
+		// Unknown provider, try to guess based on key prefix
+		if len(apiKey) > 3 && apiKey[:3] == "sk-" {
+			c.Providers["openai"] = ProviderConfig{APIKey: apiKey}
+		} else if len(apiKey) > 4 && apiKey[:4] == "gsk_" {
+			c.Providers["groq"] = ProviderConfig{APIKey: apiKey}
+		}
+	}
+
+	log.Printf("Config: migrated transcription.api_key to providers map. Run 'hyprvoice configure' to update config format.")
+}
+
+// applyLLMDefaults sets default values for LLM config
+func (c *Config) applyLLMDefaults() {
+	// Default post-processing options to true if LLM is enabled and not explicitly set
+	// We detect "not set" by checking if all booleans are false (zero value)
+	// Since the default behavior should be all true, we only apply if everything is false
+	pp := &c.LLM.PostProcessing
+	if !pp.RemoveStutters && !pp.AddPunctuation && !pp.FixGrammar && !pp.RemoveFillerWords {
+		// Nothing was set, apply defaults
+		pp.RemoveStutters = true
+		pp.AddPunctuation = true
+		pp.FixGrammar = true
+		pp.RemoveFillerWords = true
+	}
 }
 
 // migrateInjectionMode converts old mode field to new backends array

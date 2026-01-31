@@ -15,3 +15,35 @@ Key decisions:
 - OpenAI and Groq support both transcription + LLM
 - Mistral and ElevenLabs are transcription-only
 - ValidateAPIKey checks prefix for OpenAI (sk-) and Groq (gsk_), accepts any non-empty for others
+
+## Task 2: Refactor config to unified provider structure - COMPLETE
+
+Added to internal/config/config.go:
+- `Providers map[string]ProviderConfig` for centralized API key storage
+- `Keywords []string` at config root level
+- `LLMConfig` with Enabled, Provider, Model, PostProcessing, CustomPrompt
+- `LLMPostProcessingConfig` with RemoveStutters, AddPunctuation, FixGrammar, RemoveFillerWords (all default true)
+- `LLMCustomPromptConfig` with Enabled, Prompt
+- `LLMAdapterConfig` struct for passing to LLM adapters
+- `ToLLMConfig()` method
+- `IsLLMEnabled()` helper
+- `resolveAPIKeyForProvider()` - unified API key resolution: providers map -> legacy transcription.api_key -> env var
+- `resolveAPIKeyForLLMProvider()` - same for LLM
+- `migrateTranscriptionAPIKey()` - auto-migrates old config format
+- `applyLLMDefaults()` - sets post-processing options to true if all are zero
+
+Migration:
+- Old configs with `transcription.api_key` auto-migrate to `providers` map on Load()
+- Logs warning: "Run 'hyprvoice configure' to update config format"
+- Both old and new config formats work (backward compatible)
+
+Validation:
+- LLM validation only runs when `llm.enabled = true`
+- Checks provider is openai or groq
+- Checks API key is available for LLM provider
+
+Key decisions:
+- API key resolution order: providers.X.api_key -> transcription.api_key -> ENV_VAR
+- LLM provider names are "openai" and "groq" (not "groq-transcription")
+- PostProcessing defaults to all true only if ALL options are false (zero values)
+- Keywords at root level (global), used by both transcription and LLM

@@ -1280,3 +1280,493 @@ func TestMessagesConfig_Resolve_CustomOverrides(t *testing.T) {
 		t.Errorf("MsgTranscribing title = %q, want %q", msgs[notify.MsgTranscribing].Title, "Hyprvoice")
 	}
 }
+
+// Tests for new unified provider structure
+
+func TestConfig_ProvidersMap(t *testing.T) {
+	config := &Config{
+		Recording: RecordingConfig{
+			SampleRate:        16000,
+			Channels:          1,
+			Format:            "s16",
+			BufferSize:        8192,
+			ChannelBufferSize: 30,
+			Timeout:           time.Minute,
+		},
+		Transcription: TranscriptionConfig{
+			Provider: "openai",
+			Model:    "whisper-1",
+		},
+		Providers: map[string]ProviderConfig{
+			"openai": {APIKey: "sk-provider-key"},
+		},
+		Injection: InjectionConfig{
+			Backends:         []string{"clipboard"},
+			YdotoolTimeout:   5 * time.Second,
+			WtypeTimeout:     5 * time.Second,
+			ClipboardTimeout: 3 * time.Second,
+		},
+		Notifications: NotificationsConfig{Type: "log"},
+	}
+
+	// Should resolve API key from providers map
+	transcriberConfig := config.ToTranscriberConfig()
+	if transcriberConfig.APIKey != "sk-provider-key" {
+		t.Errorf("Expected APIKey from providers map, got %s", transcriberConfig.APIKey)
+	}
+
+	// Validation should pass
+	if err := config.Validate(); err != nil {
+		t.Errorf("Validate() error = %v", err)
+	}
+}
+
+func TestConfig_ProvidersMapFallbackToLegacy(t *testing.T) {
+	config := &Config{
+		Recording: RecordingConfig{
+			SampleRate:        16000,
+			Channels:          1,
+			Format:            "s16",
+			BufferSize:        8192,
+			ChannelBufferSize: 30,
+			Timeout:           time.Minute,
+		},
+		Transcription: TranscriptionConfig{
+			Provider: "openai",
+			APIKey:   "sk-legacy-key", // Legacy field
+			Model:    "whisper-1",
+		},
+		Providers: map[string]ProviderConfig{}, // Empty providers map
+		Injection: InjectionConfig{
+			Backends:         []string{"clipboard"},
+			YdotoolTimeout:   5 * time.Second,
+			WtypeTimeout:     5 * time.Second,
+			ClipboardTimeout: 3 * time.Second,
+		},
+		Notifications: NotificationsConfig{Type: "log"},
+	}
+
+	// Should fall back to legacy transcription.api_key
+	transcriberConfig := config.ToTranscriberConfig()
+	if transcriberConfig.APIKey != "sk-legacy-key" {
+		t.Errorf("Expected APIKey from legacy field, got %s", transcriberConfig.APIKey)
+	}
+}
+
+func TestConfig_LLMConfig(t *testing.T) {
+	config := &Config{
+		Recording: RecordingConfig{
+			SampleRate:        16000,
+			Channels:          1,
+			Format:            "s16",
+			BufferSize:        8192,
+			ChannelBufferSize: 30,
+			Timeout:           time.Minute,
+		},
+		Transcription: TranscriptionConfig{
+			Provider: "openai",
+			Model:    "whisper-1",
+		},
+		Providers: map[string]ProviderConfig{
+			"openai": {APIKey: "sk-test-key"},
+		},
+		Keywords: []string{"hyprvoice", "Claude"},
+		LLM: LLMConfig{
+			Enabled:  true,
+			Provider: "openai",
+			Model:    "gpt-4o-mini",
+			PostProcessing: LLMPostProcessingConfig{
+				RemoveStutters:    true,
+				AddPunctuation:    true,
+				FixGrammar:        false,
+				RemoveFillerWords: true,
+			},
+			CustomPrompt: LLMCustomPromptConfig{
+				Enabled: true,
+				Prompt:  "Format as code",
+			},
+		},
+		Injection: InjectionConfig{
+			Backends:         []string{"clipboard"},
+			YdotoolTimeout:   5 * time.Second,
+			WtypeTimeout:     5 * time.Second,
+			ClipboardTimeout: 3 * time.Second,
+		},
+		Notifications: NotificationsConfig{Type: "log"},
+	}
+
+	// Validate should pass
+	if err := config.Validate(); err != nil {
+		t.Errorf("Validate() error = %v", err)
+	}
+
+	// IsLLMEnabled should return true
+	if !config.IsLLMEnabled() {
+		t.Error("IsLLMEnabled() should return true")
+	}
+
+	// ToLLMConfig should return correct values
+	llmConfig := config.ToLLMConfig()
+	if llmConfig.Provider != "openai" {
+		t.Errorf("LLM provider = %s, want openai", llmConfig.Provider)
+	}
+	if llmConfig.Model != "gpt-4o-mini" {
+		t.Errorf("LLM model = %s, want gpt-4o-mini", llmConfig.Model)
+	}
+	if llmConfig.APIKey != "sk-test-key" {
+		t.Errorf("LLM APIKey = %s, want sk-test-key", llmConfig.APIKey)
+	}
+	if !llmConfig.RemoveStutters {
+		t.Error("RemoveStutters should be true")
+	}
+	if llmConfig.FixGrammar {
+		t.Error("FixGrammar should be false")
+	}
+	if llmConfig.CustomPrompt != "Format as code" {
+		t.Errorf("CustomPrompt = %s, want 'Format as code'", llmConfig.CustomPrompt)
+	}
+	if len(llmConfig.Keywords) != 2 {
+		t.Errorf("Keywords length = %d, want 2", len(llmConfig.Keywords))
+	}
+}
+
+func TestConfig_LLMValidation(t *testing.T) {
+	baseConfig := func() *Config {
+		return &Config{
+			Recording: RecordingConfig{
+				SampleRate:        16000,
+				Channels:          1,
+				Format:            "s16",
+				BufferSize:        8192,
+				ChannelBufferSize: 30,
+				Timeout:           time.Minute,
+			},
+			Transcription: TranscriptionConfig{
+				Provider: "openai",
+				Model:    "whisper-1",
+			},
+			Providers: map[string]ProviderConfig{
+				"openai": {APIKey: "sk-test-key"},
+			},
+			Injection: InjectionConfig{
+				Backends:         []string{"clipboard"},
+				YdotoolTimeout:   5 * time.Second,
+				WtypeTimeout:     5 * time.Second,
+				ClipboardTimeout: 3 * time.Second,
+			},
+			Notifications: NotificationsConfig{Type: "log"},
+		}
+	}
+
+	t.Run("LLM enabled without provider fails", func(t *testing.T) {
+		config := baseConfig()
+		config.LLM.Enabled = true
+		config.LLM.Model = "gpt-4o-mini"
+		// No provider set
+
+		err := config.Validate()
+		if err == nil {
+			t.Error("Validate() should fail when LLM enabled without provider")
+		}
+	})
+
+	t.Run("LLM enabled without model fails", func(t *testing.T) {
+		config := baseConfig()
+		config.LLM.Enabled = true
+		config.LLM.Provider = "openai"
+		// No model set
+
+		err := config.Validate()
+		if err == nil {
+			t.Error("Validate() should fail when LLM enabled without model")
+		}
+	})
+
+	t.Run("LLM enabled with invalid provider fails", func(t *testing.T) {
+		config := baseConfig()
+		config.LLM.Enabled = true
+		config.LLM.Provider = "invalid"
+		config.LLM.Model = "some-model"
+
+		err := config.Validate()
+		if err == nil {
+			t.Error("Validate() should fail with invalid LLM provider")
+		}
+	})
+
+	t.Run("LLM disabled skips validation", func(t *testing.T) {
+		config := baseConfig()
+		config.LLM.Enabled = false
+		config.LLM.Provider = "invalid" // Would fail if validated
+
+		err := config.Validate()
+		if err != nil {
+			t.Errorf("Validate() should pass when LLM disabled: %v", err)
+		}
+	})
+
+	t.Run("LLM enabled without API key fails", func(t *testing.T) {
+		config := baseConfig()
+		config.LLM.Enabled = true
+		config.LLM.Provider = "groq"
+		config.LLM.Model = "llama-3.3-70b-versatile"
+		// No groq API key in providers
+
+		// Clear env var
+		orig := os.Getenv("GROQ_API_KEY")
+		os.Unsetenv("GROQ_API_KEY")
+		defer func() {
+			if orig != "" {
+				os.Setenv("GROQ_API_KEY", orig)
+			}
+		}()
+
+		err := config.Validate()
+		if err == nil {
+			t.Error("Validate() should fail when LLM enabled without API key for provider")
+		}
+	})
+}
+
+func TestConfig_MigrateTranscriptionAPIKey(t *testing.T) {
+	tempDir := t.TempDir()
+	configPath := filepath.Join(tempDir, "hyprvoice", "config.toml")
+
+	err := os.MkdirAll(filepath.Dir(configPath), 0755)
+	if err != nil {
+		t.Fatalf("Failed to create config directory: %v", err)
+	}
+
+	// Old-style config with api_key in transcription
+	oldConfig := `[recording]
+sample_rate = 16000
+channels = 1
+format = "s16"
+buffer_size = 8192
+channel_buffer_size = 30
+timeout = "5m"
+
+[transcription]
+provider = "openai"
+api_key = "sk-old-style-key"
+model = "whisper-1"
+
+[injection]
+backends = ["clipboard"]
+ydotool_timeout = "5s"
+wtype_timeout = "5s"
+clipboard_timeout = "3s"
+
+[notifications]
+type = "log"`
+
+	err = os.WriteFile(configPath, []byte(oldConfig), 0644)
+	if err != nil {
+		t.Fatalf("Failed to create config file: %v", err)
+	}
+
+	originalConfigDir := os.Getenv("XDG_CONFIG_HOME")
+	os.Setenv("XDG_CONFIG_HOME", tempDir)
+	defer func() {
+		if originalConfigDir == "" {
+			os.Unsetenv("XDG_CONFIG_HOME")
+		} else {
+			os.Setenv("XDG_CONFIG_HOME", originalConfigDir)
+		}
+	}()
+
+	config, err := Load()
+	if err != nil {
+		t.Errorf("Load() error = %v", err)
+		return
+	}
+
+	// Should have migrated to providers map
+	if config.Providers == nil {
+		t.Fatal("Providers map should not be nil after migration")
+	}
+	if config.Providers["openai"].APIKey != "sk-old-style-key" {
+		t.Errorf("Expected migrated API key in providers.openai, got %s", config.Providers["openai"].APIKey)
+	}
+
+	// Validation should pass
+	if err := config.Validate(); err != nil {
+		t.Errorf("Validate() should pass after migration: %v", err)
+	}
+
+	// ToTranscriberConfig should resolve correctly
+	transcriberConfig := config.ToTranscriberConfig()
+	if transcriberConfig.APIKey != "sk-old-style-key" {
+		t.Errorf("Expected APIKey 'sk-old-style-key', got %s", transcriberConfig.APIKey)
+	}
+}
+
+func TestConfig_NewStyleConfig(t *testing.T) {
+	tempDir := t.TempDir()
+	configPath := filepath.Join(tempDir, "hyprvoice", "config.toml")
+
+	err := os.MkdirAll(filepath.Dir(configPath), 0755)
+	if err != nil {
+		t.Fatalf("Failed to create config directory: %v", err)
+	}
+
+	// New-style config with providers map
+	newConfig := `keywords = ["Claude", "hyprvoice"]
+
+[recording]
+sample_rate = 16000
+channels = 1
+format = "s16"
+buffer_size = 8192
+channel_buffer_size = 30
+timeout = "5m"
+
+[providers.openai]
+api_key = "sk-new-style-key"
+
+[providers.groq]
+api_key = "gsk_new-groq-key"
+
+[transcription]
+provider = "openai"
+model = "whisper-1"
+
+[llm]
+enabled = true
+provider = "groq"
+model = "llama-3.3-70b-versatile"
+
+[llm.post_processing]
+remove_stutters = true
+add_punctuation = true
+fix_grammar = true
+remove_filler_words = false
+
+[injection]
+backends = ["clipboard"]
+ydotool_timeout = "5s"
+wtype_timeout = "5s"
+clipboard_timeout = "3s"
+
+[notifications]
+type = "log"`
+
+	err = os.WriteFile(configPath, []byte(newConfig), 0644)
+	if err != nil {
+		t.Fatalf("Failed to create config file: %v", err)
+	}
+
+	originalConfigDir := os.Getenv("XDG_CONFIG_HOME")
+	os.Setenv("XDG_CONFIG_HOME", tempDir)
+	defer func() {
+		if originalConfigDir == "" {
+			os.Unsetenv("XDG_CONFIG_HOME")
+		} else {
+			os.Setenv("XDG_CONFIG_HOME", originalConfigDir)
+		}
+	}()
+
+	config, err := Load()
+	if err != nil {
+		t.Errorf("Load() error = %v", err)
+		return
+	}
+
+	// Providers should be loaded
+	if config.Providers["openai"].APIKey != "sk-new-style-key" {
+		t.Errorf("Expected openai API key, got %s", config.Providers["openai"].APIKey)
+	}
+	if config.Providers["groq"].APIKey != "gsk_new-groq-key" {
+		t.Errorf("Expected groq API key, got %s", config.Providers["groq"].APIKey)
+	}
+
+	// Keywords should be loaded
+	if len(config.Keywords) != 2 {
+		t.Errorf("Expected 2 keywords, got %d", len(config.Keywords))
+	}
+
+	// LLM config should be loaded
+	if !config.LLM.Enabled {
+		t.Error("LLM should be enabled")
+	}
+	if config.LLM.Provider != "groq" {
+		t.Errorf("LLM provider = %s, want groq", config.LLM.Provider)
+	}
+	if !config.LLM.PostProcessing.RemoveStutters {
+		t.Error("RemoveStutters should be true")
+	}
+	if config.LLM.PostProcessing.RemoveFillerWords {
+		t.Error("RemoveFillerWords should be false")
+	}
+
+	// Validation should pass
+	if err := config.Validate(); err != nil {
+		t.Errorf("Validate() error = %v", err)
+	}
+
+	// ToTranscriberConfig should use openai key
+	transcriberConfig := config.ToTranscriberConfig()
+	if transcriberConfig.APIKey != "sk-new-style-key" {
+		t.Errorf("Transcriber APIKey = %s, want sk-new-style-key", transcriberConfig.APIKey)
+	}
+
+	// ToLLMConfig should use groq key
+	llmConfig := config.ToLLMConfig()
+	if llmConfig.APIKey != "gsk_new-groq-key" {
+		t.Errorf("LLM APIKey = %s, want gsk_new-groq-key", llmConfig.APIKey)
+	}
+}
+
+func TestConfig_LLMDefaults(t *testing.T) {
+	config := &Config{
+		LLM: LLMConfig{
+			Enabled:  true,
+			Provider: "openai",
+			Model:    "gpt-4o-mini",
+			// PostProcessing left as zero values
+		},
+	}
+
+	// Simulate what Load() does
+	config.applyLLMDefaults()
+
+	// All post-processing options should default to true
+	if !config.LLM.PostProcessing.RemoveStutters {
+		t.Error("RemoveStutters should default to true")
+	}
+	if !config.LLM.PostProcessing.AddPunctuation {
+		t.Error("AddPunctuation should default to true")
+	}
+	if !config.LLM.PostProcessing.FixGrammar {
+		t.Error("FixGrammar should default to true")
+	}
+	if !config.LLM.PostProcessing.RemoveFillerWords {
+		t.Error("RemoveFillerWords should default to true")
+	}
+}
+
+func TestConfig_LLMDefaultsPreserveExplicit(t *testing.T) {
+	config := &Config{
+		LLM: LLMConfig{
+			Enabled:  true,
+			Provider: "openai",
+			Model:    "gpt-4o-mini",
+			PostProcessing: LLMPostProcessingConfig{
+				RemoveStutters: true, // One is set
+				// Others are false
+			},
+		},
+	}
+
+	// Simulate what Load() does
+	config.applyLLMDefaults()
+
+	// Should preserve the explicit setting and not override
+	if !config.LLM.PostProcessing.RemoveStutters {
+		t.Error("RemoveStutters should remain true")
+	}
+	// Since at least one is true, defaults should NOT be applied
+	if config.LLM.PostProcessing.AddPunctuation {
+		t.Error("AddPunctuation should remain false (explicit)")
+	}
+}
