@@ -36,13 +36,17 @@ func getConfiguredProviders(cfg *config.Config) []string {
 }
 
 // editProviders handles the providers section edit with submenu
-func editProviders(cfg *config.Config) error {
+func editProviders(cfg *config.Config, onboarding bool) error {
+	exitLabel := "Done"
+	if onboarding {
+		exitLabel = "Next"
+	}
 	for {
 		var options []huh.Option[string]
 		for _, name := range AllProviders {
 			options = append(options, huh.NewOption(formatProviderOption(cfg, name), name))
 		}
-		options = append(options, huh.NewOption("Back", "back"))
+		options = append(options, huh.NewOption(exitLabel, "back"))
 
 		var selected string
 		form := huh.NewForm(

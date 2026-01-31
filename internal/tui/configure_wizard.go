@@ -8,111 +8,68 @@ import (
 	"github.com/leonardotrapani/hyprvoice/internal/config"
 )
 
-// runFreshInstall runs the full configuration wizard for fresh installs
+// runFreshInstall runs the guided onboarding flow for fresh installs
+// Uses the same screens as the menu for consistency
 func runFreshInstall(cfg *config.Config) (*ConfigureResult, error) {
 	fmt.Println(Logo())
 	fmt.Println()
 	fmt.Println(StyleMuted.Render("Voice-powered typing for Wayland/Hyprland"))
 	fmt.Println()
 
-	selectedProviders, err := selectProviders()
+	// 1. Providers - same screen as menu
+	if err := editProviders(cfg, true); err != nil {
+		return &ConfigureResult{Cancelled: true}, nil
+	}
+
+	configuredProviders := getConfiguredProviders(cfg)
+	if len(configuredProviders) == 0 {
+		return &ConfigureResult{Cancelled: true}, fmt.Errorf("no providers configured")
+	}
+
+	// 2. Transcription - same screen as menu
+	var err error
+	configuredProviders, err = editTranscription(cfg, configuredProviders)
 	if err != nil {
 		return &ConfigureResult{Cancelled: true}, nil
 	}
-	if len(selectedProviders) == 0 {
-		return &ConfigureResult{Cancelled: true}, fmt.Errorf("no providers selected")
-	}
 
-	if cfg.Providers == nil {
-		cfg.Providers = make(map[string]config.ProviderConfig)
-	}
-
-	for _, providerName := range selectedProviders {
-		apiKey, err := inputAPIKey(providerName)
-		if err != nil {
-			return &ConfigureResult{Cancelled: true}, nil
-		}
-		cfg.Providers[providerName] = config.ProviderConfig{APIKey: apiKey}
-	}
-
-	transcriptionProvider, transcriptionModel, language, err := configureTranscription(selectedProviders, cfg)
+	// 3. LLM - same screen as menu
+	configuredProviders, err = editLLM(cfg, configuredProviders)
 	if err != nil {
 		return &ConfigureResult{Cancelled: true}, nil
 	}
-	cfg.Transcription.Provider = transcriptionProvider
-	cfg.Transcription.Model = transcriptionModel
-	cfg.Transcription.Language = language
 
-	llmEnabled, llmProvider, llmModel, postProcessing, customPrompt, err := configureLLM(selectedProviders, cfg)
-	if err != nil {
-		return &ConfigureResult{Cancelled: true}, nil
-	}
-	cfg.LLM.Enabled = llmEnabled
-	cfg.LLM.Provider = llmProvider
-	cfg.LLM.Model = llmModel
-	cfg.LLM.PostProcessing = postProcessing
-	cfg.LLM.CustomPrompt = customPrompt
-
+	// 4. Keywords
 	keywords, err := inputKeywords(cfg.Keywords)
 	if err != nil {
 		return &ConfigureResult{Cancelled: true}, nil
 	}
 	cfg.Keywords = keywords
 
+	// 5. Injection backends
 	backends, err := selectBackends(cfg.Injection.Backends)
 	if err != nil {
 		return &ConfigureResult{Cancelled: true}, nil
 	}
 	cfg.Injection.Backends = backends
 
-	notificationsEnabled, err := configureNotifications(cfg.Notifications.Enabled)
+	// 6. Notifications - same screen as menu
+	if err := editNotifications(cfg); err != nil {
+		return &ConfigureResult{Cancelled: true}, nil
+	}
+
+	// 7. Advanced settings prompt
+	wantAdvanced, err := askAdvancedSettings()
 	if err != nil {
 		return &ConfigureResult{Cancelled: true}, nil
 	}
-	cfg.Notifications.Enabled = notificationsEnabled
-
-	confirmed, err := showSummary(cfg)
-	if err != nil || !confirmed {
-		return &ConfigureResult{Cancelled: true}, nil
-	}
-
-	return &ConfigureResult{Config: cfg, Cancelled: false}, nil
-}
-
-func selectProviders() ([]string, error) {
-	options := []huh.Option[string]{
-		huh.NewOption("OpenAI - Whisper transcription + GPT for LLM", "openai"),
-		huh.NewOption("Groq - Fast Whisper transcription + Llama for LLM", "groq"),
-		huh.NewOption("Mistral - Voxtral transcription (European languages)", "mistral"),
-		huh.NewOption("ElevenLabs - Scribe transcription (99 languages)", "elevenlabs"),
-	}
-
-	var selected []string
-	form := huh.NewForm(
-		huh.NewGroup(
-			huh.NewMultiSelect[string]().
-				Title("Which providers do you want to configure?").
-				Description("Select all providers you have API keys for").
-				Options(options...).
-				Value(&selected),
-		),
-	).WithTheme(getTheme())
-
-	if err := form.Run(); err != nil {
-		return nil, err
-	}
-
-	valid := make([]string, 0)
-	for _, s := range selected {
-		for _, p := range AllProviders {
-			if s == p {
-				valid = append(valid, s)
-				break
-			}
+	if wantAdvanced {
+		if err := editAdvanced(cfg, true); err != nil {
+			return &ConfigureResult{Cancelled: true}, nil
 		}
 	}
 
-	return valid, nil
+	return &ConfigureResult{Config: cfg, Cancelled: false}, nil
 }
 
 func inputKeywords(existingKeywords []string) ([]string, error) {
@@ -186,28 +143,19 @@ func selectBackends(existingBackends []string) ([]string, error) {
 	return selected, nil
 }
 
-func configureNotifications(existingEnabled bool) (bool, error) {
-	enabled := existingEnabled
-
-	desc := "Show notifications for recording status changes"
-	if existingEnabled {
-		desc = "Currently: enabled. " + desc
-	} else {
-		desc = "Currently: disabled. " + desc
-	}
-
+func askAdvancedSettings() (bool, error) {
+	var want bool
 	form := huh.NewForm(
 		huh.NewGroup(
 			huh.NewConfirm().
-				Title("Enable desktop notifications?").
-				Description(desc).
-				Value(&enabled),
+				Title("Configure advanced settings?").
+				Description("Recording parameters, injection timeouts, etc.").
+				Value(&want),
 		),
 	).WithTheme(getTheme())
 
 	if err := form.Run(); err != nil {
 		return false, err
 	}
-
-	return enabled, nil
+	return want, nil
 }

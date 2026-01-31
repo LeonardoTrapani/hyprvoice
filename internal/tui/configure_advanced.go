@@ -19,12 +19,16 @@ const (
 )
 
 // editAdvanced handles the advanced settings submenu
-func editAdvanced(cfg *config.Config) error {
+func editAdvanced(cfg *config.Config, onboarding bool) error {
+	exitLabel := "Done"
+	if onboarding {
+		exitLabel = "Next"
+	}
 	for {
 		options := []huh.Option[AdvancedSection]{
 			huh.NewOption(formatAdvancedRecordingLabel(cfg), AdvancedRecording),
 			huh.NewOption(formatAdvancedInjectionTimeoutLabel(cfg), AdvancedInjectionTimeout),
-			huh.NewOption("Back to Main Menu", AdvancedBack),
+			huh.NewOption(exitLabel, AdvancedBack),
 		}
 
 		var selected AdvancedSection

@@ -43,11 +43,19 @@ const (
 )
 
 // Run starts the TUI configuration wizard
-func Run(existingConfig *config.Config) (*ConfigureResult, error) {
-	if existingConfig != nil && hasUserChanges(existingConfig) {
+// If onboarding is true, forces the guided wizard flow even if config exists
+func Run(existingConfig *config.Config, onboarding bool) (*ConfigureResult, error) {
+	if !onboarding && existingConfig != nil && hasUserChanges(existingConfig) {
 		return runEditExisting(existingConfig)
 	}
-	return runFreshInstall(existingConfig)
+
+	result, err := runFreshInstall(existingConfig)
+	if err != nil || result.Cancelled {
+		return result, err
+	}
+
+	// wizard done, transition to menu for review/save
+	return runEditExisting(result.Config)
 }
 
 // hasUserChanges detects if config has user modifications
@@ -92,7 +100,7 @@ func runEditExisting(cfg *config.Config) (*ConfigureResult, error) {
 			return &ConfigureResult{Cancelled: true}, nil
 
 		case SectionProviders:
-			if err := editProviders(cfg); err != nil {
+			if err := editProviders(cfg, false); err != nil {
 				continue
 			}
 			configuredProviders = getConfiguredProviders(cfg)
@@ -131,7 +139,7 @@ func runEditExisting(cfg *config.Config) (*ConfigureResult, error) {
 			}
 
 		case SectionAdvanced:
-			if err := editAdvanced(cfg); err != nil {
+			if err := editAdvanced(cfg, false); err != nil {
 				continue
 			}
 		}

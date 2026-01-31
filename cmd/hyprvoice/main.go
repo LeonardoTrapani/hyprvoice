@@ -124,7 +124,9 @@ func cancelCmd() *cobra.Command {
 }
 
 func configureCmd() *cobra.Command {
-	return &cobra.Command{
+	var onboarding bool
+
+	cmd := &cobra.Command{
 		Use:   "configure",
 		Short: "Interactive configuration setup",
 		Long: `Interactive configuration wizard for hyprvoice.
@@ -134,12 +136,16 @@ This will guide you through setting up:
 - LLM post-processing
 - Text injection and notification preferences`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runConfigure()
+			return runConfigure(onboarding)
 		},
 	}
+
+	cmd.Flags().BoolVar(&onboarding, "onboarding", false, "Run the guided onboarding wizard")
+
+	return cmd
 }
 
-func runConfigure() error {
+func runConfigure(onboarding bool) error {
 	// Load existing config or create default
 	cfg, err := config.Load()
 	if err != nil {
@@ -147,7 +153,7 @@ func runConfigure() error {
 	}
 
 	// Run TUI wizard
-	result, err := tui.Run(cfg)
+	result, err := tui.Run(cfg, onboarding)
 	if err != nil {
 		return fmt.Errorf("configuration wizard error: %w", err)
 	}
