@@ -66,7 +66,7 @@
         "Factory returns correct adapter",
         "Typecheck passes"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "title": "Integrate LLM phase into pipeline",

@@ -47,3 +47,20 @@ Key decisions:
 - LLM provider names are "openai" and "groq" (not "groq-transcription")
 - PostProcessing defaults to all true only if ALL options are false (zero values)
 - Keywords at root level (global), used by both transcription and LLM
+
+## Task 3: Create LLM adapter interface and implementations - COMPLETE
+
+Created internal/llm package with:
+- `Adapter` interface: `Process(ctx, text) (string, error)`
+- `Config` struct mirroring config.LLMAdapterConfig
+- `prompt.go` with `BuildSystemPrompt(opts, keywords)` and `BuildUserPrompt(text, customPrompt)`
+- `OpenAIAdapter` using go-openai chat completions API
+- `GroqAdapter` using Groq's OpenAI-compatible API (baseURL override)
+- `NewAdapter(config)` factory function
+
+Key decisions:
+- Low temperature (0.3) for consistent text cleanup
+- Default models: gpt-4o-mini (OpenAI), llama-3.3-70b-versatile (Groq)
+- System prompt builds dynamically based on enabled options
+- Keywords included in system prompt for correct spelling hints
+- Custom prompt prepended to user prompt if enabled
