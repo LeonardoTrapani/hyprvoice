@@ -62,3 +62,15 @@ Started: Sun Feb  1 12:22:47 AM CET 2026
 - Added MockStreamingAdapter and comprehensive tests
 - Tests verify: start/stop, result accumulation, partial result filtering, error handling, concurrent access
 - All tests passing with -race flag, typecheck passes
+
+### Task 7: Write tests for Model, Provider, and interfaces
+- Created `internal/provider/model_test.go`
+- TestModel_NeedsDownload: local with LocalInfo = true, cloud = false, nil = false
+- TestModel_IsStreaming: returns Streaming field value
+- TestModel_SupportsLanguage: multilingual supports all, english-only supports en, auto always true
+- TestModel_SupportsAllLanguages: true when 57 languages, false otherwise
+- TestModelType_Constants: Transcription=0, LLM=1
+- TestEndpointConfig_Fields, TestLocalModelInfo_Fields: struct fields accessible
+- TestModel_AllFields: comprehensive struct field test
+- provider_test.go already had GetModel, ModelsOfType, FindModelByID, ModelsForLanguage, ValidateModelLanguage tests
+- All tests passing, typecheck passes
