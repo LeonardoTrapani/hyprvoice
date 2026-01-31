@@ -10,12 +10,15 @@ Started: Sun Feb  1 12:22:47 AM CET 2026
 - Full 57 language list from OpenAI Whisper
 - All tests passing, typecheck passes
 
-### Task 2: Add language list and provider-specific mappings
-- Added `ToProviderFormat(code string, providerName string) string` function
-- Handles auto-detect: whisper-cpp uses "auto", others use ""
-- Deepgram locale mappings: en->en-US, pt->pt-BR, zh->zh-CN
-- Added comprehensive test coverage for all provider formats
+### Task 8: Migrate OpenAI provider to new Model structure
+- Added gpt-4o-transcribe and gpt-4o-mini-transcribe transcription models
+- Removed gpt-4-turbo and gpt-3.5-turbo LLM models (not in PRD)
+- OpenAI now has 5 models: 3 transcription (whisper-1, gpt-4o-transcribe, gpt-4o-mini-transcribe) + 2 LLM (gpt-4o-mini, gpt-4o)
+- All models have AdapterType='openai', Endpoint with BaseURL='https://api.openai.com'
+- All models use language.AllLanguageCodes() for SupportedLanguages (57 languages)
+- Updated provider_test.go to expect 3 transcription and 2 LLM models
 - All tests passing, typecheck passes
+
 
 ### Task 3: Create Model type with full metadata
 - Created `internal/provider/model.go`

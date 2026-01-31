@@ -176,11 +176,13 @@ func TestModelsOfType(t *testing.T) {
 	trans := ModelsOfType(p, Transcription)
 	llm := ModelsOfType(p, LLM)
 
-	if len(trans) != 1 {
-		t.Errorf("ModelsOfType(Transcription) = %d, want 1", len(trans))
+	// OpenAI has 3 transcription models: whisper-1, gpt-4o-transcribe, gpt-4o-mini-transcribe
+	if len(trans) != 3 {
+		t.Errorf("ModelsOfType(Transcription) = %d, want 3", len(trans))
 	}
-	if len(llm) != 4 {
-		t.Errorf("ModelsOfType(LLM) = %d, want 4", len(llm))
+	// OpenAI has 2 LLM models: gpt-4o-mini, gpt-4o
+	if len(llm) != 2 {
+		t.Errorf("ModelsOfType(LLM) = %d, want 2", len(llm))
 	}
 }
 

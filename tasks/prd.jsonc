@@ -215,7 +215,7 @@
 				"IsLocal() returns false",
 				"Typecheck passes"
 			],
-			"passes": false
+			"passes": true
 		},
 		{
 			"title": "Migrate Groq provider to new Model structure",
