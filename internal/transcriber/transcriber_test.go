@@ -497,3 +497,318 @@ func TestTranscriptionAdapter(t *testing.T) {
 		t.Errorf("Transcribe() = %q, want %q", result, "test result")
 	}
 }
+
+// MockStreamingAdapter implements StreamingAdapter for testing
+type MockStreamingAdapter struct {
+	StartFunc     func(ctx context.Context, language string) error
+	SendChunkFunc func(audio []byte) error
+	ResultsFunc   func() <-chan TranscriptionResult
+	CloseFunc     func() error
+
+	resultsCh chan TranscriptionResult
+}
+
+func NewMockStreamingAdapter() *MockStreamingAdapter {
+	return &MockStreamingAdapter{
+		resultsCh: make(chan TranscriptionResult, 10),
+	}
+}
+
+func (m *MockStreamingAdapter) Start(ctx context.Context, language string) error {
+	if m.StartFunc != nil {
+		return m.StartFunc(ctx, language)
+	}
+	return nil
+}
+
+func (m *MockStreamingAdapter) SendChunk(audio []byte) error {
+	if m.SendChunkFunc != nil {
+		return m.SendChunkFunc(audio)
+	}
+	return nil
+}
+
+func (m *MockStreamingAdapter) Results() <-chan TranscriptionResult {
+	if m.ResultsFunc != nil {
+		return m.ResultsFunc()
+	}
+	return m.resultsCh
+}
+
+func (m *MockStreamingAdapter) Close() error {
+	if m.CloseFunc != nil {
+		return m.CloseFunc()
+	}
+	close(m.resultsCh)
+	return nil
+}
+
+func (m *MockStreamingAdapter) SendResult(result TranscriptionResult) {
+	m.resultsCh <- result
+}
+
+func TestStreamingTranscriber_Start(t *testing.T) {
+	adapter := NewMockStreamingAdapter()
+	transcriber := NewStreamingTranscriber(adapter, "en")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	frameCh := make(chan recording.AudioFrame, 10)
+
+	errCh, err := transcriber.Start(ctx, frameCh)
+	if err != nil {
+		t.Errorf("Start() error = %v", err)
+		return
+	}
+
+	if errCh == nil {
+		t.Errorf("Start() returned nil error channel")
+	}
+
+	close(frameCh)
+	err = transcriber.Stop(ctx)
+	if err != nil {
+		t.Errorf("Stop() error = %v", err)
+	}
+}
+
+func TestStreamingTranscriber_StartError(t *testing.T) {
+	adapter := NewMockStreamingAdapter()
+	adapter.StartFunc = func(ctx context.Context, language string) error {
+		return fmt.Errorf("connection failed")
+	}
+
+	transcriber := NewStreamingTranscriber(adapter, "en")
+
+	ctx := context.Background()
+	frameCh := make(chan recording.AudioFrame, 10)
+
+	_, err := transcriber.Start(ctx, frameCh)
+	if err == nil {
+		t.Errorf("Start() should fail when adapter.Start fails")
+	}
+}
+
+func TestStreamingTranscriber_AccumulatesResults(t *testing.T) {
+	adapter := NewMockStreamingAdapter()
+	transcriber := NewStreamingTranscriber(adapter, "en")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	frameCh := make(chan recording.AudioFrame, 10)
+
+	_, err := transcriber.Start(ctx, frameCh)
+	if err != nil {
+		t.Errorf("Start() error = %v", err)
+		return
+	}
+
+	// send some final results
+	adapter.SendResult(TranscriptionResult{Text: "hello", IsFinal: true})
+	adapter.SendResult(TranscriptionResult{Text: "world", IsFinal: true})
+
+	// give time for results to be processed
+	time.Sleep(50 * time.Millisecond)
+
+	close(frameCh)
+	err = transcriber.Stop(ctx)
+	if err != nil {
+		t.Errorf("Stop() error = %v", err)
+	}
+
+	result, err := transcriber.GetFinalTranscription()
+	if err != nil {
+		t.Errorf("GetFinalTranscription() error = %v", err)
+		return
+	}
+
+	if result != "hello world" {
+		t.Errorf("GetFinalTranscription() = %q, want %q", result, "hello world")
+	}
+}
+
+func TestStreamingTranscriber_IgnoresPartialResults(t *testing.T) {
+	adapter := NewMockStreamingAdapter()
+	transcriber := NewStreamingTranscriber(adapter, "en")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	frameCh := make(chan recording.AudioFrame, 10)
+
+	_, err := transcriber.Start(ctx, frameCh)
+	if err != nil {
+		t.Errorf("Start() error = %v", err)
+		return
+	}
+
+	// partial results should be ignored
+	adapter.SendResult(TranscriptionResult{Text: "hel", IsFinal: false})
+	adapter.SendResult(TranscriptionResult{Text: "hello", IsFinal: true})
+	adapter.SendResult(TranscriptionResult{Text: "hello wor", IsFinal: false})
+
+	time.Sleep(50 * time.Millisecond)
+
+	close(frameCh)
+	err = transcriber.Stop(ctx)
+	if err != nil {
+		t.Errorf("Stop() error = %v", err)
+	}
+
+	result, err := transcriber.GetFinalTranscription()
+	if err != nil {
+		t.Errorf("GetFinalTranscription() error = %v", err)
+		return
+	}
+
+	if result != "hello" {
+		t.Errorf("GetFinalTranscription() = %q, want %q", result, "hello")
+	}
+}
+
+func TestStreamingTranscriber_HandlesErrors(t *testing.T) {
+	adapter := NewMockStreamingAdapter()
+	transcriber := NewStreamingTranscriber(adapter, "en")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	frameCh := make(chan recording.AudioFrame, 10)
+
+	errCh, err := transcriber.Start(ctx, frameCh)
+	if err != nil {
+		t.Errorf("Start() error = %v", err)
+		return
+	}
+
+	// send an error result
+	adapter.SendResult(TranscriptionResult{Error: fmt.Errorf("transcription error")})
+
+	// error should be received on errCh
+	select {
+	case e := <-errCh:
+		if e == nil {
+			t.Errorf("expected error on errCh")
+		}
+	case <-time.After(100 * time.Millisecond):
+		t.Errorf("timeout waiting for error on errCh")
+	}
+
+	close(frameCh)
+	_ = transcriber.Stop(ctx)
+}
+
+func TestStreamingTranscriber_SendsAudioChunks(t *testing.T) {
+	var receivedChunks [][]byte
+	adapter := NewMockStreamingAdapter()
+	adapter.SendChunkFunc = func(audio []byte) error {
+		chunk := make([]byte, len(audio))
+		copy(chunk, audio)
+		receivedChunks = append(receivedChunks, chunk)
+		return nil
+	}
+
+	transcriber := NewStreamingTranscriber(adapter, "en")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	frameCh := make(chan recording.AudioFrame, 10)
+
+	_, err := transcriber.Start(ctx, frameCh)
+	if err != nil {
+		t.Errorf("Start() error = %v", err)
+		return
+	}
+
+	// send audio frames
+	frameCh <- recording.AudioFrame{Data: []byte{1, 2, 3, 4}}
+	frameCh <- recording.AudioFrame{Data: []byte{5, 6, 7, 8}}
+
+	time.Sleep(50 * time.Millisecond)
+
+	close(frameCh)
+	err = transcriber.Stop(ctx)
+	if err != nil {
+		t.Errorf("Stop() error = %v", err)
+	}
+
+	if len(receivedChunks) != 2 {
+		t.Errorf("expected 2 chunks, got %d", len(receivedChunks))
+	}
+}
+
+func TestStreamingTranscriber_ContextCancellation(t *testing.T) {
+	adapter := NewMockStreamingAdapter()
+	transcriber := NewStreamingTranscriber(adapter, "en")
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	frameCh := make(chan recording.AudioFrame, 10)
+
+	_, err := transcriber.Start(ctx, frameCh)
+	if err != nil {
+		t.Errorf("Start() error = %v", err)
+		return
+	}
+
+	// cancel context
+	cancel()
+
+	// stop should complete without hanging
+	done := make(chan struct{})
+	go func() {
+		_ = transcriber.Stop(context.Background())
+		close(done)
+	}()
+
+	select {
+	case <-done:
+		// success
+	case <-time.After(2 * time.Second):
+		t.Errorf("Stop() timed out after context cancellation")
+	}
+}
+
+func TestStreamingTranscriber_GetFinalTranscriptionSafe(t *testing.T) {
+	adapter := NewMockStreamingAdapter()
+	transcriber := NewStreamingTranscriber(adapter, "en")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	frameCh := make(chan recording.AudioFrame, 10)
+
+	_, err := transcriber.Start(ctx, frameCh)
+	if err != nil {
+		t.Errorf("Start() error = %v", err)
+		return
+	}
+
+	// call GetFinalTranscription concurrently while results are being added
+	done := make(chan struct{})
+	go func() {
+		for i := 0; i < 100; i++ {
+			_, _ = transcriber.GetFinalTranscription()
+			time.Sleep(time.Millisecond)
+		}
+		close(done)
+	}()
+
+	// send results concurrently
+	for i := 0; i < 10; i++ {
+		adapter.SendResult(TranscriptionResult{Text: "word", IsFinal: true})
+		time.Sleep(5 * time.Millisecond)
+	}
+
+	<-done
+
+	close(frameCh)
+	err = transcriber.Stop(ctx)
+	if err != nil {
+		t.Errorf("Stop() error = %v", err)
+	}
+}

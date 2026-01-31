@@ -154,7 +154,7 @@
 				"No race conditions (run with -race flag)",
 				"Typecheck passes"
 			],
-			"passes": false
+			"passes": true
 		},
 		{
 			"title": "Write tests for Model, Provider, and interfaces",

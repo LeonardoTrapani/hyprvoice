@@ -50,3 +50,15 @@ Started: Sun Feb  1 12:22:47 AM CET 2026
   - `TranscriptionResult` struct: Text, IsFinal, Error fields
   - `StreamingAdapter` interface: Start, SendChunk, Results, Close methods
 - All tests passing, typecheck passes
+
+### Task 6: Create StreamingTranscriber wrapper
+- Created `internal/transcriber/streaming_transcriber.go`
+- StreamingTranscriber struct with: adapter, language, finalText builder, mutex, ctx/cancel, WaitGroup
+- Start() creates cancelable context, starts adapter, spawns 2 goroutines
+- Goroutine 1: reads frames from channel, calls adapter.SendChunk()
+- Goroutine 2: reads from adapter.Results(), accumulates final results with space separator
+- Stop() cancels context, waits for goroutines, closes adapter
+- GetFinalTranscription() returns accumulated text with mutex protection
+- Added MockStreamingAdapter and comprehensive tests
+- Tests verify: start/stop, result accumulation, partial result filtering, error handling, concurrent access
+- All tests passing with -race flag, typecheck passes
