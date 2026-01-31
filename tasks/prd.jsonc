@@ -178,7 +178,7 @@
         "Saved config valid TOML with new structure",
         "Typecheck passes"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "title": "Update default config template",

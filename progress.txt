@@ -151,3 +151,22 @@ Key decisions:
 - When user picks unconfigured provider, immediately prompts for API key
 - Unedited sections preserved - only touched sections are modified
 - Config struct passed by reference, changes accumulate
+
+## Task 9: Replace old configure with TUI - COMPLETE
+
+Replaced old interactive config in cmd/hyprvoice/main.go:
+- `configureCmd` now calls `tui.Run()` instead of `runInteractiveConfig()`
+- Removed all old functions: `runInteractiveConfig`, `maskAPIKey`, `formatBackends`, old `saveConfig`
+- New `saveConfig()` writes proper TOML with new structure:
+  - `keywords = [...]` at top (before any tables)
+  - `[providers.X]` sections with `api_key`
+  - `[llm]` with `[llm.post_processing]` and `[llm.custom_prompt]` subsections
+  - No more `transcription.api_key` in saved configs
+- Added `showNextSteps()` helper for post-save instructions
+- Added `runConfigure()` that wraps TUI flow with validation and save
+
+Key decisions:
+- Keywords written before any TOML table definitions (TOML requirement)
+- Config saved only if user confirms in TUI summary
+- Validation runs before save, errors displayed cleanly
+- Next steps shown after successful save
