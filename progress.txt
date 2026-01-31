@@ -189,3 +189,19 @@ Key decisions:
 - Providers section at top for visibility
 - Keywords before any table definitions (TOML syntax requirement)
 - Concise comments, full reference at bottom
+
+## Task 11: Add LLM processing notification - COMPLETE
+
+Added notification when LLM post-processing starts:
+- Added `MsgLLMProcessing` to `notify/message.go` (default: "Hyprvoice", "Processing...")
+- Added `LLMProcessing` field to `MessagesConfig` in config.go (toml: `llm_processing`)
+- Added notification channel to pipeline (`GetNotifyCh()` method)
+- Pipeline sends `MsgLLMProcessing` when entering Processing status
+- Daemon monitors `notifyCh` via `monitorPipelineNotifications` goroutine
+- Updated default config template with `llm_processing` message example
+- Fixed tests: MockPipeline implements `GetNotifyCh`, notify test expects 7 MessageDefs
+
+Key decisions:
+- Notification channel approach (vs direct notifier access) keeps pipeline decoupled
+- Notification sent at same time status changes to Processing
+- Configurable like all other notifications via `[notifications.messages.llm_processing]`

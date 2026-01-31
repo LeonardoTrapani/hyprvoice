@@ -190,6 +190,7 @@ func (d *Daemon) toggle() {
 
 		go d.notifier.Send(notify.MsgRecordingStarted)
 		go d.monitorPipelineErrors(p)
+		go d.monitorPipelineNotifications(p)
 
 	case pipeline.Recording:
 		d.stopPipeline()
@@ -235,6 +236,18 @@ func (d *Daemon) monitorPipelineErrors(p pipeline.Pipeline) {
 			}
 
 			d.notifier.Error(message)
+		case <-d.ctx.Done():
+			return
+		}
+	}
+}
+
+func (d *Daemon) monitorPipelineNotifications(p pipeline.Pipeline) {
+	notifyCh := p.GetNotifyCh()
+	for {
+		select {
+		case mt := <-notifyCh:
+			d.notifier.Send(mt)
 		case <-d.ctx.Done():
 			return
 		}

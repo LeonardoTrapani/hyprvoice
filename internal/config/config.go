@@ -91,6 +91,7 @@ type MessageConfig struct {
 type MessagesConfig struct {
 	RecordingStarted   MessageConfig `toml:"recording_started"`
 	Transcribing       MessageConfig `toml:"transcribing"`
+	LLMProcessing      MessageConfig `toml:"llm_processing"`
 	ConfigReloaded     MessageConfig `toml:"config_reloaded"`
 	OperationCancelled MessageConfig `toml:"operation_cancelled"`
 	RecordingAborted   MessageConfig `toml:"recording_aborted"`
@@ -721,6 +722,9 @@ keywords = []
   #   [notifications.messages.transcribing]
   #     title = "Hyprvoice"
   #     body = "Recording Ended... Transcribing"
+  #   [notifications.messages.llm_processing]
+  #     title = "Hyprvoice"
+  #     body = "Processing..."
   #   [notifications.messages.config_reloaded]
   #     title = "Hyprvoice"
   #     body = "Config Reloaded"

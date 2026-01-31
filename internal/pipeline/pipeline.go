@@ -9,6 +9,7 @@ import (
 	"github.com/leonardotrapani/hyprvoice/internal/config"
 	"github.com/leonardotrapani/hyprvoice/internal/injection"
 	"github.com/leonardotrapani/hyprvoice/internal/llm"
+	"github.com/leonardotrapani/hyprvoice/internal/notify"
 	"github.com/leonardotrapani/hyprvoice/internal/recording"
 	"github.com/leonardotrapani/hyprvoice/internal/transcriber"
 )
@@ -41,12 +42,14 @@ type Pipeline interface {
 	Status() Status
 	GetActionCh() chan<- Action
 	GetErrorCh() <-chan PipelineError
+	GetNotifyCh() <-chan notify.MessageType
 }
 
 type pipeline struct {
 	status   Status
 	actionCh chan Action
 	errorCh  chan PipelineError
+	notifyCh chan notify.MessageType
 	config   *config.Config
 
 	mu       sync.RWMutex
@@ -61,6 +64,7 @@ func New(cfg *config.Config) Pipeline {
 	return &pipeline{
 		actionCh: make(chan Action, 1),
 		errorCh:  make(chan PipelineError, 10),
+		notifyCh: make(chan notify.MessageType, 10),
 		config:   cfg,
 	}
 }
@@ -189,6 +193,12 @@ func (p *pipeline) GetErrorCh() <-chan PipelineError {
 	return p.errorCh
 }
 
+func (p *pipeline) GetNotifyCh() <-chan notify.MessageType {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	return p.notifyCh
+}
+
 func (p *pipeline) sendError(title, message string, err error) {
 	pipelineErr := PipelineError{
 		Title:   title,
@@ -200,6 +210,14 @@ func (p *pipeline) sendError(title, message string, err error) {
 	case p.errorCh <- pipelineErr:
 	default:
 		log.Printf("Pipeline: Error channel full, dropping error: %s", message)
+	}
+}
+
+func (p *pipeline) sendNotify(mt notify.MessageType) {
+	select {
+	case p.notifyCh <- mt:
+	default:
+		log.Printf("Pipeline: Notify channel full, dropping notification")
 	}
 }
 
@@ -232,6 +250,7 @@ func (p *pipeline) handleInjectAction(ctx context.Context, recorder *recording.R
 	textToInject := transcriptionText
 	if p.config.IsLLMEnabled() {
 		p.setStatus(Processing)
+		p.sendNotify(notify.MsgLLMProcessing)
 		log.Printf("Pipeline: LLM post-processing enabled, processing text")
 
 		llmCfg := p.config.ToLLMConfig()

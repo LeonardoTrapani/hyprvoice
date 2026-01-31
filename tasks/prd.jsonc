@@ -216,7 +216,7 @@
         "Configurable in config",
         "Typecheck passes"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "title": "Update README documentation",
