@@ -161,7 +161,7 @@
         "Unedited sections preserved",
         "Typecheck passes"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "title": "Replace old configure with TUI",

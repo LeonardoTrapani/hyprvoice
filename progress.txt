@@ -131,3 +131,23 @@ Key decisions:
 - LLM enabled by default, "Yes (Recommended)" as affirmative text
 - Post-processing options all default to true
 - Uses huh library forms with custom theme matching styles.go colors
+
+## Task 8: Create TUI configure - edit existing flow - COMPLETE
+
+Added edit flow for existing configs in internal/tui/configure.go:
+- `hasUserChanges()` detects if config has been modified (providers configured or legacy api_key set)
+- `runEditExisting()` - section-based edit flow instead of full wizard
+- `selectSections()` - multi-select for Providers, Transcription, LLM, Keywords, Injection, Notifications, Full Setup
+- `editProviders()` - add/update API keys for selected providers
+- `editTranscription()` - configure speech-to-text with smart provider detection
+- `editLLM()` - configure post-processing with smart provider detection
+- `getUnconfiguredTranscriptionOptions()` / `getUnconfiguredLLMOptions()` - show options for providers without keys
+- `ensureProviderConfigured()` - prompts for API key when user selects unconfigured provider
+
+Key decisions:
+- "Full Setup" option runs the fresh install flow
+- Configured providers show "(configured)" label in providers section
+- Unconfigured providers show "(needs API key)" in transcription/LLM sections
+- When user picks unconfigured provider, immediately prompts for API key
+- Unedited sections preserved - only touched sections are modified
+- Config struct passed by reference, changes accumulate

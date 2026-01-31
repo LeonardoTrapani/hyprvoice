@@ -16,9 +16,566 @@ type ConfigureResult struct {
 	Cancelled bool
 }
 
+// ConfigSection represents a configuration section
+type ConfigSection string
+
+const (
+	SectionProviders     ConfigSection = "providers"
+	SectionTranscription ConfigSection = "transcription"
+	SectionLLM           ConfigSection = "llm"
+	SectionKeywords      ConfigSection = "keywords"
+	SectionInjection     ConfigSection = "injection"
+	SectionNotifications ConfigSection = "notifications"
+	SectionFullSetup     ConfigSection = "full_setup"
+)
+
 // Run starts the TUI configuration wizard
 func Run(existingConfig *config.Config) (*ConfigureResult, error) {
+	// Detect if config has user changes (providers configured)
+	if existingConfig != nil && hasUserChanges(existingConfig) {
+		return runEditExisting(existingConfig)
+	}
 	return runFreshInstall(existingConfig)
+}
+
+// hasUserChanges detects if config has user modifications
+func hasUserChanges(cfg *config.Config) bool {
+	// If providers map has entries, user has configured something
+	if len(cfg.Providers) > 0 {
+		return true
+	}
+	// If legacy api_key is set, user has configured something
+	if cfg.Transcription.APIKey != "" {
+		return true
+	}
+	return false
+}
+
+// runEditExisting runs the section-based edit flow for existing configs
+func runEditExisting(cfg *config.Config) (*ConfigureResult, error) {
+	fmt.Println(Logo())
+	fmt.Println()
+	fmt.Println(StyleMuted.Render("Configuration detected. Select sections to edit."))
+	fmt.Println()
+
+	// Section picker
+	sections, err := selectSections()
+	if err != nil {
+		return &ConfigureResult{Cancelled: true}, nil
+	}
+	if len(sections) == 0 {
+		return &ConfigureResult{Cancelled: true}, nil
+	}
+
+	// Check if full setup requested
+	for _, s := range sections {
+		if s == SectionFullSetup {
+			return runFreshInstall(cfg)
+		}
+	}
+
+	// Track which providers are configured (for smart detection)
+	configuredProviders := getConfiguredProviders(cfg)
+
+	// Process each selected section
+	for _, section := range sections {
+		switch section {
+		case SectionProviders:
+			if err := editProviders(cfg); err != nil {
+				return &ConfigureResult{Cancelled: true}, nil
+			}
+			configuredProviders = getConfiguredProviders(cfg)
+
+		case SectionTranscription:
+			var err error
+			configuredProviders, err = editTranscription(cfg, configuredProviders)
+			if err != nil {
+				return &ConfigureResult{Cancelled: true}, nil
+			}
+
+		case SectionLLM:
+			var err error
+			configuredProviders, err = editLLM(cfg, configuredProviders)
+			if err != nil {
+				return &ConfigureResult{Cancelled: true}, nil
+			}
+
+		case SectionKeywords:
+			keywords, err := inputKeywords(cfg.Keywords)
+			if err != nil {
+				return &ConfigureResult{Cancelled: true}, nil
+			}
+			cfg.Keywords = keywords
+
+		case SectionInjection:
+			backends, err := selectBackends(cfg.Injection.Backends)
+			if err != nil {
+				return &ConfigureResult{Cancelled: true}, nil
+			}
+			cfg.Injection.Backends = backends
+
+		case SectionNotifications:
+			enabled, err := configureNotifications(cfg.Notifications.Enabled)
+			if err != nil {
+				return &ConfigureResult{Cancelled: true}, nil
+			}
+			cfg.Notifications.Enabled = enabled
+		}
+	}
+
+	// Summary and confirm
+	confirmed, err := showSummary(cfg)
+	if err != nil || !confirmed {
+		return &ConfigureResult{Cancelled: true}, nil
+	}
+
+	return &ConfigureResult{Config: cfg, Cancelled: false}, nil
+}
+
+func selectSections() ([]ConfigSection, error) {
+	options := []huh.Option[ConfigSection]{
+		huh.NewOption("Providers - API keys", SectionProviders),
+		huh.NewOption("Transcription - speech-to-text settings", SectionTranscription),
+		huh.NewOption("LLM - post-processing settings", SectionLLM),
+		huh.NewOption("Keywords - spelling hints", SectionKeywords),
+		huh.NewOption("Injection - text input backends", SectionInjection),
+		huh.NewOption("Notifications - desktop alerts", SectionNotifications),
+		huh.NewOption("Full Setup - reconfigure everything", SectionFullSetup),
+	}
+
+	var selected []ConfigSection
+	form := huh.NewForm(
+		huh.NewGroup(
+			huh.NewMultiSelect[ConfigSection]().
+				Title("What do you want to configure?").
+				Description("Select one or more sections to edit").
+				Options(options...).
+				Value(&selected),
+		),
+	).WithTheme(getTheme())
+
+	if err := form.Run(); err != nil {
+		return nil, err
+	}
+
+	return selected, nil
+}
+
+// getConfiguredProviders returns list of providers with API keys
+func getConfiguredProviders(cfg *config.Config) []string {
+	var providers []string
+	for name, pc := range cfg.Providers {
+		if pc.APIKey != "" {
+			providers = append(providers, name)
+		}
+	}
+	return providers
+}
+
+// editProviders handles the providers section edit
+func editProviders(cfg *config.Config) error {
+	// Show current providers with option to add/edit
+	allProviders := []string{"openai", "groq", "mistral", "elevenlabs"}
+
+	var options []huh.Option[string]
+	for _, name := range allProviders {
+		label := strings.Title(name)
+		if _, exists := cfg.Providers[name]; exists && cfg.Providers[name].APIKey != "" {
+			label += " (configured)"
+		}
+		switch name {
+		case "openai":
+			options = append(options, huh.NewOption(label+" - Whisper + GPT", name))
+		case "groq":
+			options = append(options, huh.NewOption(label+" - Whisper + Llama", name))
+		case "mistral":
+			options = append(options, huh.NewOption(label+" - Voxtral", name))
+		case "elevenlabs":
+			options = append(options, huh.NewOption(label+" - Scribe", name))
+		}
+	}
+
+	var selected []string
+	form := huh.NewForm(
+		huh.NewGroup(
+			huh.NewMultiSelect[string]().
+				Title("Configure API keys for:").
+				Description("Select providers to add or update API keys").
+				Options(options...).
+				Value(&selected),
+		),
+	).WithTheme(getTheme())
+
+	if err := form.Run(); err != nil {
+		return err
+	}
+
+	// Input API keys for selected providers
+	for _, providerName := range selected {
+		apiKey, err := inputAPIKey(providerName)
+		if err != nil {
+			return err
+		}
+		if cfg.Providers == nil {
+			cfg.Providers = make(map[string]config.ProviderConfig)
+		}
+		cfg.Providers[providerName] = config.ProviderConfig{APIKey: apiKey}
+	}
+
+	return nil
+}
+
+// editTranscription handles the transcription section edit with smart provider detection
+func editTranscription(cfg *config.Config, configuredProviders []string) ([]string, error) {
+	// Build transcription options from configured providers
+	var transcriptionOptions []huh.Option[string]
+	for _, name := range configuredProviders {
+		p := provider.GetProvider(name)
+		if p != nil && p.SupportsTranscription() {
+			switch name {
+			case "openai":
+				transcriptionOptions = append(transcriptionOptions,
+					huh.NewOption("OpenAI Whisper", "openai"))
+			case "groq":
+				transcriptionOptions = append(transcriptionOptions,
+					huh.NewOption("Groq Whisper (transcription)", "groq-transcription"),
+					huh.NewOption("Groq Whisper (translate to English)", "groq-translation"))
+			case "mistral":
+				transcriptionOptions = append(transcriptionOptions,
+					huh.NewOption("Mistral Voxtral", "mistral-transcription"))
+			case "elevenlabs":
+				transcriptionOptions = append(transcriptionOptions,
+					huh.NewOption("ElevenLabs Scribe", "elevenlabs"))
+			}
+		}
+	}
+
+	// Add options for unconfigured providers (will prompt for key)
+	unconfiguredOptions := getUnconfiguredTranscriptionOptions(configuredProviders)
+	if len(unconfiguredOptions) > 0 {
+		transcriptionOptions = append(transcriptionOptions, unconfiguredOptions...)
+	}
+
+	if len(transcriptionOptions) == 0 {
+		return configuredProviders, fmt.Errorf("no transcription providers available")
+	}
+
+	// Set default to current provider or first option
+	selectedProvider := cfg.Transcription.Provider
+	if selectedProvider == "" && len(transcriptionOptions) > 0 {
+		selectedProvider = transcriptionOptions[0].Value
+	}
+
+	providerForm := huh.NewForm(
+		huh.NewGroup(
+			huh.NewSelect[string]().
+				Title("Transcription Provider").
+				Description("Choose which service to use for speech-to-text").
+				Options(transcriptionOptions...).
+				Value(&selectedProvider),
+		),
+	).WithTheme(getTheme())
+
+	if err := providerForm.Run(); err != nil {
+		return configuredProviders, err
+	}
+
+	// Smart detection: if provider not configured, prompt for API key
+	configuredProviders = ensureProviderConfigured(cfg, selectedProvider, configuredProviders)
+
+	cfg.Transcription.Provider = selectedProvider
+
+	// Model selection
+	modelOptions := getTranscriptionModelOptions(selectedProvider)
+	selectedModel := cfg.Transcription.Model
+	if selectedModel == "" && len(modelOptions) > 0 {
+		selectedModel = modelOptions[0].Value
+	}
+
+	language := cfg.Transcription.Language
+
+	modelForm := huh.NewForm(
+		huh.NewGroup(
+			huh.NewSelect[string]().
+				Title("Transcription Model").
+				Options(modelOptions...).
+				Value(&selectedModel),
+			huh.NewInput().
+				Title("Language").
+				Description("ISO-639-1 code (e.g., 'en', 'es', 'fr') or empty for auto-detect").
+				Placeholder("auto-detect").
+				Value(&language),
+		),
+	).WithTheme(getTheme())
+
+	if err := modelForm.Run(); err != nil {
+		return configuredProviders, err
+	}
+
+	cfg.Transcription.Model = selectedModel
+	cfg.Transcription.Language = language
+
+	return configuredProviders, nil
+}
+
+// editLLM handles the LLM section edit with smart provider detection
+func editLLM(cfg *config.Config, configuredProviders []string) ([]string, error) {
+	// Check if any LLM-capable providers are configured
+	var llmProviders []string
+	for _, name := range configuredProviders {
+		p := provider.GetProvider(name)
+		if p != nil && p.SupportsLLM() {
+			llmProviders = append(llmProviders, name)
+		}
+	}
+
+	// Default post-processing
+	postProcessing := cfg.LLM.PostProcessing
+	if !postProcessing.RemoveStutters && !postProcessing.AddPunctuation &&
+		!postProcessing.FixGrammar && !postProcessing.RemoveFillerWords {
+		postProcessing = config.LLMPostProcessingConfig{
+			RemoveStutters:    true,
+			AddPunctuation:    true,
+			FixGrammar:        true,
+			RemoveFillerWords: true,
+		}
+	}
+	customPrompt := cfg.LLM.CustomPrompt
+
+	// Ask if user wants LLM
+	enableLLM := cfg.LLM.Enabled
+	enableForm := huh.NewForm(
+		huh.NewGroup(
+			huh.NewConfirm().
+				Title("Enable LLM Post-Processing? (Recommended)").
+				Description("LLM improves transcription by fixing grammar, removing stutters, and cleaning up text").
+				Affirmative("Yes (Recommended)").
+				Negative("No").
+				Value(&enableLLM),
+		),
+	).WithTheme(getTheme())
+
+	if err := enableForm.Run(); err != nil {
+		return configuredProviders, err
+	}
+
+	if !enableLLM {
+		cfg.LLM.Enabled = false
+		return configuredProviders, nil
+	}
+
+	// Build LLM provider options
+	var llmOptions []huh.Option[string]
+	for _, name := range llmProviders {
+		switch name {
+		case "openai":
+			llmOptions = append(llmOptions, huh.NewOption("OpenAI GPT", "openai"))
+		case "groq":
+			llmOptions = append(llmOptions, huh.NewOption("Groq Llama (fast)", "groq"))
+		}
+	}
+
+	// Add unconfigured LLM providers
+	unconfiguredLLM := getUnconfiguredLLMOptions(configuredProviders)
+	if len(unconfiguredLLM) > 0 {
+		llmOptions = append(llmOptions, unconfiguredLLM...)
+	}
+
+	if len(llmOptions) == 0 {
+		fmt.Println(StyleError.Render("No LLM providers available. Please configure OpenAI or Groq first."))
+		cfg.LLM.Enabled = false
+		return configuredProviders, nil
+	}
+
+	selectedProvider := cfg.LLM.Provider
+	if selectedProvider == "" && len(llmOptions) > 0 {
+		selectedProvider = llmOptions[0].Value
+	}
+
+	providerForm := huh.NewForm(
+		huh.NewGroup(
+			huh.NewSelect[string]().
+				Title("LLM Provider").
+				Description("Choose which service to use for text post-processing").
+				Options(llmOptions...).
+				Value(&selectedProvider),
+		),
+	).WithTheme(getTheme())
+
+	if err := providerForm.Run(); err != nil {
+		return configuredProviders, err
+	}
+
+	// Smart detection: if provider not configured, prompt for API key
+	configuredProviders = ensureProviderConfigured(cfg, selectedProvider, configuredProviders)
+
+	cfg.LLM.Provider = selectedProvider
+
+	// Model selection
+	modelOptions := getLLMModelOptions(selectedProvider)
+	selectedModel := cfg.LLM.Model
+	if selectedModel == "" && len(modelOptions) > 0 {
+		selectedModel = modelOptions[0].Value
+	}
+
+	modelForm := huh.NewForm(
+		huh.NewGroup(
+			huh.NewSelect[string]().
+				Title("LLM Model").
+				Options(modelOptions...).
+				Value(&selectedModel),
+		),
+	).WithTheme(getTheme())
+
+	if err := modelForm.Run(); err != nil {
+		return configuredProviders, err
+	}
+
+	cfg.LLM.Model = selectedModel
+
+	// Post-processing options
+	ppForm := huh.NewForm(
+		huh.NewGroup(
+			huh.NewConfirm().
+				Title("Remove stutters").
+				Description("Remove repeated words like 'I I I think'").
+				Value(&postProcessing.RemoveStutters),
+			huh.NewConfirm().
+				Title("Add punctuation").
+				Description("Add proper punctuation to text").
+				Value(&postProcessing.AddPunctuation),
+			huh.NewConfirm().
+				Title("Fix grammar").
+				Description("Correct grammatical errors").
+				Value(&postProcessing.FixGrammar),
+			huh.NewConfirm().
+				Title("Remove filler words").
+				Description("Remove 'um', 'uh', 'like', etc.").
+				Value(&postProcessing.RemoveFillerWords),
+		),
+	).WithTheme(getTheme())
+
+	if err := ppForm.Run(); err != nil {
+		return configuredProviders, err
+	}
+
+	cfg.LLM.PostProcessing = postProcessing
+
+	// Custom prompt
+	enableCustomPrompt := customPrompt.Enabled
+	customPromptText := customPrompt.Prompt
+
+	customForm := huh.NewForm(
+		huh.NewGroup(
+			huh.NewConfirm().
+				Title("Add custom prompt?").
+				Description("Add extra instructions for the LLM").
+				Value(&enableCustomPrompt),
+		),
+	).WithTheme(getTheme())
+
+	if err := customForm.Run(); err != nil {
+		return configuredProviders, err
+	}
+
+	if enableCustomPrompt {
+		promptForm := huh.NewForm(
+			huh.NewGroup(
+				huh.NewText().
+					Title("Custom Prompt").
+					Description("Additional instructions (e.g., 'Format as bullet points')").
+					Value(&customPromptText).
+					CharLimit(500),
+			),
+		).WithTheme(getTheme())
+
+		if err := promptForm.Run(); err != nil {
+			return configuredProviders, err
+		}
+		cfg.LLM.CustomPrompt.Enabled = true
+		cfg.LLM.CustomPrompt.Prompt = customPromptText
+	} else {
+		cfg.LLM.CustomPrompt.Enabled = false
+	}
+
+	cfg.LLM.Enabled = true
+	return configuredProviders, nil
+}
+
+// getUnconfiguredTranscriptionOptions returns options for providers not yet configured
+func getUnconfiguredTranscriptionOptions(configuredProviders []string) []huh.Option[string] {
+	configured := make(map[string]bool)
+	for _, p := range configuredProviders {
+		configured[p] = true
+	}
+
+	var options []huh.Option[string]
+	if !configured["openai"] {
+		options = append(options, huh.NewOption("OpenAI Whisper (needs API key)", "openai"))
+	}
+	if !configured["groq"] {
+		options = append(options,
+			huh.NewOption("Groq Whisper transcription (needs API key)", "groq-transcription"),
+			huh.NewOption("Groq Whisper translation (needs API key)", "groq-translation"))
+	}
+	if !configured["mistral"] {
+		options = append(options, huh.NewOption("Mistral Voxtral (needs API key)", "mistral-transcription"))
+	}
+	if !configured["elevenlabs"] {
+		options = append(options, huh.NewOption("ElevenLabs Scribe (needs API key)", "elevenlabs"))
+	}
+	return options
+}
+
+// getUnconfiguredLLMOptions returns options for LLM providers not yet configured
+func getUnconfiguredLLMOptions(configuredProviders []string) []huh.Option[string] {
+	configured := make(map[string]bool)
+	for _, p := range configuredProviders {
+		configured[p] = true
+	}
+
+	var options []huh.Option[string]
+	if !configured["openai"] {
+		options = append(options, huh.NewOption("OpenAI GPT (needs API key)", "openai"))
+	}
+	if !configured["groq"] {
+		options = append(options, huh.NewOption("Groq Llama (needs API key)", "groq"))
+	}
+	return options
+}
+
+// ensureProviderConfigured prompts for API key if provider not configured
+func ensureProviderConfigured(cfg *config.Config, selectedProvider string, configuredProviders []string) []string {
+	// Map transcription provider to actual provider name
+	providerName := selectedProvider
+	switch selectedProvider {
+	case "groq-transcription", "groq-translation":
+		providerName = "groq"
+	case "mistral-transcription":
+		providerName = "mistral"
+	}
+
+	// Check if already configured
+	for _, p := range configuredProviders {
+		if p == providerName {
+			return configuredProviders
+		}
+	}
+
+	// Not configured - prompt for API key
+	fmt.Println()
+	fmt.Println(StyleMuted.Render(fmt.Sprintf("%s not configured. Please enter API key.", strings.Title(providerName))))
+	apiKey, err := inputAPIKey(providerName)
+	if err != nil {
+		return configuredProviders
+	}
+
+	if cfg.Providers == nil {
+		cfg.Providers = make(map[string]config.ProviderConfig)
+	}
+	cfg.Providers[providerName] = config.ProviderConfig{APIKey: apiKey}
+
+	return append(configuredProviders, providerName)
 }
 
 // runFreshInstall runs the full configuration wizard for fresh installs
