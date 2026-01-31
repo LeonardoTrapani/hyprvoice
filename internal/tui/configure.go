@@ -27,6 +27,8 @@ const (
 	SectionInjection     ConfigSection = "injection"
 	SectionNotifications ConfigSection = "notifications"
 	SectionFullSetup     ConfigSection = "full_setup"
+	SectionSaveExit      ConfigSection = "save_exit"
+	SectionDiscardExit   ConfigSection = "discard_exit"
 )
 
 // Run starts the TUI configuration wizard
@@ -51,38 +53,46 @@ func hasUserChanges(cfg *config.Config) bool {
 	return false
 }
 
-// runEditExisting runs the section-based edit flow for existing configs
+// runEditExisting runs the menu-based edit flow for existing configs
 func runEditExisting(cfg *config.Config) (*ConfigureResult, error) {
 	fmt.Println(Logo())
 	fmt.Println()
-	fmt.Println(StyleMuted.Render("Configuration detected. Select sections to edit."))
-	fmt.Println()
-
-	// Section picker
-	sections, err := selectSections()
-	if err != nil {
-		return &ConfigureResult{Cancelled: true}, nil
-	}
-	if len(sections) == 0 {
-		return &ConfigureResult{Cancelled: true}, nil
-	}
-
-	// Check if full setup requested
-	for _, s := range sections {
-		if s == SectionFullSetup {
-			return runFreshInstall(cfg)
-		}
-	}
 
 	// Track which providers are configured (for smart detection)
 	configuredProviders := getConfiguredProviders(cfg)
 
-	// Process each selected section
-	for _, section := range sections {
+	// Menu loop
+	for {
+		// Clear screen for cleaner UX
+		fmt.Print("\033[H\033[2J")
+		fmt.Println(Logo())
+		fmt.Println()
+
+		section, err := selectSection(cfg)
+		if err != nil {
+			return &ConfigureResult{Cancelled: true}, nil
+		}
+
 		switch section {
+		case SectionSaveExit:
+			confirmed, err := showSummary(cfg)
+			if err != nil {
+				return &ConfigureResult{Cancelled: true}, nil
+			}
+			if confirmed {
+				return &ConfigureResult{Config: cfg, Cancelled: false}, nil
+			}
+			// User cancelled save, back to menu
+
+		case SectionDiscardExit:
+			return &ConfigureResult{Cancelled: true}, nil
+
+		case SectionFullSetup:
+			return runFreshInstall(cfg)
+
 		case SectionProviders:
 			if err := editProviders(cfg); err != nil {
-				return &ConfigureResult{Cancelled: true}, nil
+				continue // back to menu on cancel
 			}
 			configuredProviders = getConfiguredProviders(cfg)
 
@@ -90,75 +100,129 @@ func runEditExisting(cfg *config.Config) (*ConfigureResult, error) {
 			var err error
 			configuredProviders, err = editTranscription(cfg, configuredProviders)
 			if err != nil {
-				return &ConfigureResult{Cancelled: true}, nil
+				continue // back to menu on cancel
 			}
 
 		case SectionLLM:
 			var err error
 			configuredProviders, err = editLLM(cfg, configuredProviders)
 			if err != nil {
-				return &ConfigureResult{Cancelled: true}, nil
+				continue // back to menu on cancel
 			}
 
 		case SectionKeywords:
 			keywords, err := inputKeywords(cfg.Keywords)
 			if err != nil {
-				return &ConfigureResult{Cancelled: true}, nil
+				continue // back to menu on cancel
 			}
 			cfg.Keywords = keywords
 
 		case SectionInjection:
 			backends, err := selectBackends(cfg.Injection.Backends)
 			if err != nil {
-				return &ConfigureResult{Cancelled: true}, nil
+				continue // back to menu on cancel
 			}
 			cfg.Injection.Backends = backends
 
 		case SectionNotifications:
 			enabled, err := configureNotifications(cfg.Notifications.Enabled)
 			if err != nil {
-				return &ConfigureResult{Cancelled: true}, nil
+				continue // back to menu on cancel
 			}
 			cfg.Notifications.Enabled = enabled
 		}
 	}
-
-	// Summary and confirm
-	confirmed, err := showSummary(cfg)
-	if err != nil || !confirmed {
-		return &ConfigureResult{Cancelled: true}, nil
-	}
-
-	return &ConfigureResult{Config: cfg, Cancelled: false}, nil
 }
 
-func selectSections() ([]ConfigSection, error) {
+func selectSection(cfg *config.Config) (ConfigSection, error) {
 	options := []huh.Option[ConfigSection]{
-		huh.NewOption("Providers - API keys", SectionProviders),
-		huh.NewOption("Transcription - speech-to-text settings", SectionTranscription),
-		huh.NewOption("LLM - post-processing settings", SectionLLM),
-		huh.NewOption("Keywords - spelling hints", SectionKeywords),
-		huh.NewOption("Injection - text input backends", SectionInjection),
-		huh.NewOption("Notifications - desktop alerts", SectionNotifications),
-		huh.NewOption("Full Setup - reconfigure everything", SectionFullSetup),
+		huh.NewOption(formatProvidersLabel(cfg), SectionProviders),
+		huh.NewOption(formatTranscriptionLabel(cfg), SectionTranscription),
+		huh.NewOption(formatLLMLabel(cfg), SectionLLM),
+		huh.NewOption(formatKeywordsLabel(cfg), SectionKeywords),
+		huh.NewOption(formatInjectionLabel(cfg), SectionInjection),
+		huh.NewOption(formatNotificationsLabel(cfg), SectionNotifications),
+		huh.NewOption("Full Setup (reconfigure everything)", SectionFullSetup),
+		huh.NewOption("Save & Exit", SectionSaveExit),
+		huh.NewOption("Discard & Exit", SectionDiscardExit),
 	}
 
-	var selected []ConfigSection
+	var selected ConfigSection
 	form := huh.NewForm(
 		huh.NewGroup(
-			huh.NewMultiSelect[ConfigSection]().
-				Title("What do you want to configure?").
-				Description("Select one or more sections to edit").
+			huh.NewSelect[ConfigSection]().
+				Title("Configuration Menu").
+				Description("↑/↓ navigate • enter select • esc cancel").
 				Options(options...).
 				Value(&selected),
 		),
 	).WithTheme(getTheme())
 
 	if err := form.Run(); err != nil {
-		return nil, err
+		return "", err
 	}
 
 	return selected, nil
+}
+
+// formatProvidersLabel shows configured providers
+func formatProvidersLabel(cfg *config.Config) string {
+	var providers []string
+	for name, pc := range cfg.Providers {
+		if pc.APIKey != "" {
+			providers = append(providers, name)
+		}
+	}
+	if len(providers) == 0 {
+		return "Providers - none configured"
+	}
+	return fmt.Sprintf("Providers - %s", strings.Join(providers, ", "))
+}
+
+// formatTranscriptionLabel shows current transcription settings
+func formatTranscriptionLabel(cfg *config.Config) string {
+	if cfg.Transcription.Provider == "" {
+		return "Transcription - not configured"
+	}
+	return fmt.Sprintf("Transcription - %s/%s", cfg.Transcription.Provider, cfg.Transcription.Model)
+}
+
+// formatLLMLabel shows current LLM settings
+func formatLLMLabel(cfg *config.Config) string {
+	if !cfg.LLM.Enabled {
+		return "LLM - disabled"
+	}
+	if cfg.LLM.Provider == "" {
+		return "LLM - enabled (not configured)"
+	}
+	return fmt.Sprintf("LLM - %s/%s", cfg.LLM.Provider, cfg.LLM.Model)
+}
+
+// formatKeywordsLabel shows keyword count
+func formatKeywordsLabel(cfg *config.Config) string {
+	if len(cfg.Keywords) == 0 {
+		return "Keywords - none"
+	}
+	if len(cfg.Keywords) <= 3 {
+		return fmt.Sprintf("Keywords - %s", strings.Join(cfg.Keywords, ", "))
+	}
+	return fmt.Sprintf("Keywords - %d configured", len(cfg.Keywords))
+}
+
+// formatInjectionLabel shows backends
+func formatInjectionLabel(cfg *config.Config) string {
+	if len(cfg.Injection.Backends) == 0 {
+		return "Injection - no backends"
+	}
+	return fmt.Sprintf("Injection - %s", strings.Join(cfg.Injection.Backends, " → "))
+}
+
+// formatNotificationsLabel shows notification status
+func formatNotificationsLabel(cfg *config.Config) string {
+	if cfg.Notifications.Enabled {
+		return "Notifications - enabled"
+	}
+	return "Notifications - disabled"
 }
 
 // getConfiguredProviders returns list of providers with API keys
@@ -172,57 +236,71 @@ func getConfiguredProviders(cfg *config.Config) []string {
 	return providers
 }
 
-// editProviders handles the providers section edit
+// editProviders handles the providers section edit with submenu
 func editProviders(cfg *config.Config) error {
-	// Show current providers with option to add/edit
 	allProviders := []string{"openai", "groq", "mistral", "elevenlabs"}
 
-	var options []huh.Option[string]
-	for _, name := range allProviders {
-		label := strings.Title(name)
-		if _, exists := cfg.Providers[name]; exists && cfg.Providers[name].APIKey != "" {
-			label += " (configured)"
+	for {
+		// Build options with current status
+		var options []huh.Option[string]
+		for _, name := range allProviders {
+			options = append(options, huh.NewOption(formatProviderOption(cfg, name), name))
 		}
-		switch name {
-		case "openai":
-			options = append(options, huh.NewOption(label+" - Whisper + GPT", name))
-		case "groq":
-			options = append(options, huh.NewOption(label+" - Whisper + Llama", name))
-		case "mistral":
-			options = append(options, huh.NewOption(label+" - Voxtral", name))
-		case "elevenlabs":
-			options = append(options, huh.NewOption(label+" - Scribe", name))
-		}
-	}
+		options = append(options, huh.NewOption("Back", "back"))
 
-	var selected []string
-	form := huh.NewForm(
-		huh.NewGroup(
-			huh.NewMultiSelect[string]().
-				Title("Configure API keys for:").
-				Description("Select providers to add or update API keys").
-				Options(options...).
-				Value(&selected),
-		),
-	).WithTheme(getTheme())
+		var selected string
+		form := huh.NewForm(
+			huh.NewGroup(
+				huh.NewSelect[string]().
+					Title("Provider Settings").
+					Description("Select a provider to configure API key").
+					Options(options...).
+					Value(&selected),
+			),
+		).WithTheme(getTheme())
 
-	if err := form.Run(); err != nil {
-		return err
-	}
-
-	// Input API keys for selected providers
-	for _, providerName := range selected {
-		apiKey, err := inputAPIKey(providerName)
-		if err != nil {
+		if err := form.Run(); err != nil {
 			return err
 		}
+
+		if selected == "back" {
+			return nil
+		}
+
+		// Configure the selected provider
+		apiKey, err := inputAPIKey(selected)
+		if err != nil {
+			continue // cancelled, back to provider menu
+		}
+
 		if cfg.Providers == nil {
 			cfg.Providers = make(map[string]config.ProviderConfig)
 		}
-		cfg.Providers[providerName] = config.ProviderConfig{APIKey: apiKey}
+		cfg.Providers[selected] = config.ProviderConfig{APIKey: apiKey}
+	}
+}
+
+// formatProviderOption formats a provider menu option with status
+func formatProviderOption(cfg *config.Config, name string) string {
+	var status string
+	if pc, exists := cfg.Providers[name]; exists && pc.APIKey != "" {
+		status = "(configured)"
+	} else {
+		status = "(not configured)"
 	}
 
-	return nil
+	switch name {
+	case "openai":
+		return fmt.Sprintf("OpenAI - Whisper + GPT %s", status)
+	case "groq":
+		return fmt.Sprintf("Groq - Whisper + Llama %s", status)
+	case "mistral":
+		return fmt.Sprintf("Mistral - Voxtral %s", status)
+	case "elevenlabs":
+		return fmt.Sprintf("ElevenLabs - Scribe %s", status)
+	default:
+		return fmt.Sprintf("%s %s", name, status)
+	}
 }
 
 // editTranscription handles the transcription section edit with smart provider detection
@@ -433,30 +511,11 @@ func editLLM(cfg *config.Config, configuredProviders []string) ([]string, error)
 
 	cfg.LLM.Model = selectedModel
 
-	// Post-processing options
-	ppForm := huh.NewForm(
-		huh.NewGroup(
-			huh.NewConfirm().
-				Title("Remove stutters").
-				Description("Remove repeated words like 'I I I think'").
-				Value(&postProcessing.RemoveStutters),
-			huh.NewConfirm().
-				Title("Add punctuation").
-				Description("Add proper punctuation to text").
-				Value(&postProcessing.AddPunctuation),
-			huh.NewConfirm().
-				Title("Fix grammar").
-				Description("Correct grammatical errors").
-				Value(&postProcessing.FixGrammar),
-			huh.NewConfirm().
-				Title("Remove filler words").
-				Description("Remove 'um', 'uh', 'like', etc.").
-				Value(&postProcessing.RemoveFillerWords),
-		),
-	).WithTheme(getTheme())
-
-	if err := ppForm.Run(); err != nil {
-		return configuredProviders, err
+	// Post-processing options using MultiSelect
+	var ppErr error
+	postProcessing, ppErr = selectPostProcessingOptions(postProcessing)
+	if ppErr != nil {
+		return configuredProviders, ppErr
 	}
 
 	cfg.LLM.PostProcessing = postProcessing
@@ -958,29 +1017,10 @@ func configureLLM(configuredProviders []string, cfg *config.Config) (bool, strin
 		postProcessing = cfg.LLM.PostProcessing
 	}
 
-	ppForm := huh.NewForm(
-		huh.NewGroup(
-			huh.NewConfirm().
-				Title("Remove stutters").
-				Description("Remove repeated words like 'I I I think'").
-				Value(&postProcessing.RemoveStutters),
-			huh.NewConfirm().
-				Title("Add punctuation").
-				Description("Add proper punctuation to text").
-				Value(&postProcessing.AddPunctuation),
-			huh.NewConfirm().
-				Title("Fix grammar").
-				Description("Correct grammatical errors").
-				Value(&postProcessing.FixGrammar),
-			huh.NewConfirm().
-				Title("Remove filler words").
-				Description("Remove 'um', 'uh', 'like', etc.").
-				Value(&postProcessing.RemoveFillerWords),
-		),
-	).WithTheme(getTheme())
-
-	if err := ppForm.Run(); err != nil {
-		return false, "", "", postProcessing, customPrompt, err
+	var ppErr error
+	postProcessing, ppErr = selectPostProcessingOptions(postProcessing)
+	if ppErr != nil {
+		return false, "", "", postProcessing, customPrompt, ppErr
 	}
 
 	// Custom prompt
@@ -1043,6 +1083,70 @@ func getLLMModelOptions(provider string) []huh.Option[string] {
 	default:
 		return []huh.Option[string]{}
 	}
+}
+
+// selectPostProcessingOptions shows a multi-select for LLM post-processing toggles
+func selectPostProcessingOptions(current config.LLMPostProcessingConfig) (config.LLMPostProcessingConfig, error) {
+	type ppOption string
+	const (
+		optRemoveStutters    ppOption = "stutters"
+		optAddPunctuation    ppOption = "punctuation"
+		optFixGrammar        ppOption = "grammar"
+		optRemoveFillerWords ppOption = "fillers"
+	)
+
+	options := []huh.Option[ppOption]{
+		huh.NewOption("Remove stutters (repeated words)", optRemoveStutters),
+		huh.NewOption("Add punctuation", optAddPunctuation),
+		huh.NewOption("Fix grammar", optFixGrammar),
+		huh.NewOption("Remove filler words (um, uh, like)", optRemoveFillerWords),
+	}
+
+	// Pre-select based on current config
+	var selected []ppOption
+	if current.RemoveStutters {
+		selected = append(selected, optRemoveStutters)
+	}
+	if current.AddPunctuation {
+		selected = append(selected, optAddPunctuation)
+	}
+	if current.FixGrammar {
+		selected = append(selected, optFixGrammar)
+	}
+	if current.RemoveFillerWords {
+		selected = append(selected, optRemoveFillerWords)
+	}
+
+	form := huh.NewForm(
+		huh.NewGroup(
+			huh.NewMultiSelect[ppOption]().
+				Title("Post-Processing Options").
+				Description("Select which improvements to apply").
+				Options(options...).
+				Value(&selected),
+		),
+	).WithTheme(getTheme())
+
+	if err := form.Run(); err != nil {
+		return current, err
+	}
+
+	// Convert selections back to config
+	result := config.LLMPostProcessingConfig{}
+	for _, opt := range selected {
+		switch opt {
+		case optRemoveStutters:
+			result.RemoveStutters = true
+		case optAddPunctuation:
+			result.AddPunctuation = true
+		case optFixGrammar:
+			result.FixGrammar = true
+		case optRemoveFillerWords:
+			result.RemoveFillerWords = true
+		}
+	}
+
+	return result, nil
 }
 
 func inputKeywords(existingKeywords []string) ([]string, error) {
