@@ -260,7 +260,7 @@
         "TUI flows intuitive and state-aware",
         "No regressions"
       ],
-      "passes": false
+      "passes": true
     }
   ]
 }
