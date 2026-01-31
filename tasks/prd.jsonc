@@ -22,7 +22,7 @@
         "Capability methods return correct values",
         "Typecheck passes"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "title": "Refactor config to unified provider structure",

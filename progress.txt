@@ -1,0 +1,17 @@
+# Ralph Progress Log
+Started: Sat Jan 31 08:30:51 PM CET 2026
+---
+
+## Task 1: Create Provider interface and registry - COMPLETE
+
+Created internal/provider package with:
+- Provider interface with all required methods
+- ProviderConfig struct for API key storage
+- 4 provider implementations: OpenAI, Groq, Mistral, ElevenLabs
+- Registry with GetProvider(), ListProviders(), ListProvidersWithLLM(), ListProvidersWithTranscription()
+- Comprehensive tests (all passing)
+
+Key decisions:
+- OpenAI and Groq support both transcription + LLM
+- Mistral and ElevenLabs are transcription-only
+- ValidateAPIKey checks prefix for OpenAI (sk-) and Groq (gsk_), accepts any non-empty for others
