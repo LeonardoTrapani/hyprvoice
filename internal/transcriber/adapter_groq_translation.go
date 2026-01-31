@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"strings"
 	"time"
 
 	"github.com/sashabaranov/go-openai"
@@ -47,6 +48,11 @@ func (a *GroqTranslationAdapter) Transcribe(ctx context.Context, audioData []byt
 		Reader:   bytes.NewReader(wavData),
 		FilePath: "audio.wav",
 		Language: a.config.Language, // Source language hint
+	}
+
+	// Add keywords as prompt to help with spelling hints
+	if len(a.config.Keywords) > 0 {
+		req.Prompt = strings.Join(a.config.Keywords, ", ")
 	}
 
 	start := time.Now()

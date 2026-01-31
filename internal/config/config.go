@@ -146,6 +146,7 @@ func (c *Config) ToTranscriberConfig() transcriber.Config {
 		Provider: c.Transcription.Provider,
 		Language: c.Transcription.Language,
 		Model:    c.Transcription.Model,
+		Keywords: c.Keywords,
 	}
 
 	// Resolve API key: providers map -> legacy transcription.api_key -> environment variable

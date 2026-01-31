@@ -101,7 +101,7 @@
         "Non-supporting transcribers still work",
         "Typecheck passes"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "title": "Add TUI dependencies and base components",

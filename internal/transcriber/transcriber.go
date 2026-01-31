@@ -25,6 +25,7 @@ type Config struct {
 	APIKey   string
 	Language string
 	Model    string
+	Keywords []string
 }
 
 // NewTranscriber creates a new simple transcriber

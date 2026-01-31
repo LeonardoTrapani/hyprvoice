@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"strings"
 	"time"
 
 	"github.com/sashabaranov/go-openai"
@@ -41,6 +42,11 @@ func (a *OpenAIAdapter) Transcribe(ctx context.Context, audioData []byte) (strin
 		Reader:   bytes.NewReader(wavData),
 		FilePath: "audio.wav",
 		Language: a.config.Language,
+	}
+
+	// Add keywords as initial_prompt to help with spelling hints
+	if len(a.config.Keywords) > 0 {
+		req.Prompt = strings.Join(a.config.Keywords, ", ")
 	}
 
 	start := time.Now()
