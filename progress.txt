@@ -1,0 +1,11 @@
+# Ralph Progress Log
+Started: Sun Feb  1 12:22:47 AM CET 2026
+---
+
+## Completed
+
+### Task 1: Create language package with core types and helpers
+- Created `internal/language/language.go` with Language struct, Auto constant
+- Implemented FromCode, List, Codes, AllLanguageCodes, IsValidCode
+- Full 57 language list from OpenAI Whisper
+- All tests passing, typecheck passes

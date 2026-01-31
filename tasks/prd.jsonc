@@ -26,7 +26,7 @@
 				"IsValidCode('') returns true (auto is valid)",
 				"Typecheck passes"
 			],
-			"passes": false
+			"passes": true
 		},
 		{
 			"title": "Add language list and provider-specific mappings",
