@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/leonardotrapani/hyprvoice/internal/provider"
 	"github.com/leonardotrapani/hyprvoice/internal/recording"
 )
 
@@ -44,7 +45,9 @@ func NewTranscriber(config Config) (Transcriber, error) {
 		if config.APIKey == "" {
 			return nil, fmt.Errorf("Groq API key required")
 		}
-		adapter = NewGroqTranscriptionAdapter(config)
+		// use consolidated OpenAI adapter with Groq endpoint
+		endpoint := &provider.EndpointConfig{BaseURL: "https://api.groq.com/openai"}
+		adapter = NewOpenAIAdapter(endpoint, config.APIKey, config.Model, config.Language, config.Keywords, "groq")
 
 	case "groq-translation":
 		if config.APIKey == "" {
@@ -56,7 +59,9 @@ func NewTranscriber(config Config) (Transcriber, error) {
 		if config.APIKey == "" {
 			return nil, fmt.Errorf("Mistral API key required")
 		}
-		adapter = NewMistralAdapter(config)
+		// use consolidated OpenAI adapter with Mistral endpoint
+		endpoint := &provider.EndpointConfig{BaseURL: "https://api.mistral.ai"}
+		adapter = NewOpenAIAdapter(endpoint, config.APIKey, config.Model, config.Language, config.Keywords, "mistral")
 
 	case "elevenlabs":
 		if config.APIKey == "" {

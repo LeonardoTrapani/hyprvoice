@@ -115,3 +115,11 @@ Started: Sun Feb  1 12:22:47 AM CET 2026
 - Added tests: `TestOpenAIAdapter_Creation`, `TestOpenAIAdapterFromConfig`
 - Updated factory to use `NewOpenAIAdapterFromConfig` for now (will be updated in Task 15)
 - All tests passing, typecheck passes
+
+### Task 13: Remove redundant Groq and Mistral transcription adapters
+- Deleted `internal/transcriber/adapter_groq_transcription.go`
+- Deleted `internal/transcriber/adapter_mistral.go`
+- KEPT `adapter_groq_translation.go` (uses CreateTranslation, different from CreateTranscription)
+- Updated `transcriber.go` factory to use consolidated OpenAI adapter for groq-transcription and mistral-transcription
+- Both now use `NewOpenAIAdapter` with their respective endpoints
+- All tests passing, typecheck passes

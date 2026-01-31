@@ -330,7 +330,7 @@
 				"No broken imports",
 				"Typecheck passes"
 			],
-			"passes": false
+			"passes": true
 		},
 		{
 			"title": "Update ElevenLabs BatchAdapter to use EndpointConfig",
