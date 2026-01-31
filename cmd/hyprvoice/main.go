@@ -344,6 +344,11 @@ func saveConfig(cfg *config.Config) error {
 			sb.WriteString(fmt.Sprintf("      title = %q\n", msgs.Transcribing.Title))
 			sb.WriteString(fmt.Sprintf("      body = %q\n", msgs.Transcribing.Body))
 		}
+		if msgs.LLMProcessing.Title != "" || msgs.LLMProcessing.Body != "" {
+			sb.WriteString("    [notifications.messages.llm_processing]\n")
+			sb.WriteString(fmt.Sprintf("      title = %q\n", msgs.LLMProcessing.Title))
+			sb.WriteString(fmt.Sprintf("      body = %q\n", msgs.LLMProcessing.Body))
+		}
 		if msgs.ConfigReloaded.Title != "" || msgs.ConfigReloaded.Body != "" {
 			sb.WriteString("    [notifications.messages.config_reloaded]\n")
 			sb.WriteString(fmt.Sprintf("      title = %q\n", msgs.ConfigReloaded.Title))
@@ -374,6 +379,7 @@ func saveConfig(cfg *config.Config) error {
 func hasCustomMessages(msgs config.MessagesConfig) bool {
 	return msgs.RecordingStarted.Title != "" || msgs.RecordingStarted.Body != "" ||
 		msgs.Transcribing.Title != "" || msgs.Transcribing.Body != "" ||
+		msgs.LLMProcessing.Title != "" || msgs.LLMProcessing.Body != "" ||
 		msgs.ConfigReloaded.Title != "" || msgs.ConfigReloaded.Body != "" ||
 		msgs.OperationCancelled.Title != "" || msgs.OperationCancelled.Body != "" ||
 		msgs.RecordingAborted.Body != "" ||
