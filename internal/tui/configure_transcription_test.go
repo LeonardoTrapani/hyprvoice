@@ -18,20 +18,20 @@ func TestGetTranscriptionModelOptions_ShowsCapabilities(t *testing.T) {
 
 	// verify models show capability tags
 	for _, opt := range options {
-		model, _, _ := provider.FindModelByID(opt.Value)
+		model, _, _ := provider.FindModelByID(opt.ID)
 		if model == nil {
 			continue
 		}
 
 		if model.SupportsStreaming && !model.SupportsBatch {
 			// streaming-only should have [streaming] tag
-			if !strings.Contains(opt.Key, "[streaming]") {
-				t.Errorf("streaming-only model %s should have [streaming] tag in label: %s", opt.Value, opt.Key)
+			if !strings.Contains(opt.Label, "[streaming]") {
+				t.Errorf("streaming-only model %s should have [streaming] tag in label: %s", opt.ID, opt.Label)
 			}
 		} else if model.SupportsBothModes() {
 			// both modes should have [batch+streaming] tag
-			if !strings.Contains(opt.Key, "[batch+streaming]") {
-				t.Errorf("both-modes model %s should have [batch+streaming] tag in label: %s", opt.Value, opt.Key)
+			if !strings.Contains(opt.Label, "[batch+streaming]") {
+				t.Errorf("both-modes model %s should have [batch+streaming] tag in label: %s", opt.ID, opt.Label)
 			}
 		}
 		// batch-only models don't need a tag
@@ -43,8 +43,8 @@ func TestGetTranscriptionModelOptions_NoHeadersAnymore(t *testing.T) {
 	options := getTranscriptionModelOptions("elevenlabs")
 
 	for _, opt := range options {
-		if opt.Value == "" {
-			t.Errorf("should not have headers anymore, got: %s", opt.Key)
+		if opt.ID == "" {
+			t.Errorf("should not have headers anymore, got: %s", opt.Label)
 		}
 	}
 }
@@ -59,9 +59,9 @@ func TestGetTranscriptionModelOptions_OpenAI_ShowsCapabilities(t *testing.T) {
 
 	// gpt-4o-transcribe and gpt-4o-mini-transcribe should have [batch+streaming]
 	for _, opt := range options {
-		if strings.Contains(opt.Value, "gpt-4o") {
-			if !strings.Contains(opt.Key, "[batch+streaming]") {
-				t.Errorf("gpt-4o model %s should have [batch+streaming] tag: %s", opt.Value, opt.Key)
+		if strings.Contains(opt.ID, "gpt-4o") {
+			if !strings.Contains(opt.Label, "[batch+streaming]") {
+				t.Errorf("gpt-4o model %s should have [batch+streaming] tag: %s", opt.ID, opt.Label)
 			}
 		}
 	}
@@ -76,8 +76,8 @@ func TestGetTranscriptionModelOptions_Deepgram_ShowsBothModes(t *testing.T) {
 	}
 
 	for _, opt := range options {
-		if !strings.Contains(opt.Key, "[batch+streaming]") {
-			t.Errorf("deepgram model %s should have [batch+streaming] tag: %s", opt.Value, opt.Key)
+		if !strings.Contains(opt.Label, "[batch+streaming]") {
+			t.Errorf("deepgram model %s should have [batch+streaming] tag: %s", opt.ID, opt.Label)
 		}
 	}
 }
@@ -93,8 +93,8 @@ func TestGetTranscriptionModelOptions_Groq_BatchOnly(t *testing.T) {
 
 	// batch-only models should not have any mode tags
 	for _, opt := range options {
-		if strings.Contains(opt.Key, "[streaming]") || strings.Contains(opt.Key, "[batch]") {
-			t.Errorf("batch-only model should not have mode tags: %s", opt.Key)
+		if strings.Contains(opt.Label, "[streaming]") || strings.Contains(opt.Label, "[batch]") {
+			t.Errorf("batch-only model should not have mode tags: %s", opt.Label)
 		}
 	}
 }

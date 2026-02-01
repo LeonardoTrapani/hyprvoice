@@ -283,9 +283,9 @@ func TestValidateModelLanguage_ErrorFormat(t *testing.T) {
 		t.Errorf("error should contain docs URL, got: %s", errMsg)
 	}
 
-	// should contain language code
-	if !strings.Contains(errMsg, "'es'") {
-		t.Errorf("error should contain language code, got: %s", errMsg)
+	// should contain language label
+	if !strings.Contains(errMsg, "Spanish (es)") {
+		t.Errorf("error should contain language label, got: %s", errMsg)
 	}
 
 	// should contain supported languages (English-only has just 'en')
@@ -387,10 +387,11 @@ func TestElevenLabsProvider(t *testing.T) {
 		t.Errorf("scribe_v2_realtime AdapterType=%q, want 'elevenlabs-streaming'", scribeV2Realtime.AdapterType)
 	}
 
-	// All models have explicit SupportedLanguages from docs (subset of our 57)
+	// All models should share the same supported language list
+	wantLangCount := len(elevenLabsTranscriptionLanguages)
 	for _, m := range models {
-		if len(m.SupportedLanguages) != 57 {
-			t.Errorf("model %q has %d languages, want 57", m.ID, len(m.SupportedLanguages))
+		if len(m.SupportedLanguages) != wantLangCount {
+			t.Errorf("model %q has %d languages, want %d", m.ID, len(m.SupportedLanguages), wantLangCount)
 		}
 	}
 }

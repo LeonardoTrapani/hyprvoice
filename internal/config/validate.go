@@ -207,10 +207,15 @@ func ValidateModelLanguageCompatibility(registryProvider, modelID, langCode stri
 		docsHint = fmt.Sprintf(" See %s for full list.", model.DocsURL)
 	}
 
+	langLabel := provider.LanguageLabel(langCode)
+	if langLabel == "" {
+		langLabel = fmt.Sprintf("language '%s'", langCode)
+	}
+
 	return fmt.Errorf(
-		"model %s does not support language '%s'.%s Supported: %s%s",
+		"model %s does not support %s.%s Supported: %s%s",
 		model.Name,
-		langCode,
+		langLabel,
 		docsHint,
 		strings.Join(supported, ", "),
 		suffix,

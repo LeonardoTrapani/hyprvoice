@@ -230,8 +230,9 @@ func (a *DeepgramAdapter) buildURL() (string, error) {
 	q.Set("punctuate", "true")
 
 	// add language if specified
-	if a.language != "" {
-		q.Set("language", a.language)
+	lang := normalizeDeepgramLanguage(a.language)
+	if lang != "" {
+		q.Set("language", lang)
 	}
 
 	if len(a.keywords) > 0 {
