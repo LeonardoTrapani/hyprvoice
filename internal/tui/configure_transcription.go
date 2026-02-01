@@ -1,17 +1,32 @@
 package tui
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/charmbracelet/huh"
 	"github.com/leonardotrapani/hyprvoice/internal/config"
+	"github.com/leonardotrapani/hyprvoice/internal/deps"
 	"github.com/leonardotrapani/hyprvoice/internal/language"
+	"github.com/leonardotrapani/hyprvoice/internal/models/whisper"
 	"github.com/leonardotrapani/hyprvoice/internal/provider"
 )
 
 // editTranscription handles the transcription section edit with smart provider detection
 func editTranscription(cfg *config.Config, configuredProviders []string) ([]string, error) {
 	var transcriptionOptions []huh.Option[string]
+
+	// add local provider first (whisper-cpp)
+	whisperStatus := deps.CheckWhisperCli()
+	if whisperStatus.Installed {
+		transcriptionOptions = append(transcriptionOptions,
+			huh.NewOption("Whisper.cpp (local, no API key)", "whisper-cpp"))
+	} else {
+		transcriptionOptions = append(transcriptionOptions,
+			huh.NewOption("Whisper.cpp (whisper-cli not found)", "whisper-cpp-disabled"))
+	}
+
+	// add configured cloud providers
 	for _, name := range configuredProviders {
 		p := provider.GetProvider(name)
 		if p != nil && len(provider.ModelsOfType(p, provider.Transcription)) > 0 {
@@ -66,7 +81,37 @@ func editTranscription(cfg *config.Config, configuredProviders []string) ([]stri
 		return configuredProviders, err
 	}
 
-	configuredProviders = ensureProviderConfigured(cfg, selectedProvider, configuredProviders)
+	// handle disabled whisper-cpp selection
+	if selectedProvider == "whisper-cpp-disabled" {
+		fmt.Println()
+		fmt.Println(StyleWarning.Render("whisper-cli not found in PATH"))
+		fmt.Println(StyleMuted.Render("Install whisper.cpp to use local transcription:"))
+		fmt.Println(StyleMuted.Render("  https://github.com/ggerganov/whisper.cpp"))
+		fmt.Println()
+
+		var proceed bool
+		form := huh.NewForm(
+			huh.NewGroup(
+				huh.NewConfirm().
+					Title("Continue?").
+					Affirmative("Choose another provider").
+					Negative("Cancel").
+					Value(&proceed),
+			),
+		).WithTheme(getTheme())
+		if err := form.Run(); err != nil {
+			return configuredProviders, err
+		}
+		if proceed {
+			return editTranscription(cfg, configuredProviders)
+		}
+		return configuredProviders, nil
+	}
+
+	// local providers don't need API key configuration
+	if selectedProvider != "whisper-cpp" {
+		configuredProviders = ensureProviderConfigured(cfg, selectedProvider, configuredProviders)
+	}
 	cfg.Transcription.Provider = selectedProvider
 
 	modelOptions := getTranscriptionModelOptions(selectedProvider, cfg.Transcription.Language)
@@ -104,6 +149,57 @@ func editTranscription(cfg *config.Config, configuredProviders []string) ([]stri
 
 	if err := modelForm.Run(); err != nil {
 		return configuredProviders, err
+	}
+
+	// for whisper-cpp, check if model needs download
+	if selectedProvider == "whisper-cpp" && !whisper.IsInstalled(selectedModel) {
+		modelInfo := whisper.GetModel(selectedModel)
+		if modelInfo == nil {
+			return configuredProviders, fmt.Errorf("unknown model: %s", selectedModel)
+		}
+
+		var confirm bool
+		confirmForm := huh.NewForm(
+			huh.NewGroup(
+				huh.NewConfirm().
+					Title(fmt.Sprintf("Download %s (%s)?", modelInfo.Name, modelInfo.Size)).
+					Description("Model is not installed. Download now?").
+					Affirmative("Download").
+					Negative("Cancel").
+					Value(&confirm),
+			),
+		).WithTheme(getTheme())
+
+		if err := confirmForm.Run(); err != nil {
+			return configuredProviders, err
+		}
+
+		if !confirm {
+			return configuredProviders, nil
+		}
+
+		// download with progress
+		fmt.Println()
+		fmt.Printf("Downloading %s...\n", modelInfo.Name)
+
+		lastPct := 0
+		err := whisper.Download(context.Background(), selectedModel, func(downloaded, total int64) {
+			if total > 0 {
+				pct := int(downloaded * 100 / total)
+				if pct >= lastPct+10 {
+					fmt.Printf("  %d%%\n", pct)
+					lastPct = pct
+				}
+			}
+		})
+
+		if err != nil {
+			fmt.Println(StyleError.Render(fmt.Sprintf("Download failed: %v", err)))
+			return configuredProviders, err
+		}
+
+		fmt.Println(StyleSuccess.Render(fmt.Sprintf("Downloaded %s", modelInfo.Name)))
+		fmt.Println()
 	}
 
 	cfg.Transcription.Model = selectedModel
@@ -162,6 +258,16 @@ func getTranscriptionModelOptions(configProvider string, currentLang string) []h
 		}
 
 		label := buildModelLabel(m, currentLang)
+
+		// for local models, show installed status
+		if m.Local && registryName == "whisper-cpp" {
+			if whisper.IsInstalled(m.ID) {
+				label = "[x] " + label
+			} else {
+				label = "[ ] " + label
+			}
+		}
+
 		options = append(options, huh.NewOption(label, m.ID))
 	}
 

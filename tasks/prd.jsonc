@@ -665,7 +665,7 @@
 				"Download completes with progress",
 				"Typecheck passes"
 			],
-			"passes": false
+			"passes": true
 		},
 		{
 			"title": "Add language picker to TUI using language package",

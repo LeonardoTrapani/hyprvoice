@@ -275,3 +275,14 @@ Started: Sun Feb  1 12:22:47 AM CET 2026
 - Added `getLangName()` helper to get human-readable language name from code
 - Added language import to configure_transcription.go
 - All tests passing, typecheck passes
+
+### Task 28: Add local provider options to TUI with dependency check
+- Added `LocalProviders` list and "whisper-cpp" to providerDisplayNames in configure.go
+- Updated editTranscription() to show whisper-cpp option first
+- Added deps.CheckWhisperCli() check to show warning if whisper-cli not installed
+- Shows disabled option "(whisper-cli not found)" with install instructions when binary missing
+- Local providers skip ensureProviderConfigured() (no API key needed)
+- Updated getTranscriptionModelOptions() to show [x]/[ ] prefix for installed status
+- Added download confirmation dialog after selecting uninstalled model
+- Download shows progress percentage (10%, 20%, ...)
+- All tests passing, typecheck passes
