@@ -307,3 +307,17 @@ Started: Sun Feb  1 12:22:47 AM CET 2026
 - Config only saved AFTER validation passes (no save on cancel)
 - Leverages existing `ValidateModelLanguage` which returns error with supported languages list
 - All tests passing, typecheck passes
+
+### Task 31: Create ElevenLabs StreamingAdapter
+- Created `internal/transcriber/adapter_elevenlabs_streaming.go`
+- Added gorilla/websocket dependency
+- ElevenLabsStreamingAdapter struct: endpoint, apiKey, model, language, conn, resultsCh, mutex, ctx/cancel, WaitGroup
+- Start(): connects to wss://api.elevenlabs.io/v1/speech-to-text/realtime with xi-api-key header
+- Query params: model_id, language_code, audio_format=pcm_16000, commit_strategy=vad
+- Language conversion via language.ToProviderFormat(lang, "elevenlabs")
+- SendChunk(): sends input_audio_chunk JSON message with base64-encoded audio
+- readLoop goroutine: parses session_started, partial_transcript, committed_transcript messages
+- Handles all ElevenLabs error types (auth_error, quota_exceeded, rate_limited, etc.)
+- Close(): cancels context, sends close frame, waits for reader goroutine
+- Comprehensive tests with mock WebSocket server
+- All tests passing with -race flag, typecheck passes
