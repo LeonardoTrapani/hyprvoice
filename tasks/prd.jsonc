@@ -847,7 +847,7 @@
 				"DefaultModel(Transcription) still returns 'whisper-1'",
 				"Typecheck passes"
 			],
-			"passes": false
+			"passes": true
 		},
 		{
 			"title": "Create OpenAI Realtime StreamingAdapter",

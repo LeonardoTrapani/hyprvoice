@@ -63,6 +63,17 @@ func (p *OpenAIProvider) Models() []Model {
 			SupportedLanguages: allLangs,
 			Endpoint:           &EndpointConfig{BaseURL: "https://api.openai.com", Path: "/v1/audio/transcriptions"},
 		},
+		{
+			ID:                 "gpt-4o-realtime-preview",
+			Name:               "GPT-4o Realtime",
+			Description:        "Real-time streaming transcription with GPT-4o",
+			Type:               Transcription,
+			Streaming:          true,
+			Local:              false,
+			AdapterType:        "openai-realtime",
+			SupportedLanguages: allLangs,
+			Endpoint:           &EndpointConfig{BaseURL: "wss://api.openai.com", Path: "/v1/realtime"},
+		},
 		// LLM models
 		{
 			ID:                 "gpt-4o-mini",

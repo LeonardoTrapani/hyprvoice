@@ -369,3 +369,13 @@ Started: Sun Feb  1 12:22:47 AM CET 2026
 - SendChunk() calls reconnect() on write errors and retries the chunk
 - Sends notification error to resultsCh on successful reconnect
 - All tests passing with -race flag, typecheck passes
+
+### Task 36: Add OpenAI Realtime model to OpenAI provider
+- Added `gpt-4o-realtime-preview` model to OpenAI provider's Models()
+- Type=Transcription, Streaming=true, AdapterType='openai-realtime'
+- Endpoint.BaseURL='wss://api.openai.com', Path='/v1/realtime'
+- SupportedLanguages=language.AllLanguageCodes() (all 57 languages)
+- DefaultModel(Transcription) unchanged (still returns 'whisper-1')
+- Added TestOpenAIRealtimeModel test verifying all properties
+- Updated TestModelsOfType to expect 4 transcription models for OpenAI
+- All tests passing, typecheck passes

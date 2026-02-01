@@ -176,9 +176,9 @@ func TestModelsOfType(t *testing.T) {
 	trans := ModelsOfType(p, Transcription)
 	llm := ModelsOfType(p, LLM)
 
-	// OpenAI has 3 transcription models: whisper-1, gpt-4o-transcribe, gpt-4o-mini-transcribe
-	if len(trans) != 3 {
-		t.Errorf("ModelsOfType(Transcription) = %d, want 3", len(trans))
+	// OpenAI has 4 transcription models: whisper-1, gpt-4o-transcribe, gpt-4o-mini-transcribe, gpt-4o-realtime-preview
+	if len(trans) != 4 {
+		t.Errorf("ModelsOfType(Transcription) = %d, want 4", len(trans))
 	}
 	// OpenAI has 2 LLM models: gpt-4o-mini, gpt-4o
 	if len(llm) != 2 {
@@ -260,6 +260,39 @@ func TestValidateModelLanguage(t *testing.T) {
 	err = ValidateModelLanguage("openai", "nonexistent", "en")
 	if err == nil {
 		t.Error("ValidateModelLanguage with unknown model should return error")
+	}
+}
+
+func TestOpenAIRealtimeModel(t *testing.T) {
+	m, err := GetModel("openai", "gpt-4o-realtime-preview")
+	if err != nil {
+		t.Fatalf("GetModel('openai', 'gpt-4o-realtime-preview') error: %v", err)
+	}
+
+	if !m.Streaming {
+		t.Error("gpt-4o-realtime-preview should have Streaming=true")
+	}
+
+	if m.AdapterType != "openai-realtime" {
+		t.Errorf("gpt-4o-realtime-preview AdapterType=%q, want 'openai-realtime'", m.AdapterType)
+	}
+
+	if m.Endpoint == nil {
+		t.Fatal("gpt-4o-realtime-preview should have Endpoint set")
+	}
+
+	if m.Endpoint.BaseURL != "wss://api.openai.com" {
+		t.Errorf("gpt-4o-realtime-preview Endpoint.BaseURL=%q, want 'wss://api.openai.com'", m.Endpoint.BaseURL)
+	}
+
+	if len(m.SupportedLanguages) != 57 {
+		t.Errorf("gpt-4o-realtime-preview has %d languages, want 57", len(m.SupportedLanguages))
+	}
+
+	// default model should still be whisper-1
+	p := GetProvider("openai")
+	if p.DefaultModel(Transcription) != "whisper-1" {
+		t.Errorf("DefaultModel(Transcription) = %q, want 'whisper-1'", p.DefaultModel(Transcription))
 	}
 }
 
