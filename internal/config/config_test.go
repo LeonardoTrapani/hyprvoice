@@ -2136,3 +2136,205 @@ func TestConfig_Validate_GeneralLanguage(t *testing.T) {
 		}
 	})
 }
+
+func TestConfig_MigrateLanguageToGeneral(t *testing.T) {
+	t.Run("old config with transcription.language migrates to general.language", func(t *testing.T) {
+		tempDir := t.TempDir()
+		configPath := filepath.Join(tempDir, "hyprvoice", "config.toml")
+
+		err := os.MkdirAll(filepath.Dir(configPath), 0755)
+		if err != nil {
+			t.Fatalf("Failed to create config directory: %v", err)
+		}
+
+		// Old config with language in transcription section
+		oldConfig := `[recording]
+sample_rate = 16000
+channels = 1
+format = "s16"
+buffer_size = 8192
+channel_buffer_size = 30
+timeout = "5m"
+
+[transcription]
+provider = "openai"
+api_key = "test-key"
+model = "whisper-1"
+language = "es"
+
+[injection]
+backends = ["clipboard"]
+ydotool_timeout = "5s"
+wtype_timeout = "5s"
+clipboard_timeout = "3s"
+
+[notifications]
+type = "log"`
+
+		err = os.WriteFile(configPath, []byte(oldConfig), 0644)
+		if err != nil {
+			t.Fatalf("Failed to create config file: %v", err)
+		}
+
+		originalConfigDir := os.Getenv("XDG_CONFIG_HOME")
+		os.Setenv("XDG_CONFIG_HOME", tempDir)
+		defer func() {
+			if originalConfigDir == "" {
+				os.Unsetenv("XDG_CONFIG_HOME")
+			} else {
+				os.Setenv("XDG_CONFIG_HOME", originalConfigDir)
+			}
+		}()
+
+		config, err := Load()
+		if err != nil {
+			t.Errorf("Load() error = %v", err)
+			return
+		}
+
+		// Should have migrated to general.language
+		if config.General.Language != "es" {
+			t.Errorf("Expected general.language='es' after migration, got %q", config.General.Language)
+		}
+
+		// Effective language should be 'es'
+		transcriberConfig := config.ToTranscriberConfig()
+		if transcriberConfig.Language != "es" {
+			t.Errorf("Expected effective language 'es', got %q", transcriberConfig.Language)
+		}
+	})
+
+	t.Run("migration does not run when general.language already set", func(t *testing.T) {
+		tempDir := t.TempDir()
+		configPath := filepath.Join(tempDir, "hyprvoice", "config.toml")
+
+		err := os.MkdirAll(filepath.Dir(configPath), 0755)
+		if err != nil {
+			t.Fatalf("Failed to create config directory: %v", err)
+		}
+
+		// Config with both general.language and transcription.language set
+		configContent := `[general]
+language = "fr"
+
+[recording]
+sample_rate = 16000
+channels = 1
+format = "s16"
+buffer_size = 8192
+channel_buffer_size = 30
+timeout = "5m"
+
+[transcription]
+provider = "openai"
+api_key = "test-key"
+model = "whisper-1"
+language = "es"
+
+[injection]
+backends = ["clipboard"]
+ydotool_timeout = "5s"
+wtype_timeout = "5s"
+clipboard_timeout = "3s"
+
+[notifications]
+type = "log"`
+
+		err = os.WriteFile(configPath, []byte(configContent), 0644)
+		if err != nil {
+			t.Fatalf("Failed to create config file: %v", err)
+		}
+
+		originalConfigDir := os.Getenv("XDG_CONFIG_HOME")
+		os.Setenv("XDG_CONFIG_HOME", tempDir)
+		defer func() {
+			if originalConfigDir == "" {
+				os.Unsetenv("XDG_CONFIG_HOME")
+			} else {
+				os.Setenv("XDG_CONFIG_HOME", originalConfigDir)
+			}
+		}()
+
+		config, err := Load()
+		if err != nil {
+			t.Errorf("Load() error = %v", err)
+			return
+		}
+
+		// general.language should remain 'fr', not overwritten by migration
+		if config.General.Language != "fr" {
+			t.Errorf("Expected general.language='fr' (not migrated), got %q", config.General.Language)
+		}
+
+		// transcription.language should still override
+		transcriberConfig := config.ToTranscriberConfig()
+		if transcriberConfig.Language != "es" {
+			t.Errorf("Expected effective language 'es' (transcription override), got %q", transcriberConfig.Language)
+		}
+	})
+
+	t.Run("original file not modified until explicit save", func(t *testing.T) {
+		tempDir := t.TempDir()
+		configPath := filepath.Join(tempDir, "hyprvoice", "config.toml")
+
+		err := os.MkdirAll(filepath.Dir(configPath), 0755)
+		if err != nil {
+			t.Fatalf("Failed to create config directory: %v", err)
+		}
+
+		oldConfig := `[recording]
+sample_rate = 16000
+channels = 1
+format = "s16"
+buffer_size = 8192
+channel_buffer_size = 30
+timeout = "5m"
+
+[transcription]
+provider = "openai"
+api_key = "test-key"
+model = "whisper-1"
+language = "de"
+
+[injection]
+backends = ["clipboard"]
+ydotool_timeout = "5s"
+wtype_timeout = "5s"
+clipboard_timeout = "3s"
+
+[notifications]
+type = "log"`
+
+		err = os.WriteFile(configPath, []byte(oldConfig), 0644)
+		if err != nil {
+			t.Fatalf("Failed to create config file: %v", err)
+		}
+
+		originalConfigDir := os.Getenv("XDG_CONFIG_HOME")
+		os.Setenv("XDG_CONFIG_HOME", tempDir)
+		defer func() {
+			if originalConfigDir == "" {
+				os.Unsetenv("XDG_CONFIG_HOME")
+			} else {
+				os.Setenv("XDG_CONFIG_HOME", originalConfigDir)
+			}
+		}()
+
+		_, err = Load()
+		if err != nil {
+			t.Errorf("Load() error = %v", err)
+			return
+		}
+
+		// Read the file again - should still have old format
+		content, err := os.ReadFile(configPath)
+		if err != nil {
+			t.Fatalf("Failed to read config file: %v", err)
+		}
+
+		// File should NOT have [general] section (migration is in-memory only)
+		if strings.Contains(string(content), "[general]") {
+			t.Error("Original file should not be modified by migration - [general] section found")
+		}
+	})
+}

@@ -216,7 +216,7 @@
 				"Original file not modified until explicit save",
 				"Typecheck passes"
 			],
-			"passes": false
+			"passes": true
 		}
 	]
 }

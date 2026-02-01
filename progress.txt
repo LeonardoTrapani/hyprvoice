@@ -625,3 +625,15 @@ Started: Sun Feb  1 12:22:47 AM CET 2026
   - Added "Multilingual Setup with Specific Language" example
   - Added Language Migration section explaining the change from transcription.language
 - Typecheck passes
+
+### Task 13: Add migration for existing configs
+- Added `migrateLanguageToGeneral()` method to Config in internal/config/load.go
+- Logic: if transcription.language is set but general.language is empty, copies to general.language
+- Logs "Config: migrated language setting to [general] section" when migration occurs
+- Called in Load() after applyThreadsDefault()
+- Migration is in-memory only - original file not modified until explicit save
+- Added 3 comprehensive tests:
+  - old config with transcription.language='es' migrates to general.language='es'
+  - migration does not run when general.language already set
+  - original file not modified until explicit save
+- All tests passing, typecheck passes

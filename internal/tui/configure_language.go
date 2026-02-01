@@ -12,7 +12,7 @@ import (
 // editLanguage allows the user to select the global transcription language
 func editLanguage(cfg *config.Config) error {
 	// no model-specific warnings for global language selection
-	languageOptions := getLanguageOptions(nil)
+	languageOptions := getLanguageOptions(nil, cfg.General.Language)
 
 	selectedLanguage := cfg.General.Language
 

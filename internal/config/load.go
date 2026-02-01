@@ -78,6 +78,7 @@ func Load() (*Config, error) {
 
 	config.applyLLMDefaults()
 	config.applyThreadsDefault()
+	config.migrateLanguageToGeneral()
 
 	log.Printf("Config: configuration loaded successfully")
 	return &config, nil
@@ -129,6 +130,14 @@ func (c *Config) applyLLMDefaults() {
 		pp.AddPunctuation = true
 		pp.FixGrammar = true
 		pp.RemoveFillerWords = true
+	}
+}
+
+// migrateLanguageToGeneral migrates old transcription.language to general.language
+func (c *Config) migrateLanguageToGeneral() {
+	if c.Transcription.Language != "" && c.General.Language == "" {
+		c.General.Language = c.Transcription.Language
+		log.Printf("Config: migrated language setting to [general] section")
 	}
 }
 

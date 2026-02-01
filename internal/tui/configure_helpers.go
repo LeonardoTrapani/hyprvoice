@@ -6,7 +6,6 @@ import (
 
 	"github.com/charmbracelet/huh"
 	"github.com/leonardotrapani/hyprvoice/internal/config"
-	"github.com/leonardotrapani/hyprvoice/internal/language"
 )
 
 // formatProvidersLabel formats the providers menu option
@@ -14,14 +13,9 @@ func formatProvidersLabel(cfg *config.Config) string {
 	return "Providers"
 }
 
-// formatLanguageMenuLabel formats the language menu option showing current setting
+// formatLanguageMenuLabel formats the language menu option
 func formatLanguageMenuLabel(cfg *config.Config) string {
-	langCode := cfg.General.Language
-	if langCode == "" {
-		return "Language (Auto-detect)"
-	}
-	lang := language.FromCode(langCode)
-	return fmt.Sprintf("Language (%s)", lang.Name)
+	return "Language"
 }
 
 // formatTranscriptionLabel formats the transcription menu option

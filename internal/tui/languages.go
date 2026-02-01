@@ -10,15 +10,25 @@ import (
 
 // getLanguageOptions returns language options for the dropdown
 // if currentModel is provided, languages unsupported by that model will be marked
-func getLanguageOptions(currentModel *provider.Model) []huh.Option[string] {
+// currentLang is the currently selected language code (empty string for auto-detect)
+func getLanguageOptions(currentModel *provider.Model, currentLang string) []huh.Option[string] {
 	var options []huh.Option[string]
 
-	// auto-detect is always first and recommended
-	options = append(options, huh.NewOption("Auto-detect (Recommended)", ""))
+	// auto-detect is always first
+	autoLabel := "Auto-detect"
+	if currentLang == "" {
+		autoLabel += " (current)"
+	}
+	options = append(options, huh.NewOption(autoLabel, ""))
 
 	// add all languages
 	for _, lang := range language.List() {
 		label := formatLanguageLabel(lang)
+
+		// mark current selection
+		if lang.Code == currentLang {
+			label += " (current)"
+		}
 
 		// add warning if model doesn't support this language
 		if currentModel != nil && !currentModel.SupportsLanguage(lang.Code) {
