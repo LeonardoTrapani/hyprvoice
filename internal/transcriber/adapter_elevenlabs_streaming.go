@@ -8,11 +8,11 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/gorilla/websocket"
-	"github.com/leonardotrapani/hyprvoice/internal/language"
 	"github.com/leonardotrapani/hyprvoice/internal/provider"
 )
 
@@ -25,6 +25,7 @@ type ElevenLabsStreamingAdapter struct {
 	apiKey    string
 	model     string
 	language  string
+	keywords  []string
 	conn      *websocket.Conn
 	resultsCh chan TranscriptionResult
 	mu        sync.Mutex
@@ -38,15 +39,17 @@ type ElevenLabsStreamingAdapter struct {
 	retryDelays []time.Duration
 
 	// finalization signaling
-	commitDone chan struct{}
+	commitDone  chan struct{}
+	contextSent bool
 }
 
 // ElevenLabs WebSocket message types (outgoing)
 type elevenLabsInputAudioChunk struct {
-	MessageType string `json:"message_type"`
-	AudioBase64 string `json:"audio_base_64"`
-	Commit      bool   `json:"commit"`
-	SampleRate  int    `json:"sample_rate"`
+	MessageType  string `json:"message_type"`
+	AudioBase64  string `json:"audio_base_64"`
+	Commit       bool   `json:"commit"`
+	SampleRate   int    `json:"sample_rate"`
+	PreviousText string `json:"previous_text,omitempty"`
 }
 
 // ElevenLabs WebSocket response types (incoming)
@@ -62,13 +65,14 @@ type elevenLabsWSMessage struct {
 // endpoint: the WebSocket endpoint config (e.g., wss://api.elevenlabs.io, /v1/speech-to-text/realtime)
 // apiKey: ElevenLabs API key
 // model: model ID (e.g., "scribe_v1")
-// lang: canonical language code (will be converted to provider format)
-func NewElevenLabsStreamingAdapter(endpoint *provider.EndpointConfig, apiKey, model, lang string) *ElevenLabsStreamingAdapter {
+// lang: provider language code
+func NewElevenLabsStreamingAdapter(endpoint *provider.EndpointConfig, apiKey, model, lang string, keywords []string) *ElevenLabsStreamingAdapter {
 	return &ElevenLabsStreamingAdapter{
 		endpoint:    endpoint,
 		apiKey:      apiKey,
 		model:       model,
 		language:    lang,
+		keywords:    keywords,
 		resultsCh:   make(chan TranscriptionResult, 100),
 		maxRetries:  3,
 		retryDelays: defaultRetryDelays,
@@ -126,6 +130,7 @@ func (a *ElevenLabsStreamingAdapter) connectLocked() error {
 		return fmt.Errorf("websocket dial: %w", err)
 	}
 	a.conn = conn
+	a.contextSent = false
 	return nil
 }
 
@@ -199,9 +204,8 @@ func (a *ElevenLabsStreamingAdapter) buildURL() (string, error) {
 	q.Set("audio_format", "pcm_16000") // we use 16kHz PCM
 
 	// add language if specified
-	providerLang := language.ToProviderFormat(a.language, "elevenlabs")
-	if providerLang != "" {
-		q.Set("language_code", providerLang)
+	if a.language != "" {
+		q.Set("language_code", a.language)
 	}
 
 	// use VAD for automatic commit (easier for real-time use)
@@ -333,6 +337,13 @@ func (a *ElevenLabsStreamingAdapter) SendChunk(audio []byte) error {
 		Commit:      false, // let VAD handle commits
 		SampleRate:  16000,
 	}
+
+	a.mu.Lock()
+	if !a.contextSent && len(a.keywords) > 0 {
+		msg.PreviousText = strings.Join(a.keywords, ", ")
+		a.contextSent = true
+	}
+	a.mu.Unlock()
 
 	// send as JSON
 	a.mu.Lock()

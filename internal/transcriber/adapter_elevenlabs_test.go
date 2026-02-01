@@ -13,7 +13,7 @@ func TestNewElevenLabsAdapter(t *testing.T) {
 		Path:    "/v1/speech-to-text",
 	}
 
-	adapter := NewElevenLabsAdapter(endpoint, "test-api-key", "scribe_v1", "en")
+	adapter := NewElevenLabsAdapter(endpoint, "test-api-key", "scribe_v1", "en", nil)
 
 	if adapter == nil {
 		t.Fatalf("NewElevenLabsAdapter() returned nil")
@@ -74,7 +74,7 @@ func TestElevenLabsAdapter_Transcribe_EmptyAudio(t *testing.T) {
 		Path:    "/v1/speech-to-text",
 	}
 
-	adapter := NewElevenLabsAdapter(endpoint, "test-key", "scribe_v1", "")
+	adapter := NewElevenLabsAdapter(endpoint, "test-key", "scribe_v1", "", nil)
 	ctx := context.Background()
 
 	result, err := adapter.Transcribe(ctx, []byte{})
@@ -94,7 +94,7 @@ func TestElevenLabsAdapter_Transcribe_ValidAudio(t *testing.T) {
 		Path:    "/v1/speech-to-text",
 	}
 
-	adapter := NewElevenLabsAdapter(endpoint, "test-key", "scribe_v1", "en")
+	adapter := NewElevenLabsAdapter(endpoint, "test-key", "scribe_v1", "en", nil)
 
 	if adapter == nil {
 		t.Fatal("NewElevenLabsAdapter() returned nil")

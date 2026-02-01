@@ -1,10 +1,6 @@
 package provider
 
-import (
-	"strings"
-
-	"github.com/leonardotrapani/hyprvoice/internal/language"
-)
+import "strings"
 
 // OpenAIProvider implements Provider for OpenAI services
 type OpenAIProvider struct{}
@@ -26,7 +22,8 @@ func (p *OpenAIProvider) IsLocal() bool {
 }
 
 func (p *OpenAIProvider) Models() []Model {
-	allLangs := language.AllLanguageCodes()
+	// https://platform.openai.com/docs/guides/speech-to-text#supported-languages
+	allLangs := openaiTranscriptionLanguages
 
 	docsURL := "https://platform.openai.com/docs/guides/speech-to-text#supported-languages"
 
@@ -77,28 +74,26 @@ func (p *OpenAIProvider) Models() []Model {
 		},
 		// LLM models
 		{
-			ID:                 "gpt-4o-mini",
-			Name:               "GPT-4o Mini",
-			Description:        "Fast and affordable GPT-4 variant",
-			Type:               LLM,
-			SupportsBatch:      true,
-			SupportsStreaming:  false,
-			Local:              false,
-			AdapterType:        AdapterOpenAI,
-			SupportedLanguages: allLangs,
-			Endpoint:           &EndpointConfig{BaseURL: "https://api.openai.com", Path: "/v1/chat/completions"},
+			ID:                "gpt-4o-mini",
+			Name:              "GPT-4o Mini",
+			Description:       "Fast and affordable GPT-4 variant",
+			Type:              LLM,
+			SupportsBatch:     true,
+			SupportsStreaming: false,
+			Local:             false,
+			AdapterType:       AdapterOpenAI,
+			Endpoint:          &EndpointConfig{BaseURL: "https://api.openai.com", Path: "/v1/chat/completions"},
 		},
 		{
-			ID:                 "gpt-4o",
-			Name:               "GPT-4o",
-			Description:        "Most capable GPT-4 model",
-			Type:               LLM,
-			SupportsBatch:      true,
-			SupportsStreaming:  false,
-			Local:              false,
-			AdapterType:        AdapterOpenAI,
-			SupportedLanguages: allLangs,
-			Endpoint:           &EndpointConfig{BaseURL: "https://api.openai.com", Path: "/v1/chat/completions"},
+			ID:                "gpt-4o",
+			Name:              "GPT-4o",
+			Description:       "Most capable GPT-4 model",
+			Type:              LLM,
+			SupportsBatch:     true,
+			SupportsStreaming: false,
+			Local:             false,
+			AdapterType:       AdapterOpenAI,
+			Endpoint:          &EndpointConfig{BaseURL: "https://api.openai.com", Path: "/v1/chat/completions"},
 		},
 	}
 }

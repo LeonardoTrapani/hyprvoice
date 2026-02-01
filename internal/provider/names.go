@@ -14,7 +14,6 @@ const (
 const (
 	ConfigProviderOpenAI               = "openai"
 	ConfigProviderGroqTranscription    = "groq-transcription"
-	ConfigProviderGroqTranslation      = "groq-translation"
 	ConfigProviderMistralTranscription = "mistral-transcription"
 	ConfigProviderElevenLabs           = "elevenlabs"
 	ConfigProviderDeepgram             = "deepgram"
@@ -44,7 +43,7 @@ const (
 // e.g. "groq-transcription" -> "groq", "mistral-transcription" -> "mistral"
 func BaseProviderName(configProvider string) string {
 	switch configProvider {
-	case ConfigProviderGroqTranscription, ConfigProviderGroqTranslation:
+	case ConfigProviderGroqTranscription:
 		return ProviderGroq
 	case ConfigProviderMistralTranscription:
 		return ProviderMistral

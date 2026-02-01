@@ -57,26 +57,6 @@ func TestNewTranscriber(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name: "valid groq-translation config",
-			config: Config{
-				Provider: "groq-translation",
-				APIKey:   "gsk-test-key",
-				Language: "es",
-				Model:    "whisper-large-v3-turbo",
-			},
-			wantErr: false,
-		},
-		{
-			name: "groq-translation config without api key",
-			config: Config{
-				Provider: "groq-translation",
-				APIKey:   "",
-				Language: "es",
-				Model:    "whisper-large-v3-turbo",
-			},
-			wantErr: true,
-		},
-		{
 			name: "valid mistral-transcription config",
 			config: Config{
 				Provider: "mistral-transcription",

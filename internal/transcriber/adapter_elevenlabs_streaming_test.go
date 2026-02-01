@@ -72,6 +72,7 @@ func TestElevenLabsStreamingAdapter_Start(t *testing.T) {
 		"test-api-key",
 		"scribe_v1",
 		"en",
+		nil,
 	)
 
 	ctx := context.Background()
@@ -126,6 +127,7 @@ func TestElevenLabsStreamingAdapter_SendChunk(t *testing.T) {
 		"test-api-key",
 		"scribe_v1",
 		"en",
+		nil,
 	)
 
 	ctx := context.Background()
@@ -188,6 +190,7 @@ func TestElevenLabsStreamingAdapter_Results(t *testing.T) {
 		"test-api-key",
 		"scribe_v1",
 		"en",
+		nil,
 	)
 
 	ctx := context.Background()
@@ -262,6 +265,7 @@ func TestElevenLabsStreamingAdapter_ErrorMessages(t *testing.T) {
 		"test-api-key",
 		"scribe_v1",
 		"en",
+		nil,
 	)
 
 	ctx := context.Background()
@@ -325,6 +329,7 @@ func TestElevenLabsStreamingAdapter_LanguageConversion(t *testing.T) {
 		"test-api-key",
 		"scribe_v1",
 		"es", // Spanish
+		nil,
 	)
 
 	ctx := context.Background()
@@ -372,6 +377,7 @@ func TestElevenLabsStreamingAdapter_Close(t *testing.T) {
 		"test-api-key",
 		"scribe_v1",
 		"en",
+		nil,
 	)
 
 	ctx := context.Background()
@@ -408,6 +414,7 @@ func TestElevenLabsStreamingAdapter_NotStarted(t *testing.T) {
 		"test-api-key",
 		"scribe_v1",
 		"en",
+		nil,
 	)
 
 	// SendChunk should fail when not started
@@ -470,6 +477,7 @@ func TestElevenLabsStreamingAdapter_ReconnectOnReadError(t *testing.T) {
 		"test-api-key",
 		"scribe_v1",
 		"en",
+		nil,
 	)
 	// use very short delays for testing
 	adapter.retryDelays = []time.Duration{10 * time.Millisecond, 20 * time.Millisecond, 40 * time.Millisecond}
@@ -547,6 +555,7 @@ func TestElevenLabsStreamingAdapter_ReconnectNotifiesClient(t *testing.T) {
 		"test-api-key",
 		"scribe_v1",
 		"en",
+		nil,
 	)
 	adapter.retryDelays = []time.Duration{10 * time.Millisecond, 20 * time.Millisecond, 40 * time.Millisecond}
 
@@ -633,6 +642,7 @@ func TestElevenLabsStreamingAdapter_MaxRetriesExhausted(t *testing.T) {
 		"test-api-key",
 		"scribe_v1",
 		"en",
+		nil,
 	)
 	adapter.retryDelays = []time.Duration{5 * time.Millisecond, 10 * time.Millisecond, 15 * time.Millisecond}
 	adapter.maxRetries = 2
@@ -709,6 +719,7 @@ func TestElevenLabsStreamingAdapter_ReconnectExponentialBackoff(t *testing.T) {
 		"test-api-key",
 		"scribe_v1",
 		"en",
+		nil,
 	)
 	// use measurable delays
 	adapter.retryDelays = []time.Duration{50 * time.Millisecond, 100 * time.Millisecond, 200 * time.Millisecond}

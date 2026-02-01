@@ -118,7 +118,7 @@ func TestOpenAIRealtimeAdapter_Start(t *testing.T) {
 		Path:    "",
 	}
 
-	adapter := NewOpenAIRealtimeAdapter(endpoint, "sk-test-key", "gpt-4o-realtime-preview", "en")
+	adapter := NewOpenAIRealtimeAdapter(endpoint, "sk-test-key", "gpt-4o-realtime-preview", "en", nil)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
@@ -198,7 +198,7 @@ func TestOpenAIRealtimeAdapter_SendChunk(t *testing.T) {
 
 	wsURL := "ws" + strings.TrimPrefix(server.URL, "http")
 	endpoint := &provider.EndpointConfig{BaseURL: wsURL, Path: ""}
-	adapter := NewOpenAIRealtimeAdapter(endpoint, "sk-test", "gpt-4o-realtime-preview", "")
+	adapter := NewOpenAIRealtimeAdapter(endpoint, "sk-test", "gpt-4o-realtime-preview", "", nil)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
@@ -282,7 +282,7 @@ func TestOpenAIRealtimeAdapter_TranscriptionResults(t *testing.T) {
 
 	wsURL := "ws" + strings.TrimPrefix(server.URL, "http")
 	endpoint := &provider.EndpointConfig{BaseURL: wsURL, Path: ""}
-	adapter := NewOpenAIRealtimeAdapter(endpoint, "sk-test", "gpt-4o-realtime-preview", "en")
+	adapter := NewOpenAIRealtimeAdapter(endpoint, "sk-test", "gpt-4o-realtime-preview", "en", nil)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
@@ -369,7 +369,7 @@ func TestOpenAIRealtimeAdapter_ErrorHandling(t *testing.T) {
 
 	wsURL := "ws" + strings.TrimPrefix(server.URL, "http")
 	endpoint := &provider.EndpointConfig{BaseURL: wsURL, Path: ""}
-	adapter := NewOpenAIRealtimeAdapter(endpoint, "sk-test", "gpt-4o-realtime-preview", "")
+	adapter := NewOpenAIRealtimeAdapter(endpoint, "sk-test", "gpt-4o-realtime-preview", "", nil)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
@@ -433,7 +433,7 @@ func TestOpenAIRealtimeAdapter_Reconnection(t *testing.T) {
 
 	wsURL := "ws" + strings.TrimPrefix(server.URL, "http")
 	endpoint := &provider.EndpointConfig{BaseURL: wsURL, Path: ""}
-	adapter := NewOpenAIRealtimeAdapter(endpoint, "sk-test", "gpt-4o-realtime-preview", "")
+	adapter := NewOpenAIRealtimeAdapter(endpoint, "sk-test", "gpt-4o-realtime-preview", "", nil)
 	adapter.retryDelays = []time.Duration{10 * time.Millisecond, 20 * time.Millisecond, 40 * time.Millisecond}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -473,7 +473,7 @@ func TestOpenAIRealtimeAdapter_Close(t *testing.T) {
 
 	wsURL := "ws" + strings.TrimPrefix(server.URL, "http")
 	endpoint := &provider.EndpointConfig{BaseURL: wsURL, Path: ""}
-	adapter := NewOpenAIRealtimeAdapter(endpoint, "sk-test", "gpt-4o-realtime-preview", "")
+	adapter := NewOpenAIRealtimeAdapter(endpoint, "sk-test", "gpt-4o-realtime-preview", "", nil)
 
 	ctx := context.Background()
 

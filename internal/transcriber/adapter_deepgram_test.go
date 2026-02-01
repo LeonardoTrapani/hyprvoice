@@ -23,7 +23,7 @@ func TestDeepgramAdapter_Creation(t *testing.T) {
 		BaseURL: "wss://api.deepgram.com",
 		Path:    "/v1/listen",
 	}
-	adapter := NewDeepgramAdapter(endpoint, "test-api-key", "nova-3", "en")
+	adapter := NewDeepgramAdapter(endpoint, "test-api-key", "nova-3", "en", nil)
 
 	if adapter.apiKey != "test-api-key" {
 		t.Errorf("apiKey = %q, want %q", adapter.apiKey, "test-api-key")
@@ -72,7 +72,7 @@ func TestDeepgramAdapter_BuildURL(t *testing.T) {
 				BaseURL: "wss://api.deepgram.com",
 				Path:    "/v1/listen",
 			}
-			adapter := NewDeepgramAdapter(endpoint, "test-key", tt.model, tt.language)
+			adapter := NewDeepgramAdapter(endpoint, "test-key", tt.model, tt.language, nil)
 
 			url, err := adapter.buildURL()
 			if err != nil {
@@ -93,7 +93,7 @@ func TestDeepgramAdapter_SendChunkNotStarted(t *testing.T) {
 		BaseURL: "wss://api.deepgram.com",
 		Path:    "/v1/listen",
 	}
-	adapter := NewDeepgramAdapter(endpoint, "test-key", "nova-3", "en")
+	adapter := NewDeepgramAdapter(endpoint, "test-key", "nova-3", "en", nil)
 
 	err := adapter.SendChunk([]byte("audio data"))
 	if err == nil {
@@ -109,7 +109,7 @@ func TestDeepgramAdapter_CloseNotStarted(t *testing.T) {
 		BaseURL: "wss://api.deepgram.com",
 		Path:    "/v1/listen",
 	}
-	adapter := NewDeepgramAdapter(endpoint, "test-key", "nova-3", "en")
+	adapter := NewDeepgramAdapter(endpoint, "test-key", "nova-3", "en", nil)
 
 	// closing not-started adapter should not error
 	err := adapter.Close()
@@ -173,7 +173,7 @@ func TestDeepgramAdapter_StartAndClose(t *testing.T) {
 		Path:    "",
 	}
 
-	adapter := NewDeepgramAdapter(endpoint, "test-api-key", "nova-3", "en")
+	adapter := NewDeepgramAdapter(endpoint, "test-api-key", "nova-3", "en", nil)
 
 	ctx := context.Background()
 	if err := adapter.Start(ctx, ""); err != nil {
@@ -229,7 +229,7 @@ func TestDeepgramAdapter_ReceivesResults(t *testing.T) {
 
 	wsURL := "ws" + strings.TrimPrefix(server.URL, "http")
 	endpoint := &provider.EndpointConfig{BaseURL: wsURL, Path: ""}
-	adapter := NewDeepgramAdapter(endpoint, "test-api-key", "nova-3", "en")
+	adapter := NewDeepgramAdapter(endpoint, "test-api-key", "nova-3", "en", nil)
 
 	ctx := context.Background()
 	if err := adapter.Start(ctx, ""); err != nil {
@@ -312,7 +312,7 @@ func TestDeepgramAdapter_SendsRawBinaryAudio(t *testing.T) {
 
 	wsURL := "ws" + strings.TrimPrefix(server.URL, "http")
 	endpoint := &provider.EndpointConfig{BaseURL: wsURL, Path: ""}
-	adapter := NewDeepgramAdapter(endpoint, "test-api-key", "nova-3", "en")
+	adapter := NewDeepgramAdapter(endpoint, "test-api-key", "nova-3", "en", nil)
 
 	ctx := context.Background()
 	if err := adapter.Start(ctx, ""); err != nil {
@@ -357,7 +357,7 @@ func TestDeepgramAdapter_HandlesError(t *testing.T) {
 
 	wsURL := "ws" + strings.TrimPrefix(server.URL, "http")
 	endpoint := &provider.EndpointConfig{BaseURL: wsURL, Path: ""}
-	adapter := NewDeepgramAdapter(endpoint, "test-api-key", "nova-3", "en")
+	adapter := NewDeepgramAdapter(endpoint, "test-api-key", "nova-3", "en", nil)
 
 	ctx := context.Background()
 	if err := adapter.Start(ctx, ""); err != nil {
@@ -398,7 +398,7 @@ func TestDeepgramAdapter_ContextCancellation(t *testing.T) {
 
 	wsURL := "ws" + strings.TrimPrefix(server.URL, "http")
 	endpoint := &provider.EndpointConfig{BaseURL: wsURL, Path: ""}
-	adapter := NewDeepgramAdapter(endpoint, "test-api-key", "nova-3", "en")
+	adapter := NewDeepgramAdapter(endpoint, "test-api-key", "nova-3", "en", nil)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	if err := adapter.Start(ctx, ""); err != nil {

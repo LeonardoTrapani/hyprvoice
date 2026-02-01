@@ -1,9 +1,6 @@
 package provider
 
-import (
-	"github.com/leonardotrapani/hyprvoice/internal/language"
-	"github.com/leonardotrapani/hyprvoice/internal/models/whisper"
-)
+import "github.com/leonardotrapani/hyprvoice/internal/models/whisper"
 
 // WhisperCppProvider implements Provider for local whisper.cpp transcription
 type WhisperCppProvider struct{}
@@ -25,8 +22,10 @@ func (p *WhisperCppProvider) IsLocal() bool {
 }
 
 func (p *WhisperCppProvider) Models() []Model {
-	allLangs := language.AllLanguageCodes()
-	englishOnly := []string{"en"}
+	// https://github.com/openai/whisper#available-models-and-languages
+	allLangs := whisperTranscriptionLanguages
+	// https://github.com/openai/whisper#available-models-and-languages
+	englishOnly := whisperEnglishOnlyLanguages
 	docsURL := "https://github.com/openai/whisper#available-models-and-languages"
 
 	whisperModels := whisper.ListModels()

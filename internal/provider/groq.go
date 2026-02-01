@@ -1,10 +1,6 @@
 package provider
 
-import (
-	"strings"
-
-	"github.com/leonardotrapani/hyprvoice/internal/language"
-)
+import "strings"
 
 // GroqProvider implements Provider for Groq services
 type GroqProvider struct{}
@@ -26,7 +22,8 @@ func (p *GroqProvider) IsLocal() bool {
 }
 
 func (p *GroqProvider) Models() []Model {
-	allLangs := language.AllLanguageCodes()
+	// https://console.groq.com/docs/speech-to-text#supported-languages
+	allLangs := groqTranscriptionLanguages
 	docsURL := "https://console.groq.com/docs/speech-to-text#supported-languages"
 
 	return []Model{
@@ -59,40 +56,37 @@ func (p *GroqProvider) Models() []Model {
 		},
 		// LLM models
 		{
-			ID:                 "llama-3.3-70b-versatile",
-			Name:               "Llama 3.3 70B Versatile",
-			Description:        "Most capable Llama model",
-			Type:               LLM,
-			SupportsBatch:      true,
-			SupportsStreaming:  false,
-			Local:              false,
-			AdapterType:        AdapterOpenAI,
-			SupportedLanguages: allLangs,
-			Endpoint:           &EndpointConfig{BaseURL: "https://api.groq.com/openai", Path: "/v1/chat/completions"},
+			ID:                "llama-3.3-70b-versatile",
+			Name:              "Llama 3.3 70B Versatile",
+			Description:       "Most capable Llama model",
+			Type:              LLM,
+			SupportsBatch:     true,
+			SupportsStreaming: false,
+			Local:             false,
+			AdapterType:       AdapterOpenAI,
+			Endpoint:          &EndpointConfig{BaseURL: "https://api.groq.com/openai", Path: "/v1/chat/completions"},
 		},
 		{
-			ID:                 "llama-3.1-8b-instant",
-			Name:               "Llama 3.1 8B Instant",
-			Description:        "Fast and efficient",
-			Type:               LLM,
-			SupportsBatch:      true,
-			SupportsStreaming:  false,
-			Local:              false,
-			AdapterType:        AdapterOpenAI,
-			SupportedLanguages: allLangs,
-			Endpoint:           &EndpointConfig{BaseURL: "https://api.groq.com/openai", Path: "/v1/chat/completions"},
+			ID:                "llama-3.1-8b-instant",
+			Name:              "Llama 3.1 8B Instant",
+			Description:       "Fast and efficient",
+			Type:              LLM,
+			SupportsBatch:     true,
+			SupportsStreaming: false,
+			Local:             false,
+			AdapterType:       AdapterOpenAI,
+			Endpoint:          &EndpointConfig{BaseURL: "https://api.groq.com/openai", Path: "/v1/chat/completions"},
 		},
 		{
-			ID:                 "mixtral-8x7b-32768",
-			Name:               "Mixtral 8x7B",
-			Description:        "Mixture of experts model",
-			Type:               LLM,
-			SupportsBatch:      true,
-			SupportsStreaming:  false,
-			Local:              false,
-			AdapterType:        AdapterOpenAI,
-			SupportedLanguages: allLangs,
-			Endpoint:           &EndpointConfig{BaseURL: "https://api.groq.com/openai", Path: "/v1/chat/completions"},
+			ID:                "mixtral-8x7b-32768",
+			Name:              "Mixtral 8x7B",
+			Description:       "Mixture of experts model",
+			Type:              LLM,
+			SupportsBatch:     true,
+			SupportsStreaming: false,
+			Local:             false,
+			AdapterType:       AdapterOpenAI,
+			Endpoint:          &EndpointConfig{BaseURL: "https://api.groq.com/openai", Path: "/v1/chat/completions"},
 		},
 	}
 }

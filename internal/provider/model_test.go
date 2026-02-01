@@ -1,10 +1,6 @@
 package provider
 
-import (
-	"testing"
-
-	"github.com/leonardotrapani/hyprvoice/internal/language"
-)
+import "testing"
 
 func TestModel_NeedsDownload(t *testing.T) {
 	tests := []struct {
@@ -118,11 +114,9 @@ func TestModel_SupportsBothModes(t *testing.T) {
 }
 
 func TestModel_SupportsLanguage(t *testing.T) {
-	allCodes := language.AllLanguageCodes()
-
 	multilingualModel := Model{
 		ID:                 "whisper-large-v3",
-		SupportedLanguages: allCodes,
+		SupportedLanguages: []string{"en", "es", "zh"},
 	}
 
 	englishOnlyModel := Model{
@@ -202,65 +196,6 @@ func TestModel_SupportsLanguage(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			if got := tc.model.SupportsLanguage(tc.code); got != tc.expected {
 				t.Errorf("SupportsLanguage(%q) = %v, want %v", tc.code, got, tc.expected)
-			}
-		})
-	}
-}
-
-func TestModel_SupportsAllLanguages(t *testing.T) {
-	allCodes := language.AllLanguageCodes()
-
-	tests := []struct {
-		name     string
-		model    Model
-		expected bool
-	}{
-		{
-			name: "model with all 57 languages",
-			model: Model{
-				ID:                 "whisper-large-v3",
-				SupportedLanguages: allCodes,
-			},
-			expected: true,
-		},
-		{
-			name: "english-only model",
-			model: Model{
-				ID:                 "base.en",
-				SupportedLanguages: []string{"en"},
-			},
-			expected: false,
-		},
-		{
-			name: "model with some languages",
-			model: Model{
-				ID:                 "partial",
-				SupportedLanguages: []string{"en", "es", "fr", "de"},
-			},
-			expected: false,
-		},
-		{
-			name: "model with empty languages",
-			model: Model{
-				ID:                 "empty",
-				SupportedLanguages: []string{},
-			},
-			expected: false,
-		},
-		{
-			name: "model with nil languages",
-			model: Model{
-				ID:                 "nil",
-				SupportedLanguages: nil,
-			},
-			expected: false,
-		},
-	}
-
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			if got := tc.model.SupportsAllLanguages(); got != tc.expected {
-				t.Errorf("SupportsAllLanguages() = %v, want %v", got, tc.expected)
 			}
 		})
 	}
@@ -387,8 +322,8 @@ func TestAllTranscriptionModels_HaveDocsURL(t *testing.T) {
 	expectedDocsURLs := map[string]string{
 		"openai":      "https://platform.openai.com/docs/guides/speech-to-text#supported-languages",
 		"groq":        "https://console.groq.com/docs/speech-to-text#supported-languages",
-		"mistral":     "https://docs.mistral.ai/capabilities/speech/",
-		"elevenlabs":  "https://elevenlabs.io/docs/capabilities/speech-to-text#supported-languages",
+		"mistral":     "https://docs.mistral.ai/capabilities/audio/",
+		"elevenlabs":  "https://elevenlabs.io/speech-to-text",
 		"deepgram":    "https://developers.deepgram.com/docs/language",
 		"whisper-cpp": "https://github.com/openai/whisper#available-models-and-languages",
 	}

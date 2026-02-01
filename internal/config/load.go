@@ -104,7 +104,7 @@ func (c *Config) migrateTranscriptionAPIKey(apiKey string) {
 	switch providerName {
 	case "openai":
 		c.Providers["openai"] = ProviderConfig{APIKey: apiKey}
-	case "groq-transcription", "groq-translation":
+	case "groq-transcription":
 		c.Providers["groq"] = ProviderConfig{APIKey: apiKey}
 	case "mistral-transcription":
 		c.Providers["mistral"] = ProviderConfig{APIKey: apiKey}

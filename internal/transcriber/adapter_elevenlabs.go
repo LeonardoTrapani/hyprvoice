@@ -11,7 +11,6 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/leonardotrapani/hyprvoice/internal/language"
 	"github.com/leonardotrapani/hyprvoice/internal/provider"
 )
 
@@ -22,6 +21,7 @@ type ElevenLabsAdapter struct {
 	apiKey   string
 	model    string
 	language string
+	keywords []string
 }
 
 // ElevenLabsResponse represents the API response
@@ -33,14 +33,15 @@ type ElevenLabsResponse struct {
 // endpoint: the endpoint config (BaseURL + Path)
 // apiKey: ElevenLabs API key
 // model: model ID (e.g., "scribe_v1")
-// lang: canonical language code (will be converted to provider format)
-func NewElevenLabsAdapter(endpoint *provider.EndpointConfig, apiKey, model, lang string) *ElevenLabsAdapter {
+// lang: provider language code
+func NewElevenLabsAdapter(endpoint *provider.EndpointConfig, apiKey, model, lang string, keywords []string) *ElevenLabsAdapter {
 	return &ElevenLabsAdapter{
 		client:   &http.Client{Timeout: 30 * time.Second},
 		endpoint: endpoint,
 		apiKey:   apiKey,
 		model:    model,
 		language: lang,
+		keywords: keywords,
 	}
 }
 
@@ -52,6 +53,7 @@ func NewElevenLabsAdapterFromConfig(config Config) *ElevenLabsAdapter {
 		config.APIKey,
 		config.Model,
 		config.Language,
+		config.Keywords,
 	)
 }
 
@@ -85,11 +87,20 @@ func (a *ElevenLabsAdapter) Transcribe(ctx context.Context, audioData []byte) (s
 		return "", fmt.Errorf("write model_id: %w", err)
 	}
 
-	// Add language_code if specified (convert to provider format)
-	providerLang := language.ToProviderFormat(a.language, "elevenlabs")
-	if providerLang != "" {
-		if err := writer.WriteField("language_code", providerLang); err != nil {
+	// Add language_code if specified
+	if a.language != "" {
+		if err := writer.WriteField("language_code", a.language); err != nil {
 			return "", fmt.Errorf("write language_code: %w", err)
+		}
+	}
+
+	if len(a.keywords) > 0 {
+		keytermsJSON, err := json.Marshal(a.keywords)
+		if err != nil {
+			return "", fmt.Errorf("marshal keyterms: %w", err)
+		}
+		if err := writer.WriteField("keyterms", string(keytermsJSON)); err != nil {
+			return "", fmt.Errorf("write keyterms: %w", err)
 		}
 	}
 

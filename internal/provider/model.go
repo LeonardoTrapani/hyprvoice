@@ -1,7 +1,5 @@
 package provider
 
-import "github.com/leonardotrapani/hyprvoice/internal/language"
-
 // ModelType represents the type of a model
 type ModelType int
 
@@ -22,7 +20,7 @@ type Model struct {
 	AdapterType        string          // which adapter to use (e.g., "openai", "elevenlabs", "whisper-cpp")
 	StreamingAdapter   string          // adapter for streaming mode (if different from AdapterType)
 	StreamingEndpoint  *EndpointConfig // endpoint for streaming mode (if different from Endpoint)
-	SupportedLanguages []string        // explicit list of supported language codes
+	SupportedLanguages []string        // explicit list of provider language codes
 	Endpoint           *EndpointConfig // nil for local models
 	LocalInfo          *LocalModelInfo // nil for cloud models
 	DocsURL            string          // URL to provider's language support documentation
@@ -68,10 +66,4 @@ func (m *Model) SupportsLanguage(code string) bool {
 		}
 	}
 	return false
-}
-
-// SupportsAllLanguages returns true if the model supports all 57 languages
-func (m *Model) SupportsAllLanguages() bool {
-	allCodes := language.AllLanguageCodes()
-	return len(m.SupportedLanguages) == len(allCodes)
 }

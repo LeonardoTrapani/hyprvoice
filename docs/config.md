@@ -93,24 +93,6 @@ language = ""                   # Empty for auto-detect, or "en", "es", "fr", et
 - Supports 50+ languages
 - Free tier available with generous limits
 
-### Groq Translation API
-
-Fast translation of audio to English using Groq's Whisper API:
-
-```toml
-[transcription]
-provider = "groq-translation"
-language = "es"                 # Optional: hint source language for better accuracy
-model = "whisper-large-v3"
-```
-
-**Features:**
-
-- Translates any language audio → English text
-- Ultra-fast processing
-- Language field hints at source language (improves accuracy)
-- Always outputs English regardless of input language
-
 ### Mistral Voxtral
 
 Transcription using Mistral's Voxtral API, excellent for European languages:
@@ -384,7 +366,7 @@ keywords = ["Hyprland", "Wayland", "PipeWire", "Claude", "TypeScript"]
 
 **How keywords work:**
 
-- **Transcription**: Passed as initial_prompt to Whisper, improving recognition of these terms
+- **Transcription**: Passed as provider-specific hints (prompt/keyterms/keywords) when supported to improve recognition
 - **LLM**: Included in the system prompt to ensure correct spelling
 
 **When to use keywords:**

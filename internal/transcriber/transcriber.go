@@ -8,7 +8,6 @@ import (
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
 
-	lang "github.com/leonardotrapani/hyprvoice/internal/language"
 	"github.com/leonardotrapani/hyprvoice/internal/models/whisper"
 	"github.com/leonardotrapani/hyprvoice/internal/provider"
 	"github.com/leonardotrapani/hyprvoice/internal/recording"
@@ -41,15 +40,6 @@ type Config struct {
 func NewTranscriber(config Config) (Transcriber, error) {
 	if config.Provider == "" {
 		return nil, fmt.Errorf("provider is required")
-	}
-
-	// special case: groq-translation uses CreateTranslation API (different from transcription)
-	if config.Provider == provider.ConfigProviderGroqTranslation {
-		if config.APIKey == "" {
-			return nil, fmt.Errorf("Groq API key required")
-		}
-		adapter := NewGroqTranslationAdapter(config)
-		return NewSimpleTranscriber(config, adapter), nil
 	}
 
 	// map config provider name to registry provider name
@@ -89,8 +79,7 @@ func NewTranscriber(config Config) (Transcriber, error) {
 	// runtime language-model compatibility check with fallback
 	// primary validation happens at config time (hard error), this is a safety net
 	if config.Language != "" && !model.SupportsLanguage(config.Language) {
-		langName := lang.FromCode(config.Language).Name
-		log.Printf("warning: model %s does not support language %s, falling back to auto-detect", model.ID, langName)
+		log.Printf("warning: model %s does not support language %s, falling back to auto-detect", model.ID, config.Language)
 		config.Language = ""
 	}
 
@@ -119,11 +108,11 @@ func NewTranscriber(config Config) (Transcriber, error) {
 		var streamingAdapter StreamingAdapter
 		switch adapterType {
 		case provider.AdapterElevenLabsStream:
-			streamingAdapter = NewElevenLabsStreamingAdapter(endpoint, config.APIKey, model.ID, config.Language)
+			streamingAdapter = NewElevenLabsStreamingAdapter(endpoint, config.APIKey, model.ID, config.Language, config.Keywords)
 		case provider.AdapterDeepgram:
-			streamingAdapter = NewDeepgramAdapter(endpoint, config.APIKey, model.ID, config.Language)
+			streamingAdapter = NewDeepgramAdapter(endpoint, config.APIKey, model.ID, config.Language, config.Keywords)
 		case provider.AdapterOpenAIRealtime:
-			streamingAdapter = NewOpenAIRealtimeAdapter(endpoint, config.APIKey, model.ID, config.Language)
+			streamingAdapter = NewOpenAIRealtimeAdapter(endpoint, config.APIKey, model.ID, config.Language, config.Keywords)
 		default:
 			return nil, fmt.Errorf("unsupported streaming adapter type: %s", adapterType)
 		}
@@ -136,9 +125,9 @@ func NewTranscriber(config Config) (Transcriber, error) {
 	case provider.AdapterOpenAI:
 		adapter = NewOpenAIAdapter(model.Endpoint, config.APIKey, model.ID, config.Language, config.Keywords, registryProvider)
 	case provider.AdapterElevenLabs:
-		adapter = NewElevenLabsAdapter(model.Endpoint, config.APIKey, model.ID, config.Language)
+		adapter = NewElevenLabsAdapter(model.Endpoint, config.APIKey, model.ID, config.Language, config.Keywords)
 	case provider.AdapterDeepgram:
-		adapter = NewDeepgramBatchAdapter(model.Endpoint, config.APIKey, model.ID, config.Language)
+		adapter = NewDeepgramBatchAdapter(model.Endpoint, config.APIKey, model.ID, config.Language, config.Keywords)
 	case provider.AdapterWhisperCpp:
 		modelPath := whisper.GetModelPath(config.Model)
 		if modelPath == "" {

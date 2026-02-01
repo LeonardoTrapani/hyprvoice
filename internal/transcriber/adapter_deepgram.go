@@ -7,11 +7,11 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/gorilla/websocket"
-	"github.com/leonardotrapani/hyprvoice/internal/language"
 	"github.com/leonardotrapani/hyprvoice/internal/provider"
 )
 
@@ -21,6 +21,7 @@ type DeepgramAdapter struct {
 	apiKey    string
 	model     string
 	language  string
+	keywords  []string
 	conn      *websocket.Conn
 	resultsCh chan TranscriptionResult
 	mu        sync.Mutex
@@ -82,13 +83,14 @@ type deepgramError struct {
 // endpoint: the WebSocket endpoint config (e.g., wss://api.deepgram.com, /v1/listen)
 // apiKey: Deepgram API key
 // model: model ID (e.g., "nova-3")
-// lang: canonical language code (will be converted to provider format)
-func NewDeepgramAdapter(endpoint *provider.EndpointConfig, apiKey, model, lang string) *DeepgramAdapter {
+// lang: provider language code
+func NewDeepgramAdapter(endpoint *provider.EndpointConfig, apiKey, model, lang string, keywords []string) *DeepgramAdapter {
 	return &DeepgramAdapter{
 		endpoint:     endpoint,
 		apiKey:       apiKey,
 		model:        model,
 		language:     lang,
+		keywords:     keywords,
 		resultsCh:    make(chan TranscriptionResult, 100),
 		maxRetries:   3,
 		retryDelays:  defaultRetryDelays,
@@ -228,9 +230,12 @@ func (a *DeepgramAdapter) buildURL() (string, error) {
 	q.Set("punctuate", "true")
 
 	// add language if specified
-	providerLang := language.ToProviderFormat(a.language, "deepgram")
-	if providerLang != "" {
-		q.Set("language", providerLang)
+	if a.language != "" {
+		q.Set("language", a.language)
+	}
+
+	if len(a.keywords) > 0 {
+		q.Set("keywords", strings.Join(a.keywords, ","))
 	}
 
 	u.RawQuery = q.Encode()

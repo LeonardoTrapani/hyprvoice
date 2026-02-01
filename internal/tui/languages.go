@@ -1,10 +1,7 @@
 package tui
 
 import (
-	"fmt"
-
 	"github.com/charmbracelet/huh"
-	"github.com/leonardotrapani/hyprvoice/internal/language"
 	"github.com/leonardotrapani/hyprvoice/internal/provider"
 )
 
@@ -13,33 +10,23 @@ func getModelLanguageOptions(model *provider.Model, currentLang string) []huh.Op
 	var options []huh.Option[string]
 
 	// auto-detect is always first
-	autoLabel := "Auto-detect"
+	autoLabel := "Auto-detect (recommended)"
 	if currentLang == "" {
 		autoLabel += " (current)"
 	}
 	options = append(options, huh.NewOption(autoLabel, ""))
 
-	// only show languages supported by the model
-	for _, lang := range language.List() {
-		if model != nil && !model.SupportsLanguage(lang.Code) {
-			continue
-		}
+	if model == nil {
+		return options
+	}
 
-		label := formatLanguageLabel(lang)
-		if lang.Code == currentLang {
+	for _, code := range model.SupportedLanguages {
+		label := code
+		if code == currentLang {
 			label += " (current)"
 		}
-
-		options = append(options, huh.NewOption(label, lang.Code))
+		options = append(options, huh.NewOption(label, code))
 	}
 
 	return options
-}
-
-// formatLanguageLabel formats a language for display
-func formatLanguageLabel(lang language.Language) string {
-	if lang.Name == lang.NativeName || lang.NativeName == "" {
-		return fmt.Sprintf("%s (%s)", lang.Name, lang.Code)
-	}
-	return fmt.Sprintf("%s - %s (%s)", lang.Name, lang.NativeName, lang.Code)
 }

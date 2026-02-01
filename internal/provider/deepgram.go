@@ -21,21 +21,10 @@ func (p *DeepgramProvider) IsLocal() bool {
 }
 
 func (p *DeepgramProvider) Models() []Model {
-	// Nova-3 language support - maps to our 57 language list
-	// from https://developers.deepgram.com/docs/models-languages-overview
-	nova3Langs := []string{
-		"ar", "be", "bs", "bg", "ca", "hr", "cs", "da", "nl", "en", "et", "fi",
-		"fr", "de", "el", "hi", "hu", "id", "it", "ja", "kn", "ko", "lv", "lt",
-		"mk", "ms", "mr", "no", "pl", "pt", "ro", "ru", "sr", "sk", "sl", "es",
-		"sv", "tl", "ta", "tr", "uk", "vi",
-	}
-
-	// Nova-2 language support - subset of nova-3
-	nova2Langs := []string{
-		"bg", "ca", "zh", "cs", "da", "nl", "en", "et", "fi", "fr", "de", "el",
-		"hi", "hu", "id", "it", "ja", "ko", "lv", "lt", "ms", "no", "pl", "pt",
-		"ro", "ru", "sk", "es", "sv", "th", "tr", "uk", "vi",
-	}
+	// https://developers.deepgram.com/docs/models-languages-overview
+	nova3Langs := deepgramNova3Languages
+	// https://developers.deepgram.com/docs/models-languages-overview
+	nova2Langs := deepgramNova2Languages
 
 	docsURL := "https://developers.deepgram.com/docs/language"
 

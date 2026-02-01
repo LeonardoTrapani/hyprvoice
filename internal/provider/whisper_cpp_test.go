@@ -1,10 +1,6 @@
 package provider
 
-import (
-	"testing"
-
-	"github.com/leonardotrapani/hyprvoice/internal/language"
-)
+import "testing"
 
 func TestWhisperCppProvider_GetProvider(t *testing.T) {
 	p := GetProvider("whisper-cpp")
@@ -88,19 +84,17 @@ func TestWhisperCppProvider_MultilingualModels(t *testing.T) {
 		"large-v3": true,
 	}
 
-	allLangs := language.AllLanguageCodes()
-
 	for _, m := range models {
 		isMultilingual := multilingualIDs[m.ID]
 		if isMultilingual {
-			if len(m.SupportedLanguages) != len(allLangs) {
-				t.Errorf("model %s: expected %d languages, got %d", m.ID, len(allLangs), len(m.SupportedLanguages))
-			}
-			if !m.SupportsAllLanguages() {
-				t.Errorf("model %s: SupportsAllLanguages() should be true", m.ID)
+			if len(m.SupportedLanguages) <= 1 {
+				t.Errorf("model %s: expected multiple languages, got %d", m.ID, len(m.SupportedLanguages))
 			}
 			if !m.SupportsLanguage("es") {
 				t.Errorf("model %s: SupportsLanguage('es') should be true", m.ID)
+			}
+			if !m.SupportsLanguage("en") {
+				t.Errorf("model %s: SupportsLanguage('en') should be true", m.ID)
 			}
 		}
 	}

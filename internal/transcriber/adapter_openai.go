@@ -8,7 +8,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/leonardotrapani/hyprvoice/internal/language"
 	"github.com/leonardotrapani/hyprvoice/internal/provider"
 	"github.com/sashabaranov/go-openai"
 )
@@ -27,7 +26,7 @@ type OpenAIAdapter struct {
 // endpoint: the BaseURL for the API (e.g., "https://api.openai.com", "https://api.groq.com/openai")
 // apiKey: the API key for authentication
 // model: model ID to use
-// lang: canonical language code (will be converted to provider format)
+// lang: provider language code
 // keywords: optional spelling hints
 // providerName: used for logging and language format conversion
 func NewOpenAIAdapter(endpoint *provider.EndpointConfig, apiKey, model, lang string, keywords []string, providerName string) *OpenAIAdapter {
@@ -69,15 +68,12 @@ func (a *OpenAIAdapter) Transcribe(ctx context.Context, audioData []byte) (strin
 		return "", fmt.Errorf("convert to WAV: %w", err)
 	}
 
-	// Convert language code to provider format
-	providerLang := language.ToProviderFormat(a.language, a.providerName)
-
 	// Create transcription request
 	req := openai.AudioRequest{
 		Model:    a.model,
 		Reader:   bytes.NewReader(wavData),
 		FilePath: "audio.wav",
-		Language: providerLang,
+		Language: a.language,
 	}
 
 	// Add keywords as initial_prompt to help with spelling hints

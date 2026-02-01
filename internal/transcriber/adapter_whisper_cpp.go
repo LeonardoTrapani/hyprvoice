@@ -10,8 +10,6 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
-
-	"github.com/leonardotrapani/hyprvoice/internal/language"
 )
 
 // WhisperCppAdapter implements BatchAdapter for local whisper-cpp transcription
@@ -23,7 +21,7 @@ type WhisperCppAdapter struct {
 
 // NewWhisperCppAdapter creates a new whisper-cpp adapter
 // modelPath: full path to the model file (e.g., ~/.local/share/hyprvoice/models/whisper/ggml-base.en.bin)
-// lang: canonical language code (will be converted to whisper-cpp format)
+// lang: whisper-cpp language code
 // threads: number of CPU threads (0 for auto)
 func NewWhisperCppAdapter(modelPath, lang string, threads int) *WhisperCppAdapter {
 	return &WhisperCppAdapter{
@@ -63,8 +61,11 @@ func (a *WhisperCppAdapter) Transcribe(ctx context.Context, audioData []byte) (s
 	}
 	defer os.Remove(tmpFile)
 
-	// convert language to whisper-cpp format
-	lang := language.ToProviderFormat(a.language, "whisper-cpp")
+	// use whisper-cpp auto if unspecified
+	lang := a.language
+	if lang == "" {
+		lang = "auto"
+	}
 
 	// build command args
 	args := []string{

@@ -8,8 +8,8 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strings"
 
-	"github.com/leonardotrapani/hyprvoice/internal/language"
 	"github.com/leonardotrapani/hyprvoice/internal/provider"
 )
 
@@ -19,6 +19,7 @@ type DeepgramBatchAdapter struct {
 	apiKey   string
 	model    string
 	language string
+	keywords []string
 }
 
 // deepgramBatchResponse is the response from the pre-recorded API
@@ -36,12 +37,13 @@ type deepgramBatchChannel struct {
 }
 
 // NewDeepgramBatchAdapter creates a new batch adapter for Deepgram
-func NewDeepgramBatchAdapter(endpoint *provider.EndpointConfig, apiKey, model, lang string) *DeepgramBatchAdapter {
+func NewDeepgramBatchAdapter(endpoint *provider.EndpointConfig, apiKey, model, lang string, keywords []string) *DeepgramBatchAdapter {
 	return &DeepgramBatchAdapter{
 		endpoint: endpoint,
 		apiKey:   apiKey,
 		model:    model,
 		language: lang,
+		keywords: keywords,
 	}
 }
 
@@ -116,9 +118,12 @@ func (a *DeepgramBatchAdapter) buildURL() (string, error) {
 	q.Set("punctuate", "true")
 
 	// add language if specified
-	providerLang := language.ToProviderFormat(a.language, "deepgram")
-	if providerLang != "" {
-		q.Set("language", providerLang)
+	if a.language != "" {
+		q.Set("language", a.language)
+	}
+
+	if len(a.keywords) > 0 {
+		q.Set("keywords", strings.Join(a.keywords, ","))
 	}
 
 	u.RawQuery = q.Encode()

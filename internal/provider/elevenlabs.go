@@ -1,7 +1,5 @@
 package provider
 
-import "github.com/leonardotrapani/hyprvoice/internal/language"
-
 // ElevenLabsProvider implements Provider for ElevenLabs services (transcription only)
 type ElevenLabsProvider struct{}
 
@@ -23,10 +21,9 @@ func (p *ElevenLabsProvider) IsLocal() bool {
 }
 
 func (p *ElevenLabsProvider) Models() []Model {
-	// ElevenLabs Scribe supports 90+ languages, including all 57 from our master list
-	// See: https://elevenlabs.io/speech-to-text
-	allLangs := language.AllLanguageCodes()
-	docsURL := "https://elevenlabs.io/docs/capabilities/speech-to-text#supported-languages"
+	// https://elevenlabs.io/speech-to-text
+	allLangs := elevenLabsTranscriptionLanguages
+	docsURL := "https://elevenlabs.io/speech-to-text"
 
 	return []Model{
 		{

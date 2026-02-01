@@ -183,12 +183,12 @@ func runConfigure(onboarding bool) error {
 	fmt.Println()
 
 	// Show next steps
-	showNextSteps(result.Config)
+	showNextSteps(result.Config, onboarding)
 
 	return nil
 }
 
-func showNextSteps(cfg *config.Config) {
+func showNextSteps(cfg *config.Config, onboarding bool) {
 	// Check if service is running
 	serviceRunning := false
 	if _, err := exec.Command("systemctl", "--user", "is-active", "--quiet", "hyprvoice.service").CombinedOutput(); err == nil {
@@ -210,12 +210,16 @@ func showNextSteps(cfg *config.Config) {
 		fmt.Printf("%d. Ensure ydotoold is running\n", step)
 		step++
 	}
-	if !serviceRunning {
-		fmt.Printf("%d. Start the service: systemctl --user start hyprvoice.service\n", step)
-	} else {
+	if serviceRunning {
 		fmt.Printf("%d. Restart the service to apply changes: systemctl --user restart hyprvoice.service\n", step)
+		step++
+	} else if onboarding {
+		fmt.Printf("%d. Start the service: systemctl --user start hyprvoice.service\n", step)
+		step++
+	} else {
+		fmt.Printf("%d. Start the service if it is not running\n", step)
+		step++
 	}
-	step++
 	fmt.Printf("%d. Test voice input: hyprvoice toggle\n", step)
 	fmt.Println()
 

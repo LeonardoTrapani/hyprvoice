@@ -47,6 +47,7 @@ func editProviders(cfg *config.Config, onboarding bool) error {
 
 	for {
 		var options []huh.Option[string]
+		options = append(options, huh.NewOption("Local", "local"))
 		for _, name := range AllProviders {
 			options = append(options, huh.NewOption(formatProviderOption(cfg, name), name))
 		}
@@ -75,6 +76,13 @@ func editProviders(cfg *config.Config, onboarding bool) error {
 			return nil
 		}
 
+		if selected == "local" {
+			if err := showLocalProviderInfo(); err != nil {
+				continue
+			}
+			return nil
+		}
+
 		apiKey, err := configureSingleProvider(cfg, selected)
 		if err != nil {
 			continue
@@ -88,6 +96,25 @@ func editProviders(cfg *config.Config, onboarding bool) error {
 			defaultToExit = true
 		}
 	}
+}
+
+func showLocalProviderInfo() error {
+	selected := "done"
+	form := huh.NewForm(
+		huh.NewGroup(
+			huh.NewSelect[string]().
+				Title("Local Models").
+				Description("No need to configure any API keys for local models, go to the next step.").
+				Options(huh.NewOption("Done", "done")).
+				Value(&selected),
+		),
+	).WithTheme(getTheme())
+
+	if err := form.Run(); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // formatProviderOption formats a provider menu option with status
@@ -190,7 +217,7 @@ func inputAPIKey(providerName string) (string, error) {
 func ensureProviderConfigured(cfg *config.Config, selectedProvider string, configuredProviders []string) []string {
 	providerName := selectedProvider
 	switch selectedProvider {
-	case "groq-transcription", "groq-translation":
+	case "groq-transcription":
 		providerName = "groq"
 	case "mistral-transcription":
 		providerName = "mistral"

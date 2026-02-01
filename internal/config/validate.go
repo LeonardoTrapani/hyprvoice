@@ -2,19 +2,17 @@ package config
 
 import (
 	"fmt"
-	"log"
 	"strings"
 
-	"github.com/leonardotrapani/hyprvoice/internal/language"
 	"github.com/leonardotrapani/hyprvoice/internal/provider"
 )
 
 // mapConfigProviderToRegistryName maps config provider names to provider registry names
-// Config uses names like "groq-transcription", "groq-translation", "mistral-transcription"
+// Config uses names like "groq-transcription", "mistral-transcription"
 // Registry uses base names like "groq", "mistral"
 func mapConfigProviderToRegistryName(configProvider string) string {
 	switch configProvider {
-	case "groq-transcription", "groq-translation":
+	case "groq-transcription":
 		return "groq"
 	case "mistral-transcription":
 		return "mistral"
@@ -85,19 +83,9 @@ func (c *Config) Validate() error {
 		}
 	}
 
-	// validate language codes - warn if not recognized but don't error
-	if c.Transcription.Language != "" && !language.IsValidCode(c.Transcription.Language) {
-		log.Printf("warning: unrecognized language code '%s' in transcription.language, will be passed as-is to provider", c.Transcription.Language)
-	}
-
 	// validate model exists
 	if c.Transcription.Model == "" {
 		return fmt.Errorf("invalid transcription.model: empty")
-	}
-
-	// groq-translation is a special case - only supports whisper-large-v3
-	if c.Transcription.Provider == "groq-translation" && c.Transcription.Model != "whisper-large-v3" {
-		return fmt.Errorf("invalid model for groq-translation: %s (must be whisper-large-v3, turbo version not supported for translation)", c.Transcription.Model)
 	}
 
 	// validate model exists in provider
@@ -205,11 +193,6 @@ func ValidateModelLanguageCompatibility(registryProvider, modelID, langCode stri
 	}
 
 	// language not supported - build helpful error message
-	langName := language.FromCode(langCode).Name
-	if langName == "Auto-detect" {
-		langName = langCode // use code if not found
-	}
-
 	// truncate supported languages for error message
 	supported := model.SupportedLanguages
 	suffix := ""
@@ -225,9 +208,8 @@ func ValidateModelLanguageCompatibility(registryProvider, modelID, langCode stri
 	}
 
 	return fmt.Errorf(
-		"model %s does not support %s (%s).%s Supported: %s%s",
+		"model %s does not support language '%s'.%s Supported: %s%s",
 		model.Name,
-		langName,
 		langCode,
 		docsHint,
 		strings.Join(supported, ", "),

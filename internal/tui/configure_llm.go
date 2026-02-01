@@ -37,7 +37,7 @@ func editLLM(cfg *config.Config, configuredProviders []string) ([]string, error)
 
 	enableLLM := cfg.LLM.Enabled
 
-	enableDesc := "LLM improves transcription by fixing grammar, removing stutters, and cleaning up text"
+	enableDesc := "LLM improves transcription by fixing grammar, removing stutters, and cleaning up text. Recommended for weak voice models"
 	if cfg.LLM.Enabled {
 		enableDesc = fmt.Sprintf("Currently: enabled (%s/%s). %s", cfg.LLM.Provider, cfg.LLM.Model, enableDesc)
 	} else {

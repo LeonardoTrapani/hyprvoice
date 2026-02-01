@@ -1,7 +1,5 @@
 package provider
 
-import "github.com/leonardotrapani/hyprvoice/internal/language"
-
 // MistralProvider implements Provider for Mistral services (transcription only)
 type MistralProvider struct{}
 
@@ -23,8 +21,9 @@ func (p *MistralProvider) IsLocal() bool {
 }
 
 func (p *MistralProvider) Models() []Model {
-	allLangs := language.AllLanguageCodes()
-	docsURL := "https://docs.mistral.ai/capabilities/speech/"
+	// https://docs.mistral.ai/capabilities/audio/
+	allLangs := mistralTranscriptionLanguages
+	docsURL := "https://docs.mistral.ai/capabilities/audio/"
 
 	return []Model{
 		{

@@ -246,7 +246,7 @@ keywords = []
 # ─────────────────────────────────────────────────────────────────────────────
 
 [transcription]
-  provider = "openai"          # "openai", "groq-transcription", "groq-translation", "mistral-transcription", "elevenlabs", "whisper-cpp"
+  provider = "openai"          # "openai", "groq-transcription", "mistral-transcription", "elevenlabs", "whisper-cpp"
   model = "whisper-1"          # Model: OpenAI="whisper-1", Groq="whisper-large-v3", Mistral="voxtral-mini-latest", ElevenLabs="scribe_v1"
   language = ""                # ISO 639-1 code (e.g., en, es, de). Empty for auto-detect.
   threads = 0                  # CPU threads for local transcription (0 = auto: uses NumCPU-1)
@@ -325,7 +325,6 @@ keywords = []
 # Transcription providers:
 # - "openai": OpenAI Whisper API (cloud-based, excellent accuracy)
 # - "groq-transcription": Groq Whisper API (very fast, models: whisper-large-v3, whisper-large-v3-turbo)
-# - "groq-translation": Groq translation to English (always outputs English text, model: whisper-large-v3)
 # - "mistral-transcription": Mistral Voxtral API (excellent for European languages, model: voxtral-mini-latest)
 # - "elevenlabs": ElevenLabs Scribe API (99 languages, models: scribe_v1, scribe_v2)
 #

@@ -8,6 +8,7 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"strings"
 	"sync"
 	"time"
 
@@ -21,6 +22,7 @@ type OpenAIRealtimeAdapter struct {
 	apiKey    string
 	model     string
 	language  string
+	keywords  []string
 	conn      *websocket.Conn
 	resultsCh chan TranscriptionResult
 	mu        sync.Mutex
@@ -56,6 +58,7 @@ type openaiRealtimeSessionConfig struct {
 type openaiRealtimeTranscription struct {
 	Model    string `json:"model,omitempty"`
 	Language string `json:"language,omitempty"`
+	Prompt   string `json:"prompt,omitempty"`
 }
 
 type openaiRealtimeTurnDetection struct {
@@ -104,12 +107,13 @@ type openaiRealtimeError struct {
 // apiKey: OpenAI API key
 // model: model ID (e.g., "gpt-4o-realtime-preview")
 // lang: canonical language code (will be used for transcription config)
-func NewOpenAIRealtimeAdapter(endpoint *provider.EndpointConfig, apiKey, model, lang string) *OpenAIRealtimeAdapter {
+func NewOpenAIRealtimeAdapter(endpoint *provider.EndpointConfig, apiKey, model, lang string, keywords []string) *OpenAIRealtimeAdapter {
 	return &OpenAIRealtimeAdapter{
 		endpoint:          endpoint,
 		apiKey:            apiKey,
 		model:             model,
 		language:          lang,
+		keywords:          keywords,
 		resultsCh:         make(chan TranscriptionResult, 100),
 		maxRetries:        3,
 		retryDelays:       defaultRetryDelays,
@@ -204,6 +208,10 @@ func (a *OpenAIRealtimeAdapter) configureSession() error {
 	// add language if specified
 	if a.language != "" {
 		sessionUpdate.Session.InputAudioTranscription.Language = a.language
+	}
+
+	if len(a.keywords) > 0 {
+		sessionUpdate.Session.InputAudioTranscription.Prompt = strings.Join(a.keywords, ", ")
 	}
 
 	return a.conn.WriteJSON(sessionUpdate)

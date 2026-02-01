@@ -35,8 +35,7 @@ func editTranscription(cfg *config.Config, configuredProviders []string) ([]stri
 					huh.NewOption("OpenAI Whisper", "openai"))
 			case "groq":
 				transcriptionOptions = append(transcriptionOptions,
-					huh.NewOption("Groq Whisper (transcription)", "groq-transcription"),
-					huh.NewOption("Groq Whisper (translate to English)", "groq-translation"))
+					huh.NewOption("Groq Whisper", "groq-transcription"))
 			case "mistral":
 				transcriptionOptions = append(transcriptionOptions,
 					huh.NewOption("Mistral Voxtral", "mistral-transcription"))
@@ -210,25 +209,37 @@ func editTranscription(cfg *config.Config, configuredProviders []string) ([]stri
 		return configuredProviders, err
 	}
 
-	languageOptions := getModelLanguageOptions(model, cfg.Transcription.Language)
-	selectedLanguage := cfg.Transcription.Language
-
-	languageForm := huh.NewForm(
-		huh.NewGroup(
-			huh.NewSelect[string]().
-				Title("Language").
-				Description("Select language for transcription").
-				Options(languageOptions...).
-				Filtering(true).
-				Value(&selectedLanguage),
-		),
-	).WithTheme(getTheme())
-
-	if err := languageForm.Run(); err != nil {
-		return configuredProviders, err
+	if cfg.Transcription.Language != "" && !model.SupportsLanguage(cfg.Transcription.Language) {
+		cfg.Transcription.Language = ""
 	}
 
-	cfg.Transcription.Language = selectedLanguage
+	if len(model.SupportedLanguages) <= 1 {
+		if len(model.SupportedLanguages) == 1 {
+			cfg.Transcription.Language = model.SupportedLanguages[0]
+		} else {
+			cfg.Transcription.Language = ""
+		}
+	} else {
+		languageOptions := getModelLanguageOptions(model, cfg.Transcription.Language)
+		selectedLanguage := cfg.Transcription.Language
+
+		languageForm := huh.NewForm(
+			huh.NewGroup(
+				huh.NewSelect[string]().
+					Title("Language").
+					Description("Select language for transcription").
+					Options(languageOptions...).
+					Filtering(true).
+					Value(&selectedLanguage),
+			),
+		).WithTheme(getTheme())
+
+		if err := languageForm.Run(); err != nil {
+			return configuredProviders, err
+		}
+
+		cfg.Transcription.Language = selectedLanguage
+	}
 
 	// set streaming mode based on model capabilities
 	if model.SupportsBothModes() {
@@ -271,8 +282,7 @@ func getUnconfiguredTranscriptionOptions(configuredProviders []string) []huh.Opt
 	}
 	if !configured["groq"] {
 		options = append(options,
-			huh.NewOption("Groq Whisper transcription (not configured)", "groq-transcription"),
-			huh.NewOption("Groq Whisper translation (not configured)", "groq-translation"))
+			huh.NewOption("Groq Whisper (not configured)", "groq-transcription"))
 	}
 	if !configured["mistral"] {
 		options = append(options, huh.NewOption("Mistral Voxtral (not configured)", "mistral-transcription"))
@@ -284,13 +294,6 @@ func getUnconfiguredTranscriptionOptions(configuredProviders []string) []huh.Opt
 }
 
 func getTranscriptionModelOptions(configProvider string) []huh.Option[string] {
-	// special case: groq-translation only supports whisper-large-v3
-	if configProvider == "groq-translation" {
-		return []huh.Option[string]{
-			huh.NewOption("whisper-large-v3 (only option)", "whisper-large-v3"),
-		}
-	}
-
 	// map config provider name to registry provider name
 	registryName := mapConfigProviderToRegistry(configProvider)
 	p := provider.GetProvider(registryName)
@@ -319,7 +322,7 @@ func getTranscriptionModelOptions(configProvider string) []huh.Option[string] {
 // mapConfigProviderToRegistry maps config provider names to registry provider names
 func mapConfigProviderToRegistry(configProvider string) string {
 	switch configProvider {
-	case "groq-transcription", "groq-translation":
+	case "groq-transcription":
 		return "groq"
 	case "mistral-transcription":
 		return "mistral"

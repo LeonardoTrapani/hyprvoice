@@ -1074,38 +1074,6 @@ func TestConfig_Validate_GroqTranscription(t *testing.T) {
 	}
 }
 
-func TestConfig_Validate_GroqTranslation(t *testing.T) {
-	config := &Config{
-		Recording: RecordingConfig{
-			SampleRate:        16000,
-			Channels:          1,
-			Format:            "s16",
-			BufferSize:        8192,
-			ChannelBufferSize: 30,
-			Timeout:           time.Minute,
-		},
-		Transcription: TranscriptionConfig{
-			Provider: "groq-translation",
-			APIKey:   "gsk-test-key",
-			Language: "es",
-			Model:    "whisper-large-v3", // Translation only supports non-turbo
-		},
-		Injection: InjectionConfig{
-			Backends: []string{"ydotool", "wtype", "clipboard"}, YdotoolTimeout: 5 * time.Second,
-			WtypeTimeout:     time.Second,
-			ClipboardTimeout: time.Second,
-		},
-		Notifications: NotificationsConfig{
-			Type: "log",
-		},
-	}
-
-	err := config.Validate()
-	if err != nil {
-		t.Errorf("Validate() should have passed with valid groq-translation config: %v", err)
-	}
-}
-
 func TestConfig_Validate_GroqInvalidModel(t *testing.T) {
 	config := &Config{
 		Recording: RecordingConfig{
@@ -1245,41 +1213,6 @@ func TestConfig_ToTranscriberConfig_GroqWithEnvVar(t *testing.T) {
 
 	if transcriberConfig.APIKey != "gsk-env-api-key" {
 		t.Errorf("Expected APIKey from env var 'gsk-env-api-key', got %s", transcriberConfig.APIKey)
-	}
-}
-
-func TestConfig_Validate_GroqTranslation_RejectsTurbo(t *testing.T) {
-	config := &Config{
-		Recording: RecordingConfig{
-			SampleRate:        16000,
-			Channels:          1,
-			Format:            "s16",
-			BufferSize:        8192,
-			ChannelBufferSize: 30,
-			Timeout:           time.Minute,
-		},
-		Transcription: TranscriptionConfig{
-			Provider: "groq-translation",
-			APIKey:   "gsk-test-key",
-			Language: "es",
-			Model:    "whisper-large-v3-turbo", // Turbo not supported for translation
-		},
-		Injection: InjectionConfig{
-			Backends: []string{"ydotool", "wtype", "clipboard"}, YdotoolTimeout: 5 * time.Second,
-			WtypeTimeout:     time.Second,
-			ClipboardTimeout: time.Second,
-		},
-		Notifications: NotificationsConfig{
-			Type: "log",
-		},
-	}
-
-	err := config.Validate()
-	if err == nil {
-		t.Error("Validate() should have rejected whisper-large-v3-turbo for groq-translation")
-	}
-	if err != nil && err.Error() != "invalid model for groq-translation: whisper-large-v3-turbo (must be whisper-large-v3, turbo version not supported for translation)" {
-		t.Errorf("Unexpected error message: %v", err)
 	}
 }
 
