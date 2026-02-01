@@ -1047,19 +1047,19 @@
 				"Add '## Streaming vs Batch' section explaining when to use each",
 				"Add '## Local vs Cloud' section with tradeoffs (privacy, latency, cost, setup)"
 			],
-			"verify": [
-				"Comparison tables are complete with Language Support column",
-				"All providers listed with accurate info",
-				"English-only models clearly marked",
-				"Language support section is comprehensive",
-				"Decision guide is helpful",
-				"File is well-formatted markdown",
-				"Typecheck passes"
-			],
-			"passes": false
-		},
-		{
-			"title": "Update docs/config.md with all providers and options",
+		"verify": [
+			"Comparison tables are complete with Language Support column",
+			"All providers listed with accurate info",
+			"English-only models clearly marked",
+			"Language support section is comprehensive",
+			"Decision guide is helpful",
+			"File is well-formatted markdown",
+			"Typecheck passes"
+		],
+		"passes": true
+	},
+	{
+		"title": "Update docs/config.md with all providers and options",
 			"steps": [
 				"Add whisper-cpp provider section with: provider, model, threads options",
 				"Add Deepgram provider section with: provider, model, api_key / DEEPGRAM_API_KEY",

@@ -480,3 +480,15 @@ Started: Sun Feb  1 12:22:47 AM CET 2026
 - Updated Project Structure: added deps/, language/, models/whisper/ packages
 - Updated File Locations: added models directory path
 - Typecheck passes
+
+### Task 45: Create docs/providers.md comparison guide
+- Created comprehensive provider comparison documentation
+- Transcription providers table: OpenAI, Groq, Mistral, ElevenLabs, Deepgram, whisper-cpp with Type/Models/Languages/Streaming/Speed/Quality/Cost
+- Individual provider sections with models list and "Best for" recommendations
+- LLM providers table: OpenAI and Groq models
+- Decision flowchart for choosing a provider (privacy -> streaming -> speed -> accuracy)
+- Quick recommendations table for common use cases
+- Language support section: full 57-language list, English-only models clearly marked, Deepgram subset languages
+- Streaming vs Batch explanation with use cases
+- Local vs Cloud comparison with pros/cons and when-to-choose guidelines
+- Typecheck passes
