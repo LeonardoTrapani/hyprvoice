@@ -759,7 +759,7 @@
 				"After max retries, final error sent and channel closed",
 				"Typecheck passes"
 			],
-			"passes": false
+			"passes": true
 		},
 		{
 			"title": "Create Deepgram Provider",

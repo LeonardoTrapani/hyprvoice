@@ -321,3 +321,17 @@ Started: Sun Feb  1 12:22:47 AM CET 2026
 - Close(): cancels context, sends close frame, waits for reader goroutine
 - Comprehensive tests with mock WebSocket server
 - All tests passing with -race flag, typecheck passes
+
+### Task 32: Add reconnection logic to ElevenLabs StreamingAdapter
+- Added `maxRetries` (default 3) and `retryDelays` (1s, 2s, 4s) fields
+- Created `connectLocked()` helper extracted from Start() for reuse
+- Created `reconnect()` method with exponential backoff:
+  - Attempts up to maxRetries connections
+  - Waits retryDelays[i] between attempts
+  - Closes old connection before reconnecting
+  - Sends notification error to resultsCh on successful reconnect
+- Updated `readLoop()` to call reconnect() on read errors
+- Updated `SendChunk()` to call reconnect() on write errors, then retry chunk
+- After max retries exhausted, sends final error and closes channel
+- Added tests: ReconnectOnReadError, ReconnectNotifiesClient, MaxRetriesExhausted, ReconnectExponentialBackoff
+- All tests passing with -race flag, typecheck passes

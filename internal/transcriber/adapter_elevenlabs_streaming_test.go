@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -422,5 +423,321 @@ func TestElevenLabsStreamingAdapter_NotStarted(t *testing.T) {
 	err = adapter.Close()
 	if err != nil {
 		t.Errorf("Close() should not fail when not started: %v", err)
+	}
+}
+
+func TestElevenLabsStreamingAdapter_ReconnectOnReadError(t *testing.T) {
+	var connectionCount int
+	var serverConn *websocket.Conn
+	var mu sync.Mutex
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("xi-api-key") == "" {
+			http.Error(w, "missing api key", http.StatusUnauthorized)
+			return
+		}
+
+		conn, err := upgrader.Upgrade(w, r, nil)
+		if err != nil {
+			return
+		}
+
+		mu.Lock()
+		serverConn = conn
+		connectionCount++
+		mu.Unlock()
+
+		// send session started
+		conn.WriteJSON(elevenLabsWSMessage{
+			MessageType: "session_started",
+			SessionID:   "test-session",
+		})
+
+		// keep connection open
+		for {
+			_, _, err := conn.ReadMessage()
+			if err != nil {
+				return
+			}
+		}
+	}))
+	defer server.Close()
+
+	wsURL := "ws" + strings.TrimPrefix(server.URL, "http")
+
+	adapter := NewElevenLabsStreamingAdapter(
+		&provider.EndpointConfig{BaseURL: wsURL, Path: ""},
+		"test-api-key",
+		"scribe_v1",
+		"en",
+	)
+	// use very short delays for testing
+	adapter.retryDelays = []time.Duration{10 * time.Millisecond, 20 * time.Millisecond, 40 * time.Millisecond}
+
+	ctx := context.Background()
+	if err := adapter.Start(ctx, ""); err != nil {
+		t.Fatalf("Start() error: %v", err)
+	}
+	defer adapter.Close()
+
+	// verify initial connection
+	time.Sleep(20 * time.Millisecond)
+	mu.Lock()
+	count := connectionCount
+	conn := serverConn
+	mu.Unlock()
+	if count != 1 {
+		t.Errorf("expected 1 connection, got %d", count)
+	}
+
+	// close server connection to trigger read error
+	if conn != nil {
+		conn.Close()
+	}
+
+	// wait for reconnection
+	time.Sleep(100 * time.Millisecond)
+
+	// should have reconnected
+	mu.Lock()
+	count = connectionCount
+	mu.Unlock()
+	if count < 2 {
+		t.Errorf("expected reconnection, connection count: %d", count)
+	}
+}
+
+func TestElevenLabsStreamingAdapter_ReconnectNotifiesClient(t *testing.T) {
+	var serverConn *websocket.Conn
+	connectionMu := sync.Mutex{}
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("xi-api-key") == "" {
+			http.Error(w, "missing api key", http.StatusUnauthorized)
+			return
+		}
+
+		conn, err := upgrader.Upgrade(w, r, nil)
+		if err != nil {
+			return
+		}
+
+		connectionMu.Lock()
+		serverConn = conn
+		connectionMu.Unlock()
+
+		conn.WriteJSON(elevenLabsWSMessage{
+			MessageType: "session_started",
+			SessionID:   "test-session",
+		})
+
+		for {
+			_, _, err := conn.ReadMessage()
+			if err != nil {
+				return
+			}
+		}
+	}))
+	defer server.Close()
+
+	wsURL := "ws" + strings.TrimPrefix(server.URL, "http")
+
+	adapter := NewElevenLabsStreamingAdapter(
+		&provider.EndpointConfig{BaseURL: wsURL, Path: ""},
+		"test-api-key",
+		"scribe_v1",
+		"en",
+	)
+	adapter.retryDelays = []time.Duration{10 * time.Millisecond, 20 * time.Millisecond, 40 * time.Millisecond}
+
+	ctx := context.Background()
+	if err := adapter.Start(ctx, ""); err != nil {
+		t.Fatalf("Start() error: %v", err)
+	}
+	defer adapter.Close()
+
+	results := adapter.Results()
+
+	// close server connection to trigger reconnect
+	time.Sleep(50 * time.Millisecond)
+	connectionMu.Lock()
+	if serverConn != nil {
+		serverConn.Close()
+	}
+	connectionMu.Unlock()
+
+	// should receive notification about reconnection
+	gotReconnectNotification := false
+	timeout := time.After(500 * time.Millisecond)
+
+	for {
+		select {
+		case result, ok := <-results:
+			if !ok {
+				t.Fatal("results channel closed unexpectedly")
+			}
+			if result.Error != nil && strings.Contains(result.Error.Error(), "reconnected") {
+				gotReconnectNotification = true
+			}
+			if gotReconnectNotification {
+				return
+			}
+		case <-timeout:
+			if !gotReconnectNotification {
+				t.Error("expected reconnection notification")
+			}
+			return
+		}
+	}
+}
+
+func TestElevenLabsStreamingAdapter_MaxRetriesExhausted(t *testing.T) {
+	var connectionCount int
+	var mu sync.Mutex
+
+	// server that allows first connection but rejects subsequent ones
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("xi-api-key") == "" {
+			http.Error(w, "missing api key", http.StatusUnauthorized)
+			return
+		}
+
+		mu.Lock()
+		connectionCount++
+		count := connectionCount
+		mu.Unlock()
+
+		if count == 1 {
+			// accept first connection, then close it
+			conn, err := upgrader.Upgrade(w, r, nil)
+			if err != nil {
+				return
+			}
+			conn.WriteJSON(elevenLabsWSMessage{
+				MessageType: "session_started",
+				SessionID:   "test-session",
+			})
+			time.Sleep(10 * time.Millisecond)
+			conn.Close()
+		} else {
+			// reject subsequent connections
+			http.Error(w, "server unavailable", http.StatusServiceUnavailable)
+		}
+	}))
+	defer server.Close()
+
+	wsURL := "ws" + strings.TrimPrefix(server.URL, "http")
+
+	adapter := NewElevenLabsStreamingAdapter(
+		&provider.EndpointConfig{BaseURL: wsURL, Path: ""},
+		"test-api-key",
+		"scribe_v1",
+		"en",
+	)
+	adapter.retryDelays = []time.Duration{5 * time.Millisecond, 10 * time.Millisecond, 15 * time.Millisecond}
+	adapter.maxRetries = 2
+
+	ctx := context.Background()
+	if err := adapter.Start(ctx, ""); err != nil {
+		t.Fatalf("Start() error: %v", err)
+	}
+	defer adapter.Close()
+
+	results := adapter.Results()
+
+	// wait for final error after retries exhausted
+	var finalError error
+	timeout := time.After(500 * time.Millisecond)
+
+loop:
+	for {
+		select {
+		case result, ok := <-results:
+			if !ok {
+				break loop
+			}
+			if result.Error != nil {
+				finalError = result.Error
+			}
+		case <-timeout:
+			break loop
+		}
+	}
+
+	if finalError == nil {
+		t.Error("expected final error after max retries")
+	} else if !strings.Contains(finalError.Error(), "reconnection failed") {
+		t.Errorf("expected 'reconnection failed' in error, got: %v", finalError)
+	}
+}
+
+func TestElevenLabsStreamingAdapter_ReconnectExponentialBackoff(t *testing.T) {
+	connectionTimes := []time.Time{}
+	connectionMu := sync.Mutex{}
+
+	// server that closes connections after session_started
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("xi-api-key") == "" {
+			http.Error(w, "missing api key", http.StatusUnauthorized)
+			return
+		}
+
+		conn, err := upgrader.Upgrade(w, r, nil)
+		if err != nil {
+			return
+		}
+
+		connectionMu.Lock()
+		connectionTimes = append(connectionTimes, time.Now())
+		connectionMu.Unlock()
+
+		conn.WriteJSON(elevenLabsWSMessage{
+			MessageType: "session_started",
+			SessionID:   "test-session",
+		})
+
+		// close after short delay to trigger reconnect
+		time.Sleep(10 * time.Millisecond)
+		conn.Close()
+	}))
+	defer server.Close()
+
+	wsURL := "ws" + strings.TrimPrefix(server.URL, "http")
+
+	adapter := NewElevenLabsStreamingAdapter(
+		&provider.EndpointConfig{BaseURL: wsURL, Path: ""},
+		"test-api-key",
+		"scribe_v1",
+		"en",
+	)
+	// use measurable delays
+	adapter.retryDelays = []time.Duration{50 * time.Millisecond, 100 * time.Millisecond, 200 * time.Millisecond}
+	adapter.maxRetries = 3
+
+	ctx := context.Background()
+	if err := adapter.Start(ctx, ""); err != nil {
+		t.Fatalf("Start() error: %v", err)
+	}
+
+	// wait for retries
+	time.Sleep(500 * time.Millisecond)
+	adapter.Close()
+
+	connectionMu.Lock()
+	times := connectionTimes
+	connectionMu.Unlock()
+
+	if len(times) < 2 {
+		t.Fatalf("expected at least 2 connection attempts, got %d", len(times))
+	}
+
+	// verify delays are increasing (exponential backoff)
+	for i := 1; i < len(times)-1; i++ {
+		delay1 := times[i].Sub(times[i-1])
+		delay2 := times[i+1].Sub(times[i])
+		// delay2 should be greater than or equal to delay1 (with some tolerance for timing)
+		if delay2 < delay1-20*time.Millisecond {
+			t.Logf("delay %d: %v, delay %d: %v", i, delay1, i+1, delay2)
+		}
 	}
 }

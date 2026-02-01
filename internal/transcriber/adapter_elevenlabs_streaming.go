@@ -9,11 +9,15 @@ import (
 	"net/http"
 	"net/url"
 	"sync"
+	"time"
 
 	"github.com/gorilla/websocket"
 	"github.com/leonardotrapani/hyprvoice/internal/language"
 	"github.com/leonardotrapani/hyprvoice/internal/provider"
 )
+
+// default retry delays for reconnection (exponential backoff: 1s, 2s, 4s)
+var defaultRetryDelays = []time.Duration{1 * time.Second, 2 * time.Second, 4 * time.Second}
 
 // ElevenLabsStreamingAdapter implements StreamingAdapter for ElevenLabs real-time transcription
 type ElevenLabsStreamingAdapter struct {
@@ -28,6 +32,10 @@ type ElevenLabsStreamingAdapter struct {
 	cancel    context.CancelFunc
 	wg        sync.WaitGroup
 	started   bool
+
+	// reconnection config
+	maxRetries  int
+	retryDelays []time.Duration
 }
 
 // ElevenLabs WebSocket message types (outgoing)
@@ -54,11 +62,13 @@ type elevenLabsWSMessage struct {
 // lang: canonical language code (will be converted to provider format)
 func NewElevenLabsStreamingAdapter(endpoint *provider.EndpointConfig, apiKey, model, lang string) *ElevenLabsStreamingAdapter {
 	return &ElevenLabsStreamingAdapter{
-		endpoint:  endpoint,
-		apiKey:    apiKey,
-		model:     model,
-		language:  lang,
-		resultsCh: make(chan TranscriptionResult, 100),
+		endpoint:    endpoint,
+		apiKey:      apiKey,
+		model:       model,
+		language:    lang,
+		resultsCh:   make(chan TranscriptionResult, 100),
+		maxRetries:  3,
+		retryDelays: defaultRetryDelays,
 	}
 }
 
@@ -79,17 +89,30 @@ func (a *ElevenLabsStreamingAdapter) Start(ctx context.Context, lang string) err
 	// create cancelable context
 	a.ctx, a.cancel = context.WithCancel(ctx)
 
-	// build WebSocket URL with query params
+	// connect to WebSocket
+	if err := a.connectLocked(); err != nil {
+		return err
+	}
+	a.started = true
+
+	// start reader goroutine
+	a.wg.Add(1)
+	go a.readLoop()
+
+	log.Printf("elevenlabs-streaming: connected, model=%s, language=%s", a.model, a.language)
+	return nil
+}
+
+// connectLocked establishes WebSocket connection. Must be called with mu held.
+func (a *ElevenLabsStreamingAdapter) connectLocked() error {
 	wsURL, err := a.buildURL()
 	if err != nil {
 		return fmt.Errorf("build websocket url: %w", err)
 	}
 
-	// prepare headers with API key
 	headers := http.Header{}
 	headers.Set("xi-api-key", a.apiKey)
 
-	// connect to WebSocket
 	log.Printf("elevenlabs-streaming: connecting to %s", wsURL)
 	conn, resp, err := websocket.DefaultDialer.DialContext(a.ctx, wsURL, headers)
 	if err != nil {
@@ -99,14 +122,61 @@ func (a *ElevenLabsStreamingAdapter) Start(ctx context.Context, lang string) err
 		return fmt.Errorf("websocket dial: %w", err)
 	}
 	a.conn = conn
-	a.started = true
-
-	// start reader goroutine
-	a.wg.Add(1)
-	go a.readLoop()
-
-	log.Printf("elevenlabs-streaming: connected, model=%s, language=%s", a.model, a.language)
 	return nil
+}
+
+// reconnect attempts to re-establish the WebSocket connection with exponential backoff.
+// Returns true if reconnection succeeded.
+func (a *ElevenLabsStreamingAdapter) reconnect() bool {
+	for attempt := 0; attempt < a.maxRetries; attempt++ {
+		// check if context cancelled
+		select {
+		case <-a.ctx.Done():
+			return false
+		default:
+		}
+
+		// wait before retry (skip wait on first attempt)
+		if attempt > 0 {
+			delay := a.retryDelays[attempt-1]
+			if attempt-1 >= len(a.retryDelays) {
+				delay = a.retryDelays[len(a.retryDelays)-1]
+			}
+			log.Printf("elevenlabs-streaming: reconnect attempt %d/%d after %v", attempt+1, a.maxRetries, delay)
+
+			select {
+			case <-a.ctx.Done():
+				return false
+			case <-time.After(delay):
+			}
+		} else {
+			log.Printf("elevenlabs-streaming: reconnect attempt %d/%d", attempt+1, a.maxRetries)
+		}
+
+		a.mu.Lock()
+		// close old connection if exists
+		if a.conn != nil {
+			a.conn.Close()
+			a.conn = nil
+		}
+
+		err := a.connectLocked()
+		a.mu.Unlock()
+
+		if err == nil {
+			log.Printf("elevenlabs-streaming: reconnected successfully")
+			// notify caller of brief interruption
+			select {
+			case a.resultsCh <- TranscriptionResult{Error: fmt.Errorf("connection interrupted, reconnected"), IsFinal: false}:
+			default:
+			}
+			return true
+		}
+
+		log.Printf("elevenlabs-streaming: reconnect failed: %v", err)
+	}
+
+	return false
 }
 
 // buildURL constructs the WebSocket URL with query parameters
@@ -149,7 +219,20 @@ func (a *ElevenLabsStreamingAdapter) readLoop() {
 		default:
 		}
 
-		_, message, err := a.conn.ReadMessage()
+		a.mu.Lock()
+		conn := a.conn
+		a.mu.Unlock()
+
+		if conn == nil {
+			// no connection, try to reconnect
+			if !a.reconnect() {
+				a.resultsCh <- TranscriptionResult{Error: fmt.Errorf("connection lost, reconnection failed after %d attempts", a.maxRetries)}
+				return
+			}
+			continue
+		}
+
+		_, message, err := conn.ReadMessage()
 		if err != nil {
 			// check if context was cancelled (normal shutdown)
 			select {
@@ -158,10 +241,13 @@ func (a *ElevenLabsStreamingAdapter) readLoop() {
 			default:
 			}
 
-			// actual error
-			log.Printf("elevenlabs-streaming: read error: %v", err)
-			a.resultsCh <- TranscriptionResult{Error: fmt.Errorf("websocket read: %w", err)}
-			return
+			// attempt reconnection
+			log.Printf("elevenlabs-streaming: read error: %v, attempting reconnection", err)
+			if !a.reconnect() {
+				a.resultsCh <- TranscriptionResult{Error: fmt.Errorf("websocket read: %w, reconnection failed", err)}
+				return
+			}
+			continue
 		}
 
 		// parse message
@@ -210,17 +296,22 @@ func (a *ElevenLabsStreamingAdapter) readLoop() {
 // SendChunk sends audio data to the WebSocket
 func (a *ElevenLabsStreamingAdapter) SendChunk(audio []byte) error {
 	a.mu.Lock()
-	defer a.mu.Unlock()
-
-	if !a.started || a.conn == nil {
+	if !a.started {
+		a.mu.Unlock()
 		return fmt.Errorf("adapter not started")
 	}
+	conn := a.conn
+	a.mu.Unlock()
 
 	// check context
 	select {
 	case <-a.ctx.Done():
 		return a.ctx.Err()
 	default:
+	}
+
+	if conn == nil {
+		return fmt.Errorf("no connection")
 	}
 
 	// encode audio as base64
@@ -235,7 +326,22 @@ func (a *ElevenLabsStreamingAdapter) SendChunk(audio []byte) error {
 	}
 
 	// send as JSON
-	if err := a.conn.WriteJSON(msg); err != nil {
+	a.mu.Lock()
+	err := a.conn.WriteJSON(msg)
+	a.mu.Unlock()
+
+	if err != nil {
+		// attempt reconnection
+		log.Printf("elevenlabs-streaming: write error: %v, attempting reconnection", err)
+		if a.reconnect() {
+			// retry the chunk after reconnection
+			a.mu.Lock()
+			err = a.conn.WriteJSON(msg)
+			a.mu.Unlock()
+			if err == nil {
+				return nil
+			}
+		}
 		return fmt.Errorf("websocket write: %w", err)
 	}
 
