@@ -81,7 +81,7 @@
 				"Warning shown if current model doesn't support selected language",
 				"Typecheck passes"
 			],
-			"passes": false
+			"passes": true
 		},
 		{
 			"title": "Remove language from transcription edit flow",

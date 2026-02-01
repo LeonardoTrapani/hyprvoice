@@ -537,3 +537,13 @@ Started: Sun Feb  1 12:22:47 AM CET 2026
 - Added case SectionLanguage in runEditExisting switch calling editLanguage()
 - Created stub configure_language.go with editLanguage() function (implementation in Task 5)
 - All tests passing, typecheck passes
+
+### Task 5: Create editLanguage function in TUI
+- Implemented `editLanguage(cfg *config.Config)` in configure_language.go
+- Uses `getLanguageOptions(nil)` for 58 options (57 languages + Auto-detect)
+- huh.NewSelect with `.Filtering(true)` for searchable language picker
+- Saves selected language to `cfg.General.Language`
+- Checks if current transcription model supports selected language via `provider.GetModel()` + `model.SupportsLanguage()`
+- Shows warning dialog with 3 options: keep incompatible language, use auto-detect, or choose different language
+- Recursive retry flow if user chooses "Choose a different language"
+- All tests passing, typecheck passes
