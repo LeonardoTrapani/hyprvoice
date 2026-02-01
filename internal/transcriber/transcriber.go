@@ -3,9 +3,12 @@ package transcriber
 import (
 	"context"
 	"fmt"
+	"log"
 	"strings"
 
+	"github.com/leonardotrapani/hyprvoice/internal/language"
 	"github.com/leonardotrapani/hyprvoice/internal/models/whisper"
+	"github.com/leonardotrapani/hyprvoice/internal/notify"
 	"github.com/leonardotrapani/hyprvoice/internal/provider"
 	"github.com/leonardotrapani/hyprvoice/internal/recording"
 )
@@ -93,6 +96,20 @@ func NewTranscriber(config Config) (Transcriber, error) {
 	// check model type
 	if model.Type != provider.Transcription {
 		return nil, fmt.Errorf("model %s is not a transcription model", config.Model)
+	}
+
+	// runtime language-model compatibility check with fallback
+	// primary validation happens at config time (hard error), this is a safety net
+	if config.Language != "" && !model.SupportsLanguage(config.Language) {
+		langName := language.FromCode(config.Language).Name
+		log.Printf("warning: model %s does not support language %s, falling back to auto-detect", model.ID, langName)
+
+		// send desktop notification to alert user
+		notifier := notify.NewDesktop(nil)
+		notifier.Error(fmt.Sprintf("Model %s does not support %s. Using auto-detect.", model.Name, langName))
+
+		// override language to auto for this session
+		config.Language = ""
 	}
 
 	// streaming models use StreamingTranscriber

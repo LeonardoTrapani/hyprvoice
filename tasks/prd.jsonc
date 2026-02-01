@@ -992,7 +992,7 @@
 				"NewTranscriber with compatible language works normally",
 				"Typecheck passes"
 			],
-			"passes": false
+			"passes": true
 		},
 		{
 			"title": "Add DEEPGRAM_API_KEY env var support",

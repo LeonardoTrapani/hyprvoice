@@ -459,3 +459,13 @@ Started: Sun Feb  1 12:22:47 AM CET 2026
 - Removed old hardcoded `isValidLanguageCode()` function
 - Updated tests: replaced TestIsValidLanguageCode with TestValidateModelLanguageCompatibility
 - All tests passing, typecheck passes
+
+### Task 42: Add runtime language-model compatibility check with fallback
+- Updated `internal/transcriber/transcriber.go` NewTranscriber()
+- Added runtime check after model lookup: `if config.Language != "" && !model.SupportsLanguage(config.Language)`
+- Logs warning with model ID and language name
+- Sends desktop notification via `notify.NewDesktop(nil).Error(...)` alerting user of fallback
+- Overrides `config.Language = ""` (auto) for this transcription session
+- This is a safety net for manually-edited configs; primary validation is at config-time (hard error)
+- Added 4 tests: LanguageFallback, AutoLanguageNoFallback, CompatibleLanguageNoFallback, MultilingualModelAllLanguages
+- All tests passing with -race flag, typecheck passes

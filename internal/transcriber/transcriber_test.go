@@ -994,3 +994,85 @@ func TestStreamingTranscriber_GetFinalTranscriptionSafe(t *testing.T) {
 		t.Errorf("Stop() error = %v", err)
 	}
 }
+
+func TestNewTranscriber_LanguageFallback(t *testing.T) {
+	// test that incompatible language falls back to auto-detect (no error)
+	// distil-whisper-large-v3-en only supports English
+	config := Config{
+		Provider: "groq-transcription",
+		APIKey:   "test-key",
+		Language: "es", // Spanish not supported by English-only model
+		Model:    "distil-whisper-large-v3-en",
+	}
+
+	// should succeed (fallback to auto), not error
+	transcriber, err := NewTranscriber(config)
+	if err != nil {
+		t.Errorf("NewTranscriber() should fall back to auto, got error: %v", err)
+		return
+	}
+
+	if transcriber == nil {
+		t.Errorf("NewTranscriber() returned nil transcriber")
+	}
+}
+
+func TestNewTranscriber_AutoLanguageNoFallback(t *testing.T) {
+	// test that auto language never triggers warning/fallback
+	config := Config{
+		Provider: "groq-transcription",
+		APIKey:   "test-key",
+		Language: "", // auto
+		Model:    "distil-whisper-large-v3-en",
+	}
+
+	transcriber, err := NewTranscriber(config)
+	if err != nil {
+		t.Errorf("NewTranscriber() error = %v", err)
+		return
+	}
+
+	if transcriber == nil {
+		t.Errorf("NewTranscriber() returned nil transcriber")
+	}
+}
+
+func TestNewTranscriber_CompatibleLanguageNoFallback(t *testing.T) {
+	// test that compatible language works normally
+	config := Config{
+		Provider: "groq-transcription",
+		APIKey:   "test-key",
+		Language: "en", // English supported by English-only model
+		Model:    "distil-whisper-large-v3-en",
+	}
+
+	transcriber, err := NewTranscriber(config)
+	if err != nil {
+		t.Errorf("NewTranscriber() error = %v", err)
+		return
+	}
+
+	if transcriber == nil {
+		t.Errorf("NewTranscriber() returned nil transcriber")
+	}
+}
+
+func TestNewTranscriber_MultilingualModelAllLanguages(t *testing.T) {
+	// test that multilingual model accepts any language without fallback
+	config := Config{
+		Provider: "groq-transcription",
+		APIKey:   "test-key",
+		Language: "es",               // Spanish
+		Model:    "whisper-large-v3", // multilingual
+	}
+
+	transcriber, err := NewTranscriber(config)
+	if err != nil {
+		t.Errorf("NewTranscriber() error = %v", err)
+		return
+	}
+
+	if transcriber == nil {
+		t.Errorf("NewTranscriber() returned nil transcriber")
+	}
+}
