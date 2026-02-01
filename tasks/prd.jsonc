@@ -200,7 +200,7 @@
 				"Override behavior documented",
 				"Typecheck passes"
 			],
-			"passes": false
+			"passes": true
 		},
 		{
 			"title": "Add migration for existing configs",

@@ -10,6 +10,7 @@ Configuration is stored in `~/.config/hyprvoice/config.toml` and changes are app
 
 ## Table of Contents
 
+- [General Settings](#general-settings)
 - [Unified Provider System](#unified-provider-system)
 - [Transcription Providers](#transcription-providers)
   - [Cloud Providers](#cloud-providers)
@@ -24,6 +25,41 @@ Configuration is stored in `~/.config/hyprvoice/config.toml` and changes are app
 - [Notifications](#notifications)
 - [Example Configurations](#example-configurations)
 - [Migration from Old Config Format](#migration-from-old-config-format)
+
+## General Settings
+
+The `[general]` section contains application-wide settings:
+
+```toml
+[general]
+language = ""              # ISO 639-1 code (e.g., "en", "es", "de"). Empty for auto-detect.
+```
+
+### Language
+
+The global language setting applies to all transcription providers:
+
+```toml
+[general]
+language = ""              # Auto-detect (recommended)
+# language = "en"          # English
+# language = "es"          # Spanish
+# language = "de"          # German
+```
+
+**Override behavior:** You can override the global language for a specific transcription provider:
+
+```toml
+[general]
+language = "en"            # Default to English
+
+[transcription]
+# language = "es"          # Uncomment to override for this provider only
+```
+
+When `transcription.language` is set, it takes precedence over `general.language`. This allows you to set a default language but override it for specific use cases.
+
+See [Language Configuration](#language-configuration) for the full list of supported languages and model compatibility.
 
 ## Unified Provider System
 
@@ -63,9 +99,11 @@ Hyprvoice supports multiple transcription backends. See [docs/providers.md](./pr
 Cloud-based transcription using OpenAI's Whisper API:
 
 ```toml
+[general]
+language = ""                   # Empty for auto-detect, or "en", "es", "fr", etc.
+
 [transcription]
 provider = "openai"
-language = ""                   # Empty for auto-detect, or "en", "es", "fr", etc.
 model = "whisper-1"
 ```
 
@@ -80,9 +118,11 @@ model = "whisper-1"
 Fast cloud-based transcription using Groq's Whisper API:
 
 ```toml
+[general]
+language = ""                   # Empty for auto-detect, or "en", "es", "fr", etc.
+
 [transcription]
 provider = "groq-transcription"
-language = ""                   # Empty for auto-detect, or "en", "es", "fr", etc.
 model = "whisper-large-v3"      # Or "whisper-large-v3-turbo" for faster processing
 ```
 
@@ -116,9 +156,11 @@ model = "whisper-large-v3"
 Transcription using Mistral's Voxtral API, excellent for European languages:
 
 ```toml
+[general]
+language = ""                   # Empty for auto-detect
+
 [transcription]
 provider = "mistral-transcription"
-language = ""
 model = "voxtral-mini-latest"   # Or "voxtral-mini-2507"
 ```
 
@@ -127,9 +169,11 @@ model = "voxtral-mini-latest"   # Or "voxtral-mini-2507"
 Transcription using ElevenLabs' Scribe API with 57+ language support:
 
 ```toml
+[general]
+language = ""                   # Empty for auto-detect
+
 [transcription]
 provider = "elevenlabs"
-language = ""
 model = "scribe_v1"             # Or "scribe_v2" for lower latency
 ```
 
@@ -144,12 +188,14 @@ model = "scribe_v1"             # Or "scribe_v2" for lower latency
 Fast streaming transcription using Deepgram's Nova models:
 
 ```toml
+[general]
+language = ""                   # Empty for auto-detect
+
 [providers.deepgram]
   api_key = "..."               # Or set DEEPGRAM_API_KEY env var
 
 [transcription]
 provider = "deepgram"
-language = ""
 model = "nova-3"                # Or "nova-2" for different language support
 ```
 
@@ -170,9 +216,11 @@ Run Whisper models locally on your machine. No API keys, no network latency, com
 2. Download a model: `hyprvoice model download base.en`
 
 ```toml
+[general]
+language = ""                   # Empty for auto-detect
+
 [transcription]
 provider = "whisper-cpp"
-language = ""                   # Empty for auto-detect
 model = "base.en"               # English-only model (fastest)
 threads = 0                     # 0 = auto (uses NumCPU - 1)
 ```
@@ -230,10 +278,10 @@ model = "gpt-4o-realtime-preview"
 
 ## Language Configuration
 
-Configure the expected spoken language for better accuracy:
+Configure the expected spoken language for better accuracy. Language is set globally in `[general]`:
 
 ```toml
-[transcription]
+[general]
 language = ""                   # Empty for auto-detect (recommended)
 # Or specify a language code:
 # language = "en"               # English
@@ -241,6 +289,16 @@ language = ""                   # Empty for auto-detect (recommended)
 # language = "fr"               # French
 # language = "zh"               # Chinese
 # language = "ja"               # Japanese
+```
+
+**Override per-provider:** If you need different languages for different setups:
+
+```toml
+[general]
+language = "en"                 # Global default
+
+[transcription]
+# language = "es"               # Uncomment to override for transcription only
 ```
 
 **Recommendations:**
@@ -273,12 +331,14 @@ Some models only support English. Hyprvoice validates compatibility:
 1. **At config time (TUI/validation):** Selecting an English-only model with a non-English language shows an error and prevents saving
 2. **At runtime (safety net):** If config was manually edited to an invalid combination, hyprvoice logs a warning, sends a desktop notification, and falls back to auto-detect
 
-```
+```toml
 # This combination will be rejected:
+[general]
+language = "es"                         # Error: model does not support Spanish
+
 [transcription]
 provider = "groq-transcription"
 model = "distil-whisper-large-v3-en"   # English only!
-language = "es"                         # Error: model does not support Spanish
 ```
 
 ## Model Management
@@ -525,6 +585,9 @@ You can customize notification text via the `[notifications.messages]` section:
 ### Fast Transcription Only (No LLM)
 
 ```toml
+[general]
+language = ""                   # Auto-detect
+
 [providers.groq]
   api_key = "gsk_..."
 
@@ -539,6 +602,9 @@ You can customize notification text via the `[notifications.messages]` section:
 ### High Quality with OpenAI (Default)
 
 ```toml
+[general]
+language = ""                   # Auto-detect
+
 [providers.openai]
   api_key = "sk-..."
 
@@ -555,6 +621,9 @@ You can customize notification text via the `[notifications.messages]` section:
 ### Budget-Friendly with Groq
 
 ```toml
+[general]
+language = ""                   # Auto-detect
+
 [providers.groq]
   api_key = "gsk_..."
 
@@ -571,6 +640,9 @@ You can customize notification text via the `[notifications.messages]` section:
 ### Mixed Providers (Groq Transcription + OpenAI LLM)
 
 ```toml
+[general]
+language = ""                   # Auto-detect
+
 [providers.openai]
   api_key = "sk-..."
 
@@ -592,6 +664,9 @@ You can customize notification text via the `[notifications.messages]` section:
 ```toml
 # No API keys needed!
 
+[general]
+language = ""                   # Auto-detect
+
 [transcription]
   provider = "whisper-cpp"
   model = "base.en"
@@ -604,6 +679,9 @@ You can customize notification text via the `[notifications.messages]` section:
 ### Real-Time Streaming with Deepgram
 
 ```toml
+[general]
+language = ""                   # Auto-detect
+
 [providers.deepgram]
   api_key = "..."
 
@@ -618,6 +696,9 @@ You can customize notification text via the `[notifications.messages]` section:
 ### Ultra-Low Latency Streaming
 
 ```toml
+[general]
+language = ""                   # Auto-detect
+
 [providers.elevenlabs]
   api_key = "..."
 
@@ -629,7 +710,55 @@ You can customize notification text via the `[notifications.messages]` section:
   enabled = false
 ```
 
+### Multilingual Setup with Specific Language
+
+```toml
+[general]
+language = "es"                 # Always transcribe as Spanish
+
+[providers.openai]
+  api_key = "sk-..."
+
+[transcription]
+  provider = "openai"
+  model = "whisper-1"
+
+[llm]
+  enabled = true
+  provider = "openai"
+  model = "gpt-4o-mini"
+```
+
 ## Migration from Old Config Format
+
+### Language Migration
+
+If you have `transcription.language` set in your config, it will continue to work but is now an override. The recommended approach is to move it to `[general]`:
+
+**Old format (still works as override):**
+
+```toml
+[transcription]
+  provider = "openai"
+  language = "en"     # Works but is now an override
+  model = "whisper-1"
+```
+
+**New format (recommended):**
+
+```toml
+[general]
+  language = "en"     # Global setting
+
+[transcription]
+  provider = "openai"
+  model = "whisper-1"
+  # language = "es"   # Only set here to override [general]
+```
+
+When loading, if `transcription.language` is set but `general.language` is not, the language is automatically migrated to the general section. Run `hyprvoice configure` and save to persist this change.
+
+### API Key Migration
 
 If you're upgrading from an older version with `transcription.api_key`:
 

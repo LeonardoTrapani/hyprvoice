@@ -238,6 +238,7 @@ hyprvoice configure
 The wizard guides you through all settings with a user-friendly interface:
 
 - **Providers** - API keys for OpenAI, Groq, Mistral, ElevenLabs, Deepgram
+- **Language** - Global language setting for all transcription (57 languages + auto-detect)
 - **Transcription** - Speech-to-text provider and model selection (cloud or local)
 - **LLM** - Post-processing to clean up transcriptions (enabled by default)
 - **Keywords** - Domain-specific terms for better accuracy
@@ -299,10 +300,12 @@ For complete offline privacy, use whisper.cpp for local transcription - no API k
 ### Configuration
 
 ```toml
+[general]
+language = ""              # empty for auto-detect, or "en", "es", etc.
+
 [transcription]
 provider = "whisper-cpp"
 model = "base.en"          # or "base" for multilingual
-language = ""              # empty for auto-detect
 threads = 0                # 0 = auto (NumCPU - 1)
 ```
 
@@ -321,6 +324,9 @@ For real-time transcription results as you speak, use streaming providers. Text 
 ### Configuration
 
 ```toml
+[general]
+language = ""              # empty for auto-detect
+
 # ElevenLabs streaming
 [providers.elevenlabs]
 api_key = "..."

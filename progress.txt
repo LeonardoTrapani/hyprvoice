@@ -609,3 +609,19 @@ Started: Sun Feb  1 12:22:47 AM CET 2026
   - `TestConfig_Validate_GeneralLanguage/valid_override_with_compatible_language`
   - `TestConfig_Validate_GeneralLanguage/auto_language_always_passes`
 - All tests passing, typecheck passes
+
+### Task 12: Update README and docs for general language setting
+- Updated README.md:
+  - Local Transcription config example: language moved to `[general]` section
+  - Streaming Transcription config example: added `[general]` section with language
+  - Configuration wizard list: added Language menu item
+- Updated docs/config.md:
+  - Added General Settings section at top with language field documentation
+  - Added override behavior explanation (transcription.language overrides general.language)
+  - Updated all provider examples to show language in `[general]` section
+  - Updated Language Configuration section to show `[general]` format
+  - Updated Language-Model Compatibility example to use `[general]` format
+  - Updated all Example Configurations with `[general]` section
+  - Added "Multilingual Setup with Specific Language" example
+  - Added Language Migration section explaining the change from transcription.language
+- Typecheck passes
