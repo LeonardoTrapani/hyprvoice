@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
@@ -403,6 +404,7 @@ func modelCmd() *cobra.Command {
 	}
 
 	cmd.AddCommand(modelListCmd())
+	cmd.AddCommand(modelDownloadCmd())
 
 	return cmd
 }
@@ -526,4 +528,61 @@ func printModelLine(m provider.Model) {
 	}
 
 	fmt.Println(line)
+}
+
+func modelDownloadCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "download <model-name>",
+		Short: "Download a local model (e.g. whisper models)",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runModelDownload(cmd.Context(), args[0])
+		},
+	}
+}
+
+func runModelDownload(ctx context.Context, modelName string) error {
+	// find the model across all providers
+	model, _, err := provider.FindModelByID(modelName)
+	if err != nil {
+		return fmt.Errorf("unknown model: %s", modelName)
+	}
+
+	// check if it needs download (local model)
+	if !model.NeedsDownload() {
+		fmt.Printf("model '%s' is a cloud model and does not require download\n", modelName)
+		return nil
+	}
+
+	// check if already installed
+	if whisper.IsInstalled(modelName) {
+		path := whisper.GetModelPath(modelName)
+		fmt.Printf("model '%s' is already installed at %s\n", modelName, path)
+		return nil
+	}
+
+	// download with progress
+	fmt.Printf("downloading %s", modelName)
+	if model.LocalInfo != nil && model.LocalInfo.Size != "" {
+		fmt.Printf(" (%s)", model.LocalInfo.Size)
+	}
+	fmt.Println("...")
+
+	var lastPercent int
+	err = whisper.Download(ctx, modelName, func(downloaded, total int64) {
+		if total > 0 {
+			percent := int(downloaded * 100 / total)
+			if percent >= lastPercent+10 {
+				fmt.Printf("%d%% ", percent)
+				lastPercent = percent
+			}
+		}
+	})
+	if err != nil {
+		return fmt.Errorf("download failed: %w", err)
+	}
+
+	path := whisper.GetModelPath(modelName)
+	fmt.Printf("\ndownload complete: %s\n", path)
+	return nil
 }

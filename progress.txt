@@ -246,3 +246,13 @@ Started: Sun Feb  1 12:22:47 AM CET 2026
 - Shows: Model ID, Description, [streaming] tag if applicable, [size] for local models
 - Groups output by provider with headers
 - All tests passing, typecheck passes
+
+### Task 25: Add model download CLI command
+- Created `modelDownloadCmd()` subcommand with Use: 'download <model-name>'
+- Uses `provider.FindModelByID()` to search all providers for model
+- Checks `model.NeedsDownload()` - if false, prints 'cloud model, does not require download'
+- Checks `whisper.IsInstalled()` - if true, prints 'already installed at {path}'
+- Downloads with progress callback showing percentage (10%, 20%, ...)
+- Prints success message with full model path
+- Tested: cloud model rejection, unknown model error, download with progress, already installed
+- All tests passing, typecheck passes

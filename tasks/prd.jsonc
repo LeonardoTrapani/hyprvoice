@@ -596,7 +596,7 @@
 				"Shows error for cloud models that don't need download",
 				"Typecheck passes"
 			],
-			"passes": false
+			"passes": true
 		},
 		{
 			"title": "Add model remove CLI command",
