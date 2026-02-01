@@ -51,6 +51,9 @@ func (c *Config) resolveAPIKeyForProvider(provider string) string {
 	case "elevenlabs":
 		providerName = "elevenlabs"
 		envVar = "ELEVENLABS_API_KEY"
+	case "deepgram":
+		providerName = "deepgram"
+		envVar = "DEEPGRAM_API_KEY"
 	}
 
 	if c.Providers != nil {

@@ -46,6 +46,8 @@ keywords = []
 #   api_key = ""               # Mistral API key (or set MISTRAL_API_KEY env var)
 # [providers.elevenlabs]
 #   api_key = ""               # ElevenLabs API key (or set ELEVENLABS_API_KEY env var)
+# [providers.deepgram]
+#   api_key = ""               # Deepgram API key (or set DEEPGRAM_API_KEY env var)
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Audio Recording

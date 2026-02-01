@@ -1002,13 +1002,13 @@
 				"Update providers config section to include deepgram",
 				"Update config template in save.go with deepgram section"
 			],
-			"verify": [
-				"Deepgram API key resolved from config or DEEPGRAM_API_KEY env",
-				"Config template includes deepgram section",
-				"Typecheck passes"
-			],
-			"passes": false
-		},
+		"verify": [
+			"Deepgram API key resolved from config or DEEPGRAM_API_KEY env",
+			"Config template includes deepgram section",
+			"Typecheck passes"
+		],
+		"passes": true
+	},
 		// ============================================================================
 		// PHASE 9: DOCUMENTATION
 		// Consolidated at the end - update all docs once architecture is stable

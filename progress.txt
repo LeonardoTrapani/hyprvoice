@@ -418,3 +418,10 @@ Started: Sun Feb  1 12:22:47 AM CET 2026
 - Updated tests: streaming models now succeed (not error)
 - Added tests for deepgram and openai-realtime streaming models
 - All tests passing with -race flag, typecheck passes
+
+### Task 43: Add DEEPGRAM_API_KEY env var support
+- Added `case "deepgram"` to `resolveAPIKeyForProvider()` in convert.go
+- Maps to providerName="deepgram" and envVar="DEEPGRAM_API_KEY"
+- Updated config template in save.go with commented deepgram section
+- Added "deepgram" to AllProviders and providerDisplayNames in configure.go for TUI
+- All tests passing, typecheck passes

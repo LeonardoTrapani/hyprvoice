@@ -17,7 +17,7 @@ type ConfigureResult struct {
 }
 
 // AllProviders is the list of all supported cloud providers (require API keys)
-var AllProviders = []string{"openai", "groq", "mistral", "elevenlabs"}
+var AllProviders = []string{"openai", "groq", "mistral", "elevenlabs", "deepgram"}
 
 // LocalProviders is the list of local providers (no API key required)
 var LocalProviders = []string{"whisper-cpp"}
@@ -28,6 +28,7 @@ var providerDisplayNames = map[string]string{
 	"groq":        "Groq",
 	"mistral":     "Mistral",
 	"elevenlabs":  "ElevenLabs",
+	"deepgram":    "Deepgram",
 	"whisper-cpp": "Whisper.cpp (local)",
 }
 
