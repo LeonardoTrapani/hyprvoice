@@ -159,3 +159,11 @@ Started: Sun Feb  1 12:22:47 AM CET 2026
   - `TestNewTranscriber/streaming_model_returns_error` - returns error for streaming model
 - `go test ./internal/transcriber/...` passes
 - Typecheck passes
+
+### Task 18: Create dependency checker for whisper-cli
+- Created `internal/deps/deps.go`
+- Status struct: Installed bool, Path string, Version string
+- CheckWhisperCli() uses exec.LookPath, tries --version (whisper-cli doesn't support it, but handles gracefully)
+- CheckFFmpeg() same pattern, version extraction works
+- Both return Installed=false when binary not found, no errors thrown
+- All tests passing, typecheck passes

@@ -432,7 +432,7 @@
 				"No errors thrown, just returns status",
 				"Typecheck passes"
 			],
-			"passes": false
+			"passes": true
 		},
 		{
 			"title": "Create whisper model info and download management",
