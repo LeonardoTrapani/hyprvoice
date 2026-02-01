@@ -575,7 +575,7 @@
 				"Output includes size for local models",
 				"Typecheck passes"
 			],
-			"passes": false
+			"passes": true
 		},
 		{
 			"title": "Add model download CLI command",

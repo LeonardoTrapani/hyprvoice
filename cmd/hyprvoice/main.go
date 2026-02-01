@@ -4,11 +4,14 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"sort"
 	"strings"
 
 	"github.com/leonardotrapani/hyprvoice/internal/bus"
 	"github.com/leonardotrapani/hyprvoice/internal/config"
 	"github.com/leonardotrapani/hyprvoice/internal/daemon"
+	"github.com/leonardotrapani/hyprvoice/internal/models/whisper"
+	"github.com/leonardotrapani/hyprvoice/internal/provider"
 	"github.com/leonardotrapani/hyprvoice/internal/tui"
 	"github.com/spf13/cobra"
 )
@@ -31,6 +34,7 @@ func init() {
 		versionCmd(),
 		stopCmd(),
 		configureCmd(),
+		modelCmd(),
 	)
 }
 
@@ -390,4 +394,136 @@ func hasCustomMessages(msgs config.MessagesConfig) bool {
 		msgs.OperationCancelled.Title != "" || msgs.OperationCancelled.Body != "" ||
 		msgs.RecordingAborted.Body != "" ||
 		msgs.InjectionAborted.Body != ""
+}
+
+func modelCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "model",
+		Short: "Manage transcription models",
+	}
+
+	cmd.AddCommand(modelListCmd())
+
+	return cmd
+}
+
+func modelListCmd() *cobra.Command {
+	var providerFilter string
+	var typeFilter string
+
+	cmd := &cobra.Command{
+		Use:   "list",
+		Short: "List available transcription and LLM models",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runModelList(providerFilter, typeFilter)
+		},
+	}
+
+	cmd.Flags().StringVar(&providerFilter, "provider", "", "filter by provider name")
+	cmd.Flags().StringVar(&typeFilter, "type", "", "filter by type: transcription, llm")
+
+	return cmd
+}
+
+func runModelList(providerFilter, typeFilter string) error {
+	// parse type filter
+	var filterType *provider.ModelType
+	if typeFilter != "" {
+		switch strings.ToLower(typeFilter) {
+		case "transcription":
+			t := provider.Transcription
+			filterType = &t
+		case "llm":
+			t := provider.LLM
+			filterType = &t
+		default:
+			return fmt.Errorf("invalid type: %s (use 'transcription' or 'llm')", typeFilter)
+		}
+	}
+
+	// get providers to iterate
+	providerNames := provider.ListProviders()
+	sort.Strings(providerNames)
+
+	// filter by provider if specified
+	if providerFilter != "" {
+		found := false
+		for _, name := range providerNames {
+			if name == providerFilter {
+				providerNames = []string{name}
+				found = true
+				break
+			}
+		}
+		if !found {
+			return fmt.Errorf("unknown provider: %s", providerFilter)
+		}
+	}
+
+	for _, providerName := range providerNames {
+		p := provider.GetProvider(providerName)
+		if p == nil {
+			continue
+		}
+
+		models := p.Models()
+		if filterType != nil {
+			models = provider.ModelsOfType(p, *filterType)
+		}
+
+		if len(models) == 0 {
+			continue
+		}
+
+		// print provider header
+		fmt.Printf("\n%s:\n", providerName)
+
+		for _, m := range models {
+			printModelLine(m)
+		}
+	}
+
+	fmt.Println()
+	return nil
+}
+
+func printModelLine(m provider.Model) {
+	// build prefix: checkmark for installed local models
+	prefix := "  "
+	if m.Local {
+		if whisper.IsInstalled(m.ID) {
+			prefix = "  [x]"
+		} else {
+			prefix = "  [ ]"
+		}
+	}
+
+	// build suffix parts
+	var parts []string
+
+	// type indicator
+	if m.Type == provider.LLM {
+		parts = append(parts, "llm")
+	}
+
+	// streaming indicator
+	if m.Streaming {
+		parts = append(parts, "streaming")
+	}
+
+	// size for local models
+	if m.LocalInfo != nil && m.LocalInfo.Size != "" {
+		parts = append(parts, m.LocalInfo.Size)
+	}
+
+	// build line
+	line := fmt.Sprintf("%s %s", prefix, m.ID)
+	if m.Description != "" {
+		line += fmt.Sprintf(" - %s", m.Description)
+	}
+	if len(parts) > 0 {
+		line += fmt.Sprintf(" [%s]", strings.Join(parts, ", "))
+	}
+
+	fmt.Println(line)
 }

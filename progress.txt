@@ -235,3 +235,14 @@ Started: Sun Feb  1 12:22:47 AM CET 2026
 - Note: Threads field, ToTranscriberConfig, and template were already done in Task 16
 - Added comprehensive tests for whisper-cpp validation and threads auto-detection
 - All tests passing, typecheck passes
+
+### Task 24: Add model list CLI command
+- Created `modelCmd()` returning cobra.Command with Use: 'model'
+- Created `modelListCmd()` subcommand with Use: 'list'
+- Added `--provider` flag to filter by provider name
+- Added `--type` flag to filter by 'transcription' or 'llm'
+- Iterates all providers sorted alphabetically, gets Models(), filters by type
+- For local models: shows [x] if installed via whisper.IsInstalled(), [ ] if not
+- Shows: Model ID, Description, [streaming] tag if applicable, [size] for local models
+- Groups output by provider with headers
+- All tests passing, typecheck passes
