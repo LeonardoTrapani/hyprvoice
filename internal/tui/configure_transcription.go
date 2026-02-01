@@ -7,7 +7,6 @@ import (
 	"github.com/charmbracelet/huh"
 	"github.com/leonardotrapani/hyprvoice/internal/config"
 	"github.com/leonardotrapani/hyprvoice/internal/deps"
-	"github.com/leonardotrapani/hyprvoice/internal/language"
 	"github.com/leonardotrapani/hyprvoice/internal/models/whisper"
 	"github.com/leonardotrapani/hyprvoice/internal/provider"
 )
@@ -114,13 +113,7 @@ func editTranscription(cfg *config.Config, configuredProviders []string) ([]stri
 	}
 	cfg.Transcription.Provider = selectedProvider
 
-	// use effective language for model compatibility display
-	effectiveLanguage := cfg.General.Language
-	if cfg.Transcription.Language != "" {
-		effectiveLanguage = cfg.Transcription.Language
-	}
-
-	modelOptions := getTranscriptionModelOptions(selectedProvider, effectiveLanguage)
+	modelOptions := getTranscriptionModelOptions(selectedProvider)
 	selectedModel := cfg.Transcription.Model
 	if selectedModel == "" && len(modelOptions) > 0 {
 		// skip header options (empty value) to find first real model
@@ -156,41 +149,7 @@ func editTranscription(cfg *config.Config, configuredProviders []string) ([]stri
 		return editTranscription(cfg, configuredProviders)
 	}
 
-	// validate language-model compatibility before saving
 	registryName := mapConfigProviderToRegistry(selectedProvider)
-	if err := provider.ValidateModelLanguage(registryName, selectedModel, effectiveLanguage); err != nil {
-		// show error dialog - user needs to change language in Language menu
-		fmt.Println()
-		fmt.Println(StyleError.Render("Language-Model Incompatibility"))
-		fmt.Println(StyleMuted.Render(err.Error()))
-		fmt.Println()
-		fmt.Println(StyleMuted.Render("You can:"))
-		fmt.Println(StyleMuted.Render("  - Choose a different model that supports your language"))
-		fmt.Println(StyleMuted.Render("  - Change language to 'Auto-detect' in the Language menu"))
-		fmt.Println()
-
-		var retry bool
-		retryForm := huh.NewForm(
-			huh.NewGroup(
-				huh.NewConfirm().
-					Title("Try again?").
-					Description("Choose a different model").
-					Affirmative("Yes, let me pick another model").
-					Negative("Cancel").
-					Value(&retry),
-			),
-		).WithTheme(getTheme())
-
-		if err := retryForm.Run(); err != nil {
-			return configuredProviders, err
-		}
-
-		if retry {
-			// recurse to let user pick another model
-			return editTranscription(cfg, configuredProviders)
-		}
-		return configuredProviders, nil
-	}
 
 	// for whisper-cpp, check if model needs download
 	if selectedProvider == "whisper-cpp" && !whisper.IsInstalled(selectedModel) {
@@ -245,35 +204,55 @@ func editTranscription(cfg *config.Config, configuredProviders []string) ([]stri
 
 	cfg.Transcription.Model = selectedModel
 
-	// set streaming mode based on model capabilities
+	// select language for this model
 	model, err := provider.GetModel(registryName, selectedModel)
-	if err == nil {
-		if model.SupportsBothModes() {
-			// model supports both: ask user
-			useStreaming := cfg.Transcription.Streaming
-			streamingForm := huh.NewForm(
-				huh.NewGroup(
-					huh.NewConfirm().
-						Title("Enable streaming mode?").
-						Description("This model supports both batch and streaming modes").
-						Affirmative("Yes, use streaming (real-time)").
-						Negative("No, use batch (after recording)").
-						Value(&useStreaming),
-				),
-			).WithTheme(getTheme())
+	if err != nil {
+		return configuredProviders, err
+	}
 
-			if err := streamingForm.Run(); err != nil {
-				return configuredProviders, err
-			}
-			cfg.Transcription.Streaming = useStreaming
-		} else if model.SupportsStreaming {
-			// streaming-only model
-			cfg.Transcription.Streaming = true
-			fmt.Println(StyleSuccess.Render("Streaming mode enabled (this model only supports streaming)"))
-		} else {
-			// batch-only model
-			cfg.Transcription.Streaming = false
+	languageOptions := getModelLanguageOptions(model, cfg.Transcription.Language)
+	selectedLanguage := cfg.Transcription.Language
+
+	languageForm := huh.NewForm(
+		huh.NewGroup(
+			huh.NewSelect[string]().
+				Title("Language").
+				Description("Select language for transcription").
+				Options(languageOptions...).
+				Filtering(true).
+				Value(&selectedLanguage),
+		),
+	).WithTheme(getTheme())
+
+	if err := languageForm.Run(); err != nil {
+		return configuredProviders, err
+	}
+
+	cfg.Transcription.Language = selectedLanguage
+
+	// set streaming mode based on model capabilities
+	if model.SupportsBothModes() {
+		useStreaming := cfg.Transcription.Streaming
+		streamingForm := huh.NewForm(
+			huh.NewGroup(
+				huh.NewConfirm().
+					Title("Enable streaming mode?").
+					Description("This model supports both batch and streaming modes").
+					Affirmative("Yes, use streaming (real-time)").
+					Negative("No, use batch (after recording)").
+					Value(&useStreaming),
+			),
+		).WithTheme(getTheme())
+
+		if err := streamingForm.Run(); err != nil {
+			return configuredProviders, err
 		}
+		cfg.Transcription.Streaming = useStreaming
+	} else if model.SupportsStreaming {
+		cfg.Transcription.Streaming = true
+		fmt.Println(StyleSuccess.Render("Streaming mode enabled (this model only supports streaming)"))
+	} else {
+		cfg.Transcription.Streaming = false
 	}
 
 	return configuredProviders, nil
@@ -304,7 +283,7 @@ func getUnconfiguredTranscriptionOptions(configuredProviders []string) []huh.Opt
 	return options
 }
 
-func getTranscriptionModelOptions(configProvider string, currentLang string) []huh.Option[string] {
+func getTranscriptionModelOptions(configProvider string) []huh.Option[string] {
 	// special case: groq-translation only supports whisper-large-v3
 	if configProvider == "groq-translation" {
 		return []huh.Option[string]{
@@ -323,7 +302,7 @@ func getTranscriptionModelOptions(configProvider string, currentLang string) []h
 
 	var options []huh.Option[string]
 	for _, m := range models {
-		label := buildModelLabel(m, currentLang)
+		label := buildModelLabel(m)
 		if m.Local && registryName == "whisper-cpp" {
 			if whisper.IsInstalled(m.ID) {
 				label = "[x] " + label
@@ -350,7 +329,7 @@ func mapConfigProviderToRegistry(configProvider string) string {
 }
 
 // buildModelLabel creates the display label for a model option
-func buildModelLabel(m provider.Model, currentLang string) string {
+func buildModelLabel(m provider.Model) string {
 	label := fmt.Sprintf("%s (%s)", m.Name, m.Description)
 
 	// append size for local models
@@ -364,22 +343,6 @@ func buildModelLabel(m provider.Model, currentLang string) string {
 	} else if m.SupportsStreaming {
 		label += " [streaming]"
 	}
-	// batch-only models don't need a tag (it's the default)
-
-	// append language warning if model doesn't support current language
-	if currentLang != "" && !m.SupportsLanguage(currentLang) {
-		langName := getLangName(currentLang)
-		label += fmt.Sprintf(" (does not support %s)", langName)
-	}
 
 	return label
-}
-
-// getLangName returns a human-readable language name for a code
-func getLangName(code string) string {
-	lang := language.FromCode(code)
-	if lang.Code == "" {
-		return code // unknown code, return as-is
-	}
-	return lang.Name
 }

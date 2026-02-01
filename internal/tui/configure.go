@@ -37,7 +37,6 @@ type ConfigSection string
 
 const (
 	SectionProviders     ConfigSection = "providers"
-	SectionLanguage      ConfigSection = "language"
 	SectionTranscription ConfigSection = "transcription"
 	SectionLLM           ConfigSection = "llm"
 	SectionKeywords      ConfigSection = "keywords"
@@ -111,11 +110,6 @@ func runEditExisting(cfg *config.Config) (*ConfigureResult, error) {
 			}
 			configuredProviders = getConfiguredProviders(cfg)
 
-		case SectionLanguage:
-			if err := editLanguage(cfg); err != nil {
-				continue
-			}
-
 		case SectionTranscription:
 			var err error
 			configuredProviders, err = editTranscription(cfg, configuredProviders)
@@ -160,7 +154,6 @@ func runEditExisting(cfg *config.Config) (*ConfigureResult, error) {
 func selectSection(cfg *config.Config) (ConfigSection, error) {
 	options := []huh.Option[ConfigSection]{
 		huh.NewOption(formatProvidersLabel(cfg), SectionProviders),
-		huh.NewOption(formatLanguageMenuLabel(cfg), SectionLanguage),
 		huh.NewOption(formatTranscriptionLabel(cfg), SectionTranscription),
 		huh.NewOption(formatLLMLabel(cfg), SectionLLM),
 		huh.NewOption(formatKeywordsLabel(cfg), SectionKeywords),

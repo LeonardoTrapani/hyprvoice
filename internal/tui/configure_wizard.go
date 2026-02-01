@@ -39,12 +39,7 @@ func runFreshInstall(cfg *config.Config) (*ConfigureResult, error) {
 		return &ConfigureResult{Cancelled: true}, nil
 	}
 
-	// 4. Language selection
-	if err := editLanguage(cfg); err != nil {
-		return &ConfigureResult{Cancelled: true}, nil
-	}
-
-	// 5. Keywords
+	// 4. Keywords
 	keywords, err := inputKeywords(cfg.Keywords)
 	if err != nil {
 		return &ConfigureResult{Cancelled: true}, nil

@@ -86,9 +86,6 @@ func (c *Config) Validate() error {
 	}
 
 	// validate language codes - warn if not recognized but don't error
-	if c.General.Language != "" && !language.IsValidCode(c.General.Language) {
-		log.Printf("warning: unrecognized language code '%s' in general.language, will be passed as-is to provider", c.General.Language)
-	}
 	if c.Transcription.Language != "" && !language.IsValidCode(c.Transcription.Language) {
 		log.Printf("warning: unrecognized language code '%s' in transcription.language, will be passed as-is to provider", c.Transcription.Language)
 	}

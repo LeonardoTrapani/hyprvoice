@@ -41,13 +41,6 @@ func Save(cfg *Config) error {
 		sb.WriteString("]\n\n")
 	}
 
-	// General section
-	sb.WriteString(`# General Settings
-[general]
-`)
-	sb.WriteString(fmt.Sprintf("  language = %q\n", cfg.General.Language))
-	sb.WriteString("\n")
-
 	// Providers section
 	if len(cfg.Providers) > 0 {
 		sb.WriteString("# API Keys for providers\n")
@@ -210,13 +203,6 @@ func SaveDefaultConfig() error {
 # will be automatically migrated to the new [providers.X] format. Run 'hyprvoice configure'
 # to update your config file structure.
 
-# ─────────────────────────────────────────────────────────────────────────────
-# General Settings
-# ─────────────────────────────────────────────────────────────────────────────
-
-[general]
-  language = ""                # Language for transcription (ISO 639-1 code, e.g., en, es, de). Empty for auto-detect.
-
 # Keywords help both transcription and LLM understand domain-specific terms
 # Add names, technical terms, or brand names that might be misheard
 keywords = []
@@ -262,8 +248,8 @@ keywords = []
 [transcription]
   provider = "openai"          # "openai", "groq-transcription", "groq-translation", "mistral-transcription", "elevenlabs", "whisper-cpp"
   model = "whisper-1"          # Model: OpenAI="whisper-1", Groq="whisper-large-v3", Mistral="voxtral-mini-latest", ElevenLabs="scribe_v1"
+  language = ""                # ISO 639-1 code (e.g., en, es, de). Empty for auto-detect.
   threads = 0                  # CPU threads for local transcription (0 = auto: uses NumCPU-1)
-  # language = ""              # Override general.language for this provider only
 
 # ─────────────────────────────────────────────────────────────────────────────
 # LLM Post-Processing (Recommended)
@@ -353,6 +339,7 @@ keywords = []
 # - "clipboard": Copies to clipboard only (most reliable, requires manual paste).
 #
 # Language codes: "" (auto-detect), "en", "it", "es", "fr", "de", "pt", etc.
+# Language is configured per transcription model - only supported languages are shown during setup.
 `
 
 	if _, err := file.WriteString(configContent); err != nil {

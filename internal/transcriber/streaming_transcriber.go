@@ -5,6 +5,7 @@ import (
 	"log"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/leonardotrapani/hyprvoice/internal/recording"
 )
@@ -83,18 +84,45 @@ func (t *StreamingTranscriber) receiveResults(errCh chan<- error) {
 	for {
 		select {
 		case <-t.ctx.Done():
+			// context cancelled, drain any remaining results before exiting
+			t.drainRemainingResults(resultsCh)
 			return
 		case result, ok := <-resultsCh:
 			if !ok {
 				return
 			}
-			if result.Error != nil {
-				select {
-				case errCh <- result.Error:
-				default:
-				}
-				log.Printf("streaming transcriber: result error: %v", result.Error)
-				continue
+			t.processResult(result, errCh)
+		}
+	}
+}
+
+func (t *StreamingTranscriber) processResult(result TranscriptionResult, errCh chan<- error) {
+	if result.Error != nil {
+		select {
+		case errCh <- result.Error:
+		default:
+		}
+		log.Printf("streaming transcriber: result error: %v", result.Error)
+		return
+	}
+	if result.IsFinal && result.Text != "" {
+		t.mu.Lock()
+		if t.finalText.Len() > 0 {
+			t.finalText.WriteString(" ")
+		}
+		t.finalText.WriteString(result.Text)
+		t.mu.Unlock()
+	}
+}
+
+func (t *StreamingTranscriber) drainRemainingResults(resultsCh <-chan TranscriptionResult) {
+	// give a short window to collect any final results already in the channel
+	timeout := time.After(100 * time.Millisecond)
+	for {
+		select {
+		case result, ok := <-resultsCh:
+			if !ok {
+				return
 			}
 			if result.IsFinal && result.Text != "" {
 				t.mu.Lock()
@@ -104,11 +132,20 @@ func (t *StreamingTranscriber) receiveResults(errCh chan<- error) {
 				t.finalText.WriteString(result.Text)
 				t.mu.Unlock()
 			}
+		case <-timeout:
+			return
 		}
 	}
 }
 
 func (t *StreamingTranscriber) Stop(ctx context.Context) error {
+	// finalize adapter first to commit pending audio and wait for final results
+	// this must happen before canceling context so receiveResults can collect them
+	if err := t.adapter.Finalize(ctx); err != nil {
+		log.Printf("streaming transcriber: finalize error (continuing): %v", err)
+	}
+
+	// now cancel context to stop goroutines
 	if t.cancel != nil {
 		t.cancel()
 	}

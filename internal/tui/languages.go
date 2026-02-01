@@ -8,10 +8,8 @@ import (
 	"github.com/leonardotrapani/hyprvoice/internal/provider"
 )
 
-// getLanguageOptions returns language options for the dropdown
-// if currentModel is provided, languages unsupported by that model will be marked
-// currentLang is the currently selected language code (empty string for auto-detect)
-func getLanguageOptions(currentModel *provider.Model, currentLang string) []huh.Option[string] {
+// getModelLanguageOptions returns language options supported by the given model
+func getModelLanguageOptions(model *provider.Model, currentLang string) []huh.Option[string] {
 	var options []huh.Option[string]
 
 	// auto-detect is always first
@@ -21,18 +19,15 @@ func getLanguageOptions(currentModel *provider.Model, currentLang string) []huh.
 	}
 	options = append(options, huh.NewOption(autoLabel, ""))
 
-	// add all languages
+	// only show languages supported by the model
 	for _, lang := range language.List() {
-		label := formatLanguageLabel(lang)
-
-		// mark current selection
-		if lang.Code == currentLang {
-			label += " (current)"
+		if model != nil && !model.SupportsLanguage(lang.Code) {
+			continue
 		}
 
-		// add warning if model doesn't support this language
-		if currentModel != nil && !currentModel.SupportsLanguage(lang.Code) {
-			label += " (not supported by current model)"
+		label := formatLanguageLabel(lang)
+		if lang.Code == currentLang {
+			label += " (current)"
 		}
 
 		options = append(options, huh.NewOption(label, lang.Code))

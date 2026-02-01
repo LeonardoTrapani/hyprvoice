@@ -36,13 +36,9 @@ func (c *Config) ToTranscriberConfig() transcriber.Config {
 	return config
 }
 
-// resolveEffectiveLanguage returns the effective language for transcription.
-// transcription.language overrides general.language if set.
+// resolveEffectiveLanguage returns the language for transcription
 func (c *Config) resolveEffectiveLanguage() string {
-	if c.Transcription.Language != "" {
-		return c.Transcription.Language
-	}
-	return c.General.Language
+	return c.Transcription.Language
 }
 
 // resolveAPIKeyForProvider returns the API key for a provider from multiple sources

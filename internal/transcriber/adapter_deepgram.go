@@ -32,6 +32,14 @@ type DeepgramAdapter struct {
 	// reconnection config
 	maxRetries  int
 	retryDelays []time.Duration
+
+	// finalization signaling
+	finalizeDone chan struct{}
+}
+
+// deepgramCloseStream message to signal end of audio
+type deepgramCloseStream struct {
+	Type string `json:"type"`
 }
 
 // Deepgram WebSocket response types (incoming)
@@ -77,13 +85,14 @@ type deepgramError struct {
 // lang: canonical language code (will be converted to provider format)
 func NewDeepgramAdapter(endpoint *provider.EndpointConfig, apiKey, model, lang string) *DeepgramAdapter {
 	return &DeepgramAdapter{
-		endpoint:    endpoint,
-		apiKey:      apiKey,
-		model:       model,
-		language:    lang,
-		resultsCh:   make(chan TranscriptionResult, 100),
-		maxRetries:  3,
-		retryDelays: defaultRetryDelays,
+		endpoint:     endpoint,
+		apiKey:       apiKey,
+		model:        model,
+		language:     lang,
+		resultsCh:    make(chan TranscriptionResult, 100),
+		maxRetries:   3,
+		retryDelays:  defaultRetryDelays,
+		finalizeDone: make(chan struct{}, 1),
 	}
 }
 
@@ -294,6 +303,11 @@ func (a *DeepgramAdapter) readLoop() {
 					isFinal := resp.IsFinal || resp.SpeechFinal
 					if isFinal {
 						log.Printf("deepgram: final: %q", transcript)
+						// signal finalization (non-blocking)
+						select {
+						case a.finalizeDone <- struct{}{}:
+						default:
+						}
 					}
 					a.resultsCh <- TranscriptionResult{Text: transcript, IsFinal: isFinal}
 				}
@@ -369,6 +383,53 @@ func (a *DeepgramAdapter) SendChunk(audio []byte) error {
 // Results returns the channel for receiving transcription results
 func (a *DeepgramAdapter) Results() <-chan TranscriptionResult {
 	return a.resultsCh
+}
+
+// Finalize sends a CloseStream message to signal end of audio and waits for final results
+func (a *DeepgramAdapter) Finalize(ctx context.Context) error {
+	a.mu.Lock()
+	if !a.started {
+		a.mu.Unlock()
+		return nil
+	}
+	conn := a.conn
+	a.mu.Unlock()
+
+	if conn == nil {
+		return nil
+	}
+
+	// drain any previous finalize signals
+	select {
+	case <-a.finalizeDone:
+	default:
+	}
+
+	// send CloseStream message
+	msg := deepgramCloseStream{Type: "CloseStream"}
+
+	a.mu.Lock()
+	err := a.conn.WriteJSON(msg)
+	a.mu.Unlock()
+
+	if err != nil {
+		log.Printf("deepgram: finalize write error: %v", err)
+		return fmt.Errorf("finalize write: %w", err)
+	}
+
+	log.Printf("deepgram: sent CloseStream, waiting for final transcript")
+
+	// wait for final result or timeout
+	select {
+	case <-a.finalizeDone:
+		log.Printf("deepgram: finalize complete")
+		return nil
+	case <-ctx.Done():
+		log.Printf("deepgram: finalize timeout")
+		return ctx.Err()
+	case <-a.ctx.Done():
+		return a.ctx.Err()
+	}
 }
 
 // Close gracefully closes the WebSocket connection

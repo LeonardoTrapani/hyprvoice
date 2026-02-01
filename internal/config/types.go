@@ -9,7 +9,7 @@ import (
 
 // GeneralConfig holds global settings that apply across the application
 type GeneralConfig struct {
-	Language string `toml:"language"` // ISO 639-1 code (e.g., en, es, de). Empty for auto-detect.
+	// reserved for future use
 }
 
 type Config struct {

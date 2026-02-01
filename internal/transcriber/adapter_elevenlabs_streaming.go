@@ -36,6 +36,9 @@ type ElevenLabsStreamingAdapter struct {
 	// reconnection config
 	maxRetries  int
 	retryDelays []time.Duration
+
+	// finalization signaling
+	commitDone chan struct{}
 }
 
 // ElevenLabs WebSocket message types (outgoing)
@@ -69,6 +72,7 @@ func NewElevenLabsStreamingAdapter(endpoint *provider.EndpointConfig, apiKey, mo
 		resultsCh:   make(chan TranscriptionResult, 100),
 		maxRetries:  3,
 		retryDelays: defaultRetryDelays,
+		commitDone:  make(chan struct{}, 1),
 	}
 }
 
@@ -270,9 +274,14 @@ func (a *ElevenLabsStreamingAdapter) readLoop() {
 
 		case "committed_transcript", "committed_transcript_with_timestamps":
 			// final result
+			log.Printf("elevenlabs-streaming: committed: %q", msg.Text)
 			if msg.Text != "" {
-				log.Printf("elevenlabs-streaming: committed: %q", msg.Text)
 				a.resultsCh <- TranscriptionResult{Text: msg.Text, IsFinal: true}
+			}
+			// signal finalization is done (non-blocking)
+			select {
+			case a.commitDone <- struct{}{}:
+			default:
 			}
 
 		case "error", "auth_error", "quota_exceeded", "rate_limited",
@@ -351,6 +360,59 @@ func (a *ElevenLabsStreamingAdapter) SendChunk(audio []byte) error {
 // Results returns the channel for receiving transcription results
 func (a *ElevenLabsStreamingAdapter) Results() <-chan TranscriptionResult {
 	return a.resultsCh
+}
+
+// Finalize sends a commit message to force ElevenLabs to commit any pending audio
+// and waits for the committed_transcript response
+func (a *ElevenLabsStreamingAdapter) Finalize(ctx context.Context) error {
+	a.mu.Lock()
+	if !a.started {
+		a.mu.Unlock()
+		return nil
+	}
+	conn := a.conn
+	a.mu.Unlock()
+
+	if conn == nil {
+		return nil
+	}
+
+	// drain any previous commit signals
+	select {
+	case <-a.commitDone:
+	default:
+	}
+
+	// send empty audio chunk with commit=true to force finalization
+	msg := elevenLabsInputAudioChunk{
+		MessageType: "input_audio_chunk",
+		AudioBase64: "",
+		Commit:      true,
+		SampleRate:  16000,
+	}
+
+	a.mu.Lock()
+	err := a.conn.WriteJSON(msg)
+	a.mu.Unlock()
+
+	if err != nil {
+		log.Printf("elevenlabs-streaming: finalize write error: %v", err)
+		return fmt.Errorf("finalize write: %w", err)
+	}
+
+	log.Printf("elevenlabs-streaming: sent commit, waiting for final transcript")
+
+	// wait for committed_transcript or timeout
+	select {
+	case <-a.commitDone:
+		log.Printf("elevenlabs-streaming: finalize complete")
+		return nil
+	case <-ctx.Done():
+		log.Printf("elevenlabs-streaming: finalize timeout")
+		return ctx.Err()
+	case <-a.ctx.Done():
+		return a.ctx.Err()
+	}
 }
 
 // Close gracefully closes the WebSocket connection

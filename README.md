@@ -5,6 +5,7 @@ Press a toggle key, speak, and get instant text input. Built natively for Waylan
 ## Features
 
 - **Toggle workflow**: Press once to start recording, press again to stop and inject text
+- **Interactive configuration**: User-friendly TUI wizard - no manual config file editing required
 - **LLM post-processing**: Automatically cleans up transcriptions - removes stutters, fixes grammar, adds punctuation (enabled by default)
 - **Wayland native**: Purpose-built for Wayland compositors - no legacy X11 dependencies or hacky workarounds
 - **Real-time feedback**: Desktop notifications for recording states and transcription status
@@ -129,6 +130,28 @@ hyprvoice toggle
 hyprvoice toggle  # Stop and transcribe
 ```
 
+## Configuration
+
+The recommended way to configure hyprvoice is through the interactive wizard:
+
+```bash
+hyprvoice configure
+```
+
+The wizard guides you through all settings with a user-friendly interface:
+
+- **Providers** - API keys for OpenAI, Groq, Mistral, ElevenLabs, Deepgram
+- **Transcription** - Speech-to-text provider, model, and language selection (cloud or local)
+- **LLM** - Post-processing to clean up transcriptions (enabled by default)
+- **Keywords** - Domain-specific terms for better accuracy
+- **Injection** - How text is typed (ydotool, wtype, clipboard)
+- **Notifications** - Desktop notification preferences
+- **Advanced Settings** - Recording parameters, timeouts
+
+Configuration is stored in `~/.config/hyprvoice/config.toml`. Changes are applied immediately without restarting the daemon.
+
+For manual configuration and detailed options, see [docs/config.md](docs/config.md).
+
 ## Quick Reference
 
 ### Common Commands
@@ -227,29 +250,6 @@ hyprvoice toggle
 hyprvoice status
 ```
 
-## Configuration
-
-The recommended way to configure hyprvoice is through the interactive wizard:
-
-```bash
-hyprvoice configure
-```
-
-The wizard guides you through all settings with a user-friendly interface:
-
-- **Providers** - API keys for OpenAI, Groq, Mistral, ElevenLabs, Deepgram
-- **Language** - Global language setting for all transcription (57 languages + auto-detect)
-- **Transcription** - Speech-to-text provider and model selection (cloud or local)
-- **LLM** - Post-processing to clean up transcriptions (enabled by default)
-- **Keywords** - Domain-specific terms for better accuracy
-- **Injection** - How text is typed (ydotool, wtype, clipboard)
-- **Notifications** - Desktop notification preferences
-- **Advanced Settings** - Recording parameters, timeouts
-
-Configuration is stored in `~/.config/hyprvoice/config.toml`. Changes are applied immediately without restarting the daemon.
-
-For manual configuration and detailed options, see [docs/config.md](docs/config.md).
-
 ## Local Transcription
 
 For complete offline privacy, use whisper.cpp for local transcription - no API keys, no cloud, no data leaves your machine.
@@ -297,17 +297,7 @@ For complete offline privacy, use whisper.cpp for local transcription - no API k
 
 **Recommendation**: Start with `base.en` for English or `base` for multilingual. Models ending in `.en` are English-only but slightly faster.
 
-### Configuration
-
-```toml
-[general]
-language = ""              # empty for auto-detect, or "en", "es", etc.
-
-[transcription]
-provider = "whisper-cpp"
-model = "base.en"          # or "base" for multilingual
-threads = 0                # 0 = auto (NumCPU - 1)
-```
+Run `hyprvoice configure` to set up local transcription, or see [docs/config.md](docs/config.md) for manual configuration.
 
 ## Streaming Transcription
 
@@ -321,30 +311,9 @@ For real-time transcription results as you speak, use streaming providers. Text 
 | Deepgram   | nova-3, nova-2             | ~100ms     | 40+ langs |
 | OpenAI     | gpt-4o-realtime-preview    | ~200ms     | 57 langs  |
 
-### Configuration
+Streaming models show partial results while recording. Final text is accumulated and injected when you toggle off.
 
-```toml
-[general]
-language = ""              # empty for auto-detect
-
-# ElevenLabs streaming
-[providers.elevenlabs]
-api_key = "..."
-
-[transcription]
-provider = "elevenlabs"
-model = "scribe_v2-streaming"
-
-# Deepgram streaming
-[providers.deepgram]
-api_key = "..."
-
-[transcription]
-provider = "deepgram"
-model = "nova-3"
-```
-
-**Note**: Streaming models show partial results while recording. Final text is accumulated and injected when you toggle off.
+Run `hyprvoice configure` to set up streaming, or see [docs/config.md](docs/config.md) for manual configuration.
 
 ### Service Management
 

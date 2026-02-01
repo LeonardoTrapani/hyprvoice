@@ -9,7 +9,7 @@ import (
 
 func TestGetTranscriptionModelOptions_ShowsCapabilities(t *testing.T) {
 	// test elevenlabs - has batch-only and streaming-only models
-	options := getTranscriptionModelOptions("elevenlabs", "")
+	options := getTranscriptionModelOptions("elevenlabs")
 
 	// should have 3 models: scribe_v1, scribe_v2, scribe_v2_realtime
 	if len(options) != 3 {
@@ -40,7 +40,7 @@ func TestGetTranscriptionModelOptions_ShowsCapabilities(t *testing.T) {
 
 func TestGetTranscriptionModelOptions_NoHeadersAnymore(t *testing.T) {
 	// we removed batch/streaming section headers
-	options := getTranscriptionModelOptions("elevenlabs", "")
+	options := getTranscriptionModelOptions("elevenlabs")
 
 	for _, opt := range options {
 		if opt.Value == "" {
@@ -50,7 +50,7 @@ func TestGetTranscriptionModelOptions_NoHeadersAnymore(t *testing.T) {
 }
 
 func TestGetTranscriptionModelOptions_OpenAI_ShowsCapabilities(t *testing.T) {
-	options := getTranscriptionModelOptions("openai", "")
+	options := getTranscriptionModelOptions("openai")
 
 	// OpenAI has 3 transcription models: whisper-1, gpt-4o-transcribe, gpt-4o-mini-transcribe
 	if len(options) != 3 {
@@ -68,7 +68,7 @@ func TestGetTranscriptionModelOptions_OpenAI_ShowsCapabilities(t *testing.T) {
 }
 
 func TestGetTranscriptionModelOptions_Deepgram_ShowsBothModes(t *testing.T) {
-	options := getTranscriptionModelOptions("deepgram", "")
+	options := getTranscriptionModelOptions("deepgram")
 
 	// Deepgram has 2 models: nova-3, nova-2 - both support batch+streaming
 	if len(options) != 2 {
@@ -84,7 +84,7 @@ func TestGetTranscriptionModelOptions_Deepgram_ShowsBothModes(t *testing.T) {
 
 func TestGetTranscriptionModelOptions_Groq_BatchOnly(t *testing.T) {
 	// test groq - batch only (no streaming models)
-	options := getTranscriptionModelOptions("groq-transcription", "")
+	options := getTranscriptionModelOptions("groq-transcription")
 
 	// should have 2 models: whisper-large-v3, whisper-large-v3-turbo
 	if len(options) != 2 {

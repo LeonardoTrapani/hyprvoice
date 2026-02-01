@@ -20,6 +20,11 @@ type StreamingAdapter interface {
 	// Results returns a channel that receives transcription results (partial and final)
 	Results() <-chan TranscriptionResult
 
+	// Finalize signals end of audio input and waits for final transcription results.
+	// This should be called before Close to ensure all pending audio is committed.
+	// The ctx controls the timeout for waiting on final results.
+	Finalize(ctx context.Context) error
+
 	// Close gracefully closes the streaming connection
 	Close() error
 }

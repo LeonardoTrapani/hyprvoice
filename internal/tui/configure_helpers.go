@@ -13,11 +13,6 @@ func formatProvidersLabel(cfg *config.Config) string {
 	return "Providers"
 }
 
-// formatLanguageMenuLabel formats the language menu option
-func formatLanguageMenuLabel(cfg *config.Config) string {
-	return "Language"
-}
-
 // formatTranscriptionLabel formats the transcription menu option
 func formatTranscriptionLabel(cfg *config.Config) string {
 	return "Transcription"
@@ -54,10 +49,11 @@ func showSummary(cfg *config.Config) (bool, error) {
 	}
 	fmt.Printf("  %s %s\n", StyleLabel.Render("Providers:"), strings.Join(providers, ", "))
 
-	fmt.Printf("  %s %s (%s)\n", StyleLabel.Render("Transcription:"), cfg.Transcription.Provider, cfg.Transcription.Model)
-	if cfg.Transcription.Language != "" {
-		fmt.Printf("  %s %s\n", StyleLabel.Render("Language:"), cfg.Transcription.Language)
+	lang := cfg.Transcription.Language
+	if lang == "" {
+		lang = "auto-detect"
 	}
+	fmt.Printf("  %s %s/%s (%s)\n", StyleLabel.Render("Transcription:"), cfg.Transcription.Provider, cfg.Transcription.Model, lang)
 
 	if cfg.LLM.Enabled {
 		fmt.Printf("  %s %s (%s)\n", StyleLabel.Render("LLM:"), cfg.LLM.Provider, cfg.LLM.Model)

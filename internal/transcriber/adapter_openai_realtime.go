@@ -35,6 +35,9 @@ type OpenAIRealtimeAdapter struct {
 
 	// track current item for transcription
 	currentItemID string
+
+	// finalization signaling
+	transcriptionDone chan struct{}
 }
 
 // OpenAI Realtime WebSocket message types (outgoing)
@@ -103,13 +106,14 @@ type openaiRealtimeError struct {
 // lang: canonical language code (will be used for transcription config)
 func NewOpenAIRealtimeAdapter(endpoint *provider.EndpointConfig, apiKey, model, lang string) *OpenAIRealtimeAdapter {
 	return &OpenAIRealtimeAdapter{
-		endpoint:    endpoint,
-		apiKey:      apiKey,
-		model:       model,
-		language:    lang,
-		resultsCh:   make(chan TranscriptionResult, 100),
-		maxRetries:  3,
-		retryDelays: defaultRetryDelays,
+		endpoint:          endpoint,
+		apiKey:            apiKey,
+		model:             model,
+		language:          lang,
+		resultsCh:         make(chan TranscriptionResult, 100),
+		maxRetries:        3,
+		retryDelays:       defaultRetryDelays,
+		transcriptionDone: make(chan struct{}, 1),
 	}
 }
 
@@ -372,9 +376,14 @@ func (a *OpenAIRealtimeAdapter) handleEvent(event openaiRealtimeServerEvent) {
 
 	case "conversation.item.input_audio_transcription.completed":
 		// final transcription result
+		log.Printf("openai-realtime: transcription completed: %q", event.Transcript)
 		if event.Transcript != "" {
-			log.Printf("openai-realtime: transcription completed: %q", event.Transcript)
 			a.resultsCh <- TranscriptionResult{Text: event.Transcript, IsFinal: true}
+		}
+		// signal finalization (non-blocking)
+		select {
+		case a.transcriptionDone <- struct{}{}:
+		default:
 		}
 
 	case "conversation.item.input_audio_transcription.failed":
@@ -498,6 +507,56 @@ func resample16to24(input []byte) []byte {
 // Results returns the channel for receiving transcription results
 func (a *OpenAIRealtimeAdapter) Results() <-chan TranscriptionResult {
 	return a.resultsCh
+}
+
+// Finalize sends a commit message to force OpenAI to process any pending audio
+// and waits for the transcription.completed response
+func (a *OpenAIRealtimeAdapter) Finalize(ctx context.Context) error {
+	a.mu.Lock()
+	if !a.started {
+		a.mu.Unlock()
+		return nil
+	}
+	conn := a.conn
+	a.mu.Unlock()
+
+	if conn == nil {
+		return nil
+	}
+
+	// drain any previous transcription signals
+	select {
+	case <-a.transcriptionDone:
+	default:
+	}
+
+	// send input_audio_buffer.commit to force processing of pending audio
+	msg := openaiRealtimeInputAudioCommit{
+		Type: "input_audio_buffer.commit",
+	}
+
+	a.mu.Lock()
+	err := a.conn.WriteJSON(msg)
+	a.mu.Unlock()
+
+	if err != nil {
+		log.Printf("openai-realtime: finalize write error: %v", err)
+		return fmt.Errorf("finalize write: %w", err)
+	}
+
+	log.Printf("openai-realtime: sent commit, waiting for final transcription")
+
+	// wait for transcription.completed or timeout
+	select {
+	case <-a.transcriptionDone:
+		log.Printf("openai-realtime: finalize complete")
+		return nil
+	case <-ctx.Done():
+		log.Printf("openai-realtime: finalize timeout")
+		return ctx.Err()
+	case <-a.ctx.Done():
+		return a.ctx.Err()
+	}
 }
 
 // Close gracefully closes the WebSocket connection

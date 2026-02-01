@@ -688,6 +688,7 @@ type MockStreamingAdapter struct {
 	StartFunc     func(ctx context.Context, language string) error
 	SendChunkFunc func(audio []byte) error
 	ResultsFunc   func() <-chan TranscriptionResult
+	FinalizeFunc  func(ctx context.Context) error
 	CloseFunc     func() error
 
 	resultsCh chan TranscriptionResult
@@ -718,6 +719,13 @@ func (m *MockStreamingAdapter) Results() <-chan TranscriptionResult {
 		return m.ResultsFunc()
 	}
 	return m.resultsCh
+}
+
+func (m *MockStreamingAdapter) Finalize(ctx context.Context) error {
+	if m.FinalizeFunc != nil {
+		return m.FinalizeFunc(ctx)
+	}
+	return nil
 }
 
 func (m *MockStreamingAdapter) Close() error {
