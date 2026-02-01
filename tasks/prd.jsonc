@@ -114,7 +114,7 @@
 				"All streaming models show [streaming] tag in label",
 				"Typecheck passes"
 			],
-			"passes": false
+			"passes": true
 		},
 		{
 			"title": "Add streaming section header in model picker",

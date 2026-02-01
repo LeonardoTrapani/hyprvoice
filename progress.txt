@@ -557,3 +557,9 @@ Started: Sun Feb  1 12:22:47 AM CET 2026
 - Only `cfg.Transcription.Model` saved now, not language
 - `cfg.Transcription.Language` can still be used as manual override but not set via TUI
 - All tests passing, typecheck passes
+
+### Task 7: Enable streaming models in TUI model picker
+- Removed `if m.Streaming { continue }` filter from `getTranscriptionModelOptions()`
+- Streaming models now appear in model picker: scribe_v1-streaming, scribe_v2-streaming, nova-3, nova-2, gpt-4o-realtime-preview
+- `buildModelLabel()` already adds `[streaming]` tag (lines 324-327)
+- All tests passing, typecheck passes

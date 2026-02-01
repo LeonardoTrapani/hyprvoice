@@ -283,11 +283,6 @@ func getTranscriptionModelOptions(configProvider string, currentLang string) []h
 	var options []huh.Option[string]
 
 	for _, m := range models {
-		// skip streaming models for now (not yet implemented)
-		if m.Streaming {
-			continue
-		}
-
 		label := buildModelLabel(m, currentLang)
 
 		// for local models, show installed status
