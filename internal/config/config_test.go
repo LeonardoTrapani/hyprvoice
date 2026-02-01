@@ -1,6 +1,7 @@
 package config
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -261,41 +262,34 @@ func TestConfig_Validate(t *testing.T) {
 }
 
 func TestConfig_Load(t *testing.T) {
-	// Test that Load creates default config when none exists
-	t.Run("creates default config when none exists", func(t *testing.T) {
+	// Test that Load errors when no config exists
+	t.Run("errors when config missing", func(t *testing.T) {
 		tempDir := t.TempDir()
 		originalConfigDir := os.Getenv("XDG_CONFIG_HOME")
-		originalAPIKey := os.Getenv("OPENAI_API_KEY")
 		os.Setenv("XDG_CONFIG_HOME", tempDir)
-		os.Setenv("OPENAI_API_KEY", "test-api-key") // Set test API key for validation
 		defer func() {
 			if originalConfigDir == "" {
 				os.Unsetenv("XDG_CONFIG_HOME")
 			} else {
 				os.Setenv("XDG_CONFIG_HOME", originalConfigDir)
 			}
-			if originalAPIKey == "" {
-				os.Unsetenv("OPENAI_API_KEY")
-			} else {
-				os.Setenv("OPENAI_API_KEY", originalAPIKey)
-			}
 		}()
 
-		config, err := Load()
-		if err != nil {
-			t.Errorf("Load() error = %v", err)
+		_, err := Load()
+		if err == nil {
+			t.Errorf("Load() expected error when config is missing")
 			return
 		}
-
-		// Verify the loaded config is valid
-		if err := config.Validate(); err != nil {
-			t.Errorf("Loaded config is invalid: %v", err)
+		if !errors.Is(err, ErrConfigNotFound) {
+			t.Errorf("Load() error = %v, expected ErrConfigNotFound", err)
+		}
+		if !strings.Contains(err.Error(), "hyprvoice onboarding") {
+			t.Errorf("Load() error should mention onboarding: %v", err)
 		}
 
-		// Verify config file was created
 		configPath := filepath.Join(tempDir, "hyprvoice", "config.toml")
-		if _, err := os.Stat(configPath); os.IsNotExist(err) {
-			t.Errorf("Load() did not create config file")
+		if _, statErr := os.Stat(configPath); !os.IsNotExist(statErr) {
+			t.Errorf("Load() should not create config file when missing")
 		}
 	})
 

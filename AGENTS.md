@@ -22,6 +22,10 @@ This repo is a Go CLI + daemon for voice-powered typing on Wayland/Hyprland.
 - IPC: unix socket at ~/.cache/hyprvoice/control.sock, single-character commands
 - Config: ~/.config/hyprvoice/config.toml (hot reloaded by daemon)
 
+## Configuration
+- First-time setup: hyprvoice onboarding (guided flow, no advanced settings)
+- Full editor: hyprvoice configure (menu-based, includes advanced settings)
+
 ## Docs
 - docs/structure.md: code map and entry points
 - docs/architecture.md: deeper architecture + adapters/interfaces

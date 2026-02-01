@@ -62,5 +62,6 @@ func (i toggleItem) FilterValue() string {
 
 type modelOption struct {
 	ID    string
-	Label string
+	Title string
+	Desc  string
 }

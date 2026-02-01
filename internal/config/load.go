@@ -1,6 +1,7 @@
 package config
 
 import (
+	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -10,6 +11,8 @@ import (
 
 	"github.com/BurntSushi/toml"
 )
+
+var ErrConfigNotFound = errors.New("config not found")
 
 func GetConfigPath() (string, error) {
 	configDir, err := os.UserConfigDir()
@@ -47,12 +50,9 @@ func Load() (*Config, error) {
 	}
 
 	if _, err := os.Stat(configPath); os.IsNotExist(err) {
-		log.Printf("Config: no config file found at %s, creating with defaults", configPath)
-		if err := SaveDefaultConfig(); err != nil {
-			return nil, fmt.Errorf("failed to create default config: %w", err)
-		}
-		log.Printf("Config: default configuration created successfully")
-		return Load()
+		return nil, fmt.Errorf("%w: run hyprvoice onboarding", ErrConfigNotFound)
+	} else if err != nil {
+		return nil, fmt.Errorf("failed to stat config file %s: %w", configPath, err)
 	}
 
 	log.Printf("Config: loading configuration from %s", configPath)
@@ -74,6 +74,11 @@ func Load() (*Config, error) {
 
 	if config.Providers == nil {
 		config.Providers = make(map[string]ProviderConfig)
+	}
+
+	if config.Transcription.Provider == "groq-translation" {
+		log.Printf("Config: deprecated transcription.provider 'groq-translation' detected - using 'groq-transcription' instead")
+		config.Transcription.Provider = "groq-transcription"
 	}
 
 	config.applyLLMDefaults()

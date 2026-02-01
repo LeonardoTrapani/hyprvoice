@@ -1,6 +1,10 @@
 package tui
 
-import "github.com/charmbracelet/lipgloss"
+import (
+	"strings"
+
+	"github.com/charmbracelet/lipgloss"
+)
 
 // Base styles for hyprvoice TUI components
 var (
@@ -60,14 +64,19 @@ var (
 			Padding(1, 2)
 )
 
-// Logo returns the hyprvoice ASCII art
-func Logo() string {
-	logo := `
+const logoASCII = `
  _                            _          
 | |__  _   _ _ __  _ ____   _(_) ___ ___ 
 | '_ \| | | | '_ \| '__\ \ / / |/ __/ _ \
 | | | | |_| | |_) | |   \ V /| | (_|  __/
 |_| |_|\__, | .__/|_|    \_/ |_|\___\___|
        |___/|_|                          `
-	return StyleHeader.Render(logo)
+
+// Logo returns the hyprvoice ASCII art
+func Logo() string {
+	return StyleHeader.Render(strings.Trim(logoASCII, "\n"))
+}
+
+func LogoLines() []string {
+	return strings.Split(strings.Trim(logoASCII, "\n"), "\n")
 }

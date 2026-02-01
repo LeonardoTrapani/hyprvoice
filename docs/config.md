@@ -3,10 +3,21 @@
 This document covers manual configuration of hyprvoice via the `config.toml` file. For most users, the interactive wizard is recommended:
 
 ```bash
+hyprvoice onboarding
+```
+
+To adjust settings later:
+
+```bash
 hyprvoice configure
 ```
 
 Configuration is stored in `~/.config/hyprvoice/config.toml` and changes are applied immediately without restarting the daemon.
+
+## Onboarding vs Configure
+
+- `hyprvoice onboarding`: guided first-time setup for provider keys, voice model, language/streaming, LLM post-processing, keywords, and notifications. Advanced settings stay at defaults.
+- `hyprvoice configure`: full TUI menu for all sections, including advanced recording, injection backends, timeouts, and notification messages.
 
 ## Table of Contents
 

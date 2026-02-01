@@ -2,8 +2,10 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os/exec"
+	"path/filepath"
 	"sort"
 	"strings"
 
@@ -33,6 +35,7 @@ func init() {
 		statusCmd(),
 		versionCmd(),
 		stopCmd(),
+		onboardingCmd(),
 		configureCmd(),
 		modelCmd(),
 	)
@@ -128,8 +131,6 @@ func cancelCmd() *cobra.Command {
 }
 
 func configureCmd() *cobra.Command {
-	var onboarding bool
-
 	cmd := &cobra.Command{
 		Use:   "configure",
 		Short: "Interactive configuration setup",
@@ -138,22 +139,46 @@ This will guide you through setting up:
 - Provider API keys (OpenAI, Groq, Mistral, ElevenLabs)
 - Transcription settings
 - LLM post-processing
-- Text injection and notification preferences`,
+	- Text injection and notification preferences
+
+For first-time setup, run 'hyprvoice onboarding'.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runConfigure(onboarding)
+			return runConfigure(false)
 		},
 	}
-
-	cmd.Flags().BoolVar(&onboarding, "onboarding", false, "Run the guided onboarding wizard")
 
 	return cmd
 }
 
+func onboardingCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "onboarding",
+		Short: "Guided first-time setup",
+		Long: `Guided onboarding wizard for hyprvoice.
+This will walk you through the full setup flow (excluding advanced options).`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runConfigure(true)
+		},
+	}
+}
+
 func runConfigure(onboarding bool) error {
-	// Load existing config or create default
-	cfg, err := config.Load()
-	if err != nil {
-		return fmt.Errorf("failed to load config: %w", err)
+	var cfg *config.Config
+	var err error
+	if onboarding {
+		cfg, err = config.Load()
+		if err != nil {
+			if errors.Is(err, config.ErrConfigNotFound) {
+				cfg = config.DefaultConfig()
+			} else {
+				return fmt.Errorf("failed to load config: %w", err)
+			}
+		}
+	} else {
+		cfg, err = config.Load()
+		if err != nil {
+			return fmt.Errorf("failed to load config: %w", err)
+		}
 	}
 
 	// Run TUI wizard
@@ -224,6 +249,11 @@ func showNextSteps(cfg *config.Config, onboarding bool) {
 	fmt.Println()
 
 	configPath, _ := config.GetConfigPath()
+	if onboarding {
+		configDir := filepath.Dir(configPath)
+		fmt.Printf("run hyprvoice configure to configure more, or check %s\n", configDir)
+		return
+	}
 	fmt.Printf("Config file location: %s\n", configPath)
 }
 

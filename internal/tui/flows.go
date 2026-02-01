@@ -21,7 +21,6 @@ const (
 	menuVoiceModel    = "voice_model"
 	menuLLM           = "llm"
 	menuKeywords      = "keywords"
-	menuInjection     = "injection"
 	menuNotifications = "notifications"
 	menuAdvanced      = "advanced"
 	menuSave          = "save"
@@ -29,12 +28,10 @@ const (
 )
 
 func newWelcomeScreen(state *wizardState) screen {
-	desc := []string{
-		"Voice-powered typing for Wayland/Hyprland.",
-		"Let's set up your configuration.",
-	}
-	s := newInfoScreen(state, "Hyprvoice Configure", desc, func() screen {
-		return onboardingProvidersScreen(state)
+	desc := append([]string{}, LogoLines()...)
+	desc = append(desc, "", "Voice-powered typing for Wayland/Hyprland.", "Let's set up your configuration.")
+	s := newInfoScreen(state, "Hyprvoice Onboarding", desc, func() screen {
+		return onboardingVoiceProviderScreen(state)
 	}, func() screen {
 		state.cancelled = true
 		state.result = &ConfigureResult{Cancelled: true}
@@ -44,17 +41,9 @@ func newWelcomeScreen(state *wizardState) screen {
 	return s
 }
 
-func onboardingProvidersScreen(state *wizardState) screen {
-	return newProvidersScreen(state,
-		func() screen { return newWelcomeScreen(state) },
-		func() screen { return onboardingVoiceProviderScreen(state) },
-		true,
-	)
-}
-
 func onboardingVoiceProviderScreen(state *wizardState) screen {
 	return newVoiceProviderScreen(state,
-		func() screen { return onboardingProvidersScreen(state) },
+		func() screen { return newWelcomeScreen(state) },
 		func() screen { return onboardingLLMScreen(state) },
 	)
 }
@@ -66,20 +55,26 @@ func onboardingLLMScreen(state *wizardState) screen {
 	)
 }
 
+func onboardingSummaryScreen(state *wizardState, onBack func() screen) screen {
+	return newSummaryScreen(state, func() screen {
+		return newNotificationsScreen(state, onBack)
+	})
+}
+
 func newMenuScreen(state *wizardState) screen {
 	items := []optionItem{
-		{title: formatProvidersLabel(state.cfg), value: menuProviders},
-		{title: formatVoiceModelLabel(state.cfg), value: menuVoiceModel},
-		{title: formatLLMLabel(state.cfg), value: menuLLM},
-		{title: formatKeywordsLabel(state.cfg), value: menuKeywords},
-		{title: formatInjectionLabel(state.cfg), value: menuInjection},
-		{title: formatNotificationsLabel(state.cfg), value: menuNotifications},
-		{title: "Advanced Settings", value: menuAdvanced},
-		{title: "Save & Exit", value: menuSave},
-		{title: "Discard & Exit", value: menuDiscard},
+		{title: formatProvidersLabel(state.cfg), desc: "Manage API keys for cloud providers.", value: menuProviders},
+		{title: formatVoiceModelLabel(state.cfg), desc: "Pick the transcription provider, model, and language.", value: menuVoiceModel},
+		{title: formatLLMLabel(state.cfg), desc: "Configure post-processing and custom prompts.", value: menuLLM},
+		{title: formatKeywordsLabel(state.cfg), desc: "Words to preserve spelling and phrasing.", value: menuKeywords},
+		{title: formatNotificationsLabel(state.cfg), desc: "Notification type and message text.", value: menuNotifications},
+		{title: "Advanced Settings", desc: "Recording, injection, and timeout settings.", value: menuAdvanced},
+		{title: "Save & Exit", desc: "Write config changes to disk.", value: menuSave},
+		{title: "Discard & Exit", desc: "Exit without saving changes.", value: menuDiscard},
 	}
 
-	desc := []string{"Select a section to update."}
+	desc := append([]string{}, LogoLines()...)
+	desc = append(desc, "", "Select a section to update.")
 	screen := newListScreen(state, "Configuration Menu", desc, items, func(item optionItem) screen {
 		switch item.value {
 		case menuProviders:
@@ -90,8 +85,6 @@ func newMenuScreen(state *wizardState) screen {
 			return newLLMEnableScreen(state, func() screen { return newMenuScreen(state) }, func() screen { return newMenuScreen(state) })
 		case menuKeywords:
 			return newKeywordsScreen(state, func() screen { return newMenuScreen(state) })
-		case menuInjection:
-			return newInjectionScreen(state, func() screen { return newMenuScreen(state) })
 		case menuNotifications:
 			return newNotificationsScreen(state, func() screen { return newMenuScreen(state) })
 		case menuAdvanced:
@@ -117,18 +110,24 @@ func newMenuScreen(state *wizardState) screen {
 func newProvidersScreen(state *wizardState, onBack func() screen, onNext func() screen, onboarding bool) screen {
 	items := make([]optionItem, 0, len(AllProviders)+1)
 	for _, name := range AllProviders {
-		items = append(items, optionItem{title: formatProviderOption(state.cfg, name), value: name})
+		items = append(items, optionItem{
+			title: formatProviderOption(state.cfg, name),
+			desc:  formatProviderOptionDesc(state.cfg, name),
+			value: name,
+		})
 	}
 
 	exitLabel := "Done"
+	exitDesc := "Return to menu."
 	if onboarding {
 		exitLabel = "Next"
+		exitDesc = "Continue to voice model setup."
 	}
-	items = append(items, optionItem{title: exitLabel, value: "back"})
+	items = append(items, optionItem{title: exitLabel, desc: exitDesc, value: "back"})
 
 	desc := []string{
 		"Add or update API keys for cloud providers.",
-		"Recommended: local models maximize privacy; for cloud quality, ElevenLabs is the top pick.",
+		"Recommended: for cloud quality, ElevenLabs is the top pick.",
 		"Tip: press / to filter.",
 	}
 
@@ -160,9 +159,9 @@ func newProviderKeyFlow(state *wizardState, providerName string, onContinue func
 	if isProviderConfigured(state.cfg, providerName) {
 		masked := maskAPIKey(state.cfg.Providers[providerName].APIKey)
 		desc := []string{fmt.Sprintf("Current key: %s", masked)}
-		return newConfirmScreen(state, fmt.Sprintf("%s API Key", displayName), desc, "Update key", "Keep current", func() screen {
+		return newConfirmScreen(state, fmt.Sprintf("%s API Key", displayName), desc, "Update key", "Replace the stored API key.", "Keep current", "Keep the existing API key.", func() screen {
 			return newAPIKeyInputScreen(state, providerName, onContinue, onCancel)
-		}, func() screen { return onContinue() })
+		}, func() screen { return onContinue() }, onCancel)
 	}
 	return newAPIKeyInputScreen(state, providerName, onContinue, onCancel)
 }
@@ -229,7 +228,7 @@ func newVoiceProviderScreen(state *wizardState, onBack func() screen, onNext fun
 		selectedProvider := item.value
 		providerName := selectedProvider
 		switch selectedProvider {
-		case "groq-transcription", "groq-translation":
+		case "groq-transcription":
 			providerName = "groq"
 		case "mistral-transcription":
 			providerName = "mistral"
@@ -262,7 +261,7 @@ func newVoiceModelScreen(state *wizardState, providerName string, onBack func() 
 
 	items := make([]optionItem, 0, len(options))
 	for _, opt := range options {
-		items = append(items, optionItem{title: opt.Label, value: opt.ID})
+		items = append(items, optionItem{title: opt.Title, desc: opt.Desc, value: opt.ID})
 	}
 
 	desc := []string{
@@ -280,11 +279,11 @@ func newVoiceModelScreen(state *wizardState, providerName string, onBack func() 
 				return nil
 			}
 			confirmDesc := []string{fmt.Sprintf("Download %s (%s)?", modelInfo.Name, modelInfo.Size)}
-			return newConfirmScreen(state, "Download Model", confirmDesc, "Download", "Cancel", func() screen {
+			return newConfirmScreen(state, "Download Model", confirmDesc, "Download", "Download and install the model.", "Cancel", "Return to model list.", func() screen {
 				return newDownloadScreen(state, "Downloading Model", []string{modelInfo.Name}, item.value, func() screen {
 					return applyVoiceModelSelection(state, providerName, item.value, onBack, onNext)
 				}, func() screen { return newVoiceModelScreen(state, providerName, onBack, onNext) })
-			}, func() screen { return newVoiceModelScreen(state, providerName, onBack, onNext) })
+			}, func() screen { return newVoiceModelScreen(state, providerName, onBack, onNext) }, nil)
 		}
 		return applyVoiceModelSelection(state, providerName, item.value, onBack, onNext)
 	}, func() screen { return onBack() })
@@ -299,6 +298,7 @@ func newVoiceModelScreen(state *wizardState, providerName string, onBack func() 
 func applyVoiceModelSelection(state *wizardState, providerName, modelID string, onBack func() screen, onNext func() screen) screen {
 	state.cfg.Transcription.Provider = providerName
 	state.cfg.Transcription.Model = modelID
+	backToModels := func() screen { return newVoiceModelScreen(state, providerName, onBack, onNext) }
 
 	registryName := mapConfigProviderToRegistry(providerName)
 	model, err := provider.GetModel(registryName, modelID)
@@ -317,20 +317,24 @@ func applyVoiceModelSelection(state *wizardState, providerName, modelID string, 
 		} else {
 			state.cfg.Transcription.Language = ""
 		}
-		return applyStreamingSelection(state, model, onNext)
+		return applyStreamingSelection(state, model, backToModels, onNext)
 	}
 
 	return newLanguageScreen(state, model, func() screen {
 		return newVoiceModelScreen(state, providerName, onBack, onNext)
 	}, func() screen {
-		return applyStreamingSelection(state, model, onNext)
+		return applyStreamingSelection(state, model, backToModels, onNext)
 	})
 }
 
 func newLanguageScreen(state *wizardState, model *provider.Model, onBack func() screen, onNext func() screen) screen {
-	items := []optionItem{{title: "Auto-detect (recommended)", value: ""}}
+	items := []optionItem{{title: "Auto-detect", desc: "Recommended. Let the model detect language.", value: ""}}
 	for _, code := range model.SupportedLanguages {
-		items = append(items, optionItem{title: code, value: code})
+		label := provider.LanguageLabel(code)
+		if label == "" {
+			label = code
+		}
+		items = append(items, optionItem{title: label, desc: fmt.Sprintf("Language code: %s", code), value: code})
 	}
 	desc := []string{"Select the language for the voice model.", "Tip: press / to filter."}
 	screen := newListScreen(state, "Language", desc, items, func(item optionItem) screen {
@@ -345,16 +349,16 @@ func newLanguageScreen(state *wizardState, model *provider.Model, onBack func() 
 	return screen
 }
 
-func applyStreamingSelection(state *wizardState, model *provider.Model, next func() screen) screen {
+func applyStreamingSelection(state *wizardState, model *provider.Model, onBack func() screen, next func() screen) screen {
 	if model.SupportsBothModes() {
 		desc := []string{"This model supports both batch and streaming modes."}
-		return newConfirmScreen(state, "Enable Streaming Mode?", desc, "Yes, streaming", "No, batch", func() screen {
+		return newConfirmScreen(state, "Enable Streaming Mode?", desc, "Yes, streaming", "Lower latency, higher resource use.", "No, batch", "Wait for full transcription.", func() screen {
 			state.cfg.Transcription.Streaming = true
 			return next()
 		}, func() screen {
 			state.cfg.Transcription.Streaming = false
 			return next()
-		})
+		}, onBack)
 	}
 	if model.SupportsStreaming {
 		state.cfg.Transcription.Streaming = true
@@ -371,12 +375,12 @@ func newLLMEnableScreen(state *wizardState, onBack func() screen, onNext func() 
 	} else {
 		desc = []string{"Currently disabled.", desc[0]}
 	}
-	return newConfirmScreen(state, "Enable LLM Post-Processing?", desc, "Yes (recommended)", "No", func() screen {
+	return newConfirmScreen(state, "Enable LLM Post-Processing?", desc, "Yes (recommended)", "Clean up grammar and punctuation.", "No", "Keep raw transcription text.", func() screen {
 		return newLLMProviderScreen(state, onBack, onNext)
 	}, func() screen {
 		state.cfg.LLM.Enabled = false
 		return onNext()
-	})
+	}, onBack)
 }
 
 func newLLMProviderScreen(state *wizardState, onBack func() screen, onNext func() screen) screen {
@@ -414,7 +418,13 @@ func newLLMModelScreen(state *wizardState, providerName string, onBack func() sc
 	models := provider.ModelsOfType(p, provider.LLM)
 	items := make([]optionItem, 0, len(models))
 	for _, m := range models {
-		items = append(items, optionItem{title: fmt.Sprintf("%s (%s)", m.Name, m.Description), value: m.ID})
+		desc := m.Description
+		if desc == "" {
+			desc = fmt.Sprintf("Model id: %s", m.ID)
+		} else {
+			desc = fmt.Sprintf("%s (id: %s)", desc, m.ID)
+		}
+		items = append(items, optionItem{title: m.Name, desc: desc, value: m.ID})
 	}
 	desc := []string{"Choose the LLM model.", "Tip: press / to filter."}
 	screen := newListScreen(state, "LLM Model", desc, items, func(item optionItem) screen {
@@ -441,10 +451,10 @@ func newPostProcessingScreen(state *wizardState, onBack func() screen, onNext fu
 	}
 
 	items := []toggleItem{
-		{title: "Remove stutters (repeated words)", value: "stutters", selected: current.RemoveStutters},
-		{title: "Add punctuation", value: "punctuation", selected: current.AddPunctuation},
-		{title: "Fix grammar", value: "grammar", selected: current.FixGrammar},
-		{title: "Remove filler words (um, uh, like)", value: "fillers", selected: current.RemoveFillerWords},
+		{title: "Remove stutters", desc: "Remove repeated words in speech.", value: "stutters", selected: current.RemoveStutters},
+		{title: "Add punctuation", desc: "Insert commas and sentence breaks.", value: "punctuation", selected: current.AddPunctuation},
+		{title: "Fix grammar", desc: "Correct basic grammatical errors.", value: "grammar", selected: current.FixGrammar},
+		{title: "Remove filler words", desc: "Remove fillers like 'um' and 'like'.", value: "fillers", selected: current.RemoveFillerWords},
 	}
 
 	desc := []string{"Select which improvements to apply.", "Tip: press / to filter."}
@@ -483,7 +493,8 @@ func newCustomPromptConfirmScreen(state *wizardState, onBack func() screen, onNe
 	} else {
 		desc = append([]string{"Current prompt: none."}, desc...)
 	}
-	return newConfirmScreen(state, "Add Custom Prompt?", desc, "Yes", "No", func() screen {
+	prev := func() screen { return newPostProcessingScreen(state, onBack, onNext) }
+	return newConfirmScreen(state, "Add Custom Prompt?", desc, "Yes", "Provide additional instructions.", "No", "Use default behavior only.", func() screen {
 		return newInputScreen(state, "Custom Prompt", []string{"Additional instructions for the LLM."}, state.cfg.LLM.CustomPrompt.Prompt, "Format as bullet points", false, func(s string) error {
 			if len(s) > 500 {
 				return fmt.Errorf("prompt must be 500 characters or less")
@@ -499,7 +510,7 @@ func newCustomPromptConfirmScreen(state *wizardState, onBack func() screen, onNe
 		state.cfg.LLM.CustomPrompt.Enabled = false
 		state.cfg.LLM.Enabled = true
 		return onNext()
-	})
+	}, prev)
 }
 
 func newKeywordsScreen(state *wizardState, onBack func() screen) screen {
@@ -526,7 +537,7 @@ func newKeywordsScreen(state *wizardState, onBack func() screen) screen {
 			state.cfg.Keywords = keywords
 		}
 		if state.onboarding {
-			return newInjectionScreen(state, func() screen { return newKeywordsScreen(state, onBack) })
+			return newNotificationsScreen(state, func() screen { return newKeywordsScreen(state, onBack) })
 		}
 		return onBack()
 	}, onBack)
@@ -543,9 +554,9 @@ func newInjectionScreen(state *wizardState, onBack func() screen) screen {
 	}
 
 	items := []toggleItem{
-		{title: "ydotool - best for Chromium/Electron (needs ydotoold)", value: "ydotool", selected: selectedSet["ydotool"]},
-		{title: "wtype - native Wayland typing", value: "wtype", selected: selectedSet["wtype"]},
-		{title: "clipboard - copy to clipboard only", value: "clipboard", selected: selectedSet["clipboard"]},
+		{title: "ydotool", desc: "Best for Chromium/Electron. Requires ydotoold.", value: "ydotool", selected: selectedSet["ydotool"]},
+		{title: "wtype", desc: "Native Wayland typing.", value: "wtype", selected: selectedSet["wtype"]},
+		{title: "clipboard", desc: "Copy to clipboard only.", value: "clipboard", selected: selectedSet["clipboard"]},
 	}
 	desc := []string{"Backends are tried in order until one succeeds.", "Tip: press / to filter."}
 	screen := newMultiSelectScreen(state, "Text Injection Backends", desc, items, true, func(items []toggleItem) screen {
@@ -556,9 +567,6 @@ func newInjectionScreen(state *wizardState, onBack func() screen) screen {
 			}
 		}
 		state.cfg.Injection.Backends = backends
-		if state.onboarding {
-			return newNotificationsScreen(state, func() screen { return newInjectionScreen(state, onBack) })
-		}
 		return onBack()
 	}, onBack)
 	screen.footer = "space toggle • enter save • esc back • / filter"
@@ -572,16 +580,20 @@ func newNotificationsScreen(state *wizardState, onBack func() screen) screen {
 	} else {
 		desc = append([]string{"Currently disabled."}, desc...)
 	}
-	return newConfirmScreen(state, "Enable Desktop Notifications?", desc, "Yes", "No", func() screen {
+	return newConfirmScreen(state, "Enable Desktop Notifications?", desc, "Yes", "Show status notifications.", "No", "Disable notifications.", func() screen {
 		state.cfg.Notifications.Enabled = true
+		if state.cfg.Notifications.Type == "none" {
+			state.cfg.Notifications.Type = ""
+		}
 		return newNotificationTypeScreen(state, onBack)
 	}, func() screen {
 		state.cfg.Notifications.Enabled = false
 		if state.onboarding {
-			return newAdvancedPromptScreen(state, onBack)
+			state.cfg.Notifications.Type = "none"
+			return onboardingSummaryScreen(state, onBack)
 		}
 		return onBack()
-	})
+	}, onBack)
 }
 
 func newNotificationTypeScreen(state *wizardState, onBack func() screen) screen {
@@ -589,9 +601,9 @@ func newNotificationTypeScreen(state *wizardState, onBack func() screen) screen 
 		state.cfg.Notifications.Type = "desktop"
 	}
 	items := []optionItem{
-		{title: "Desktop notifications (notify-send)", value: "desktop"},
-		{title: "Log to console only", value: "log"},
-		{title: "None (silent)", value: "none"},
+		{title: "Reccomended: Desktop notifications", desc: "Uses notify-send to show popups.", value: "desktop"},
+		{title: "Log to console", desc: "Only use for development, or if you want to plug it to something else. Write status changes to logs only.", value: "log"},
+		{title: "None", desc: "Disable notifications entirely.", value: "none"},
 	}
 	desc := []string{"Choose how notifications should be displayed."}
 	screen := newListScreen(state, "Notification Type", desc, items, func(item optionItem) screen {
@@ -605,14 +617,15 @@ func newNotificationTypeScreen(state *wizardState, onBack func() screen) screen 
 
 func newCustomMessagesConfirmScreen(state *wizardState, onBack func() screen) screen {
 	desc := []string{"Customize the text shown in notifications."}
-	return newConfirmScreen(state, "Customize Notification Messages?", desc, "Yes", "No", func() screen {
+	prev := func() screen { return newNotificationTypeScreen(state, onBack) }
+	return newConfirmScreen(state, "Customize Notification Messages?", desc, "Yes", "Edit titles and bodies.", "No", "Use default messages.", func() screen {
 		return newNotificationMessagesScreen(state, onBack)
 	}, func() screen {
 		if state.onboarding {
-			return newAdvancedPromptScreen(state, onBack)
+			return onboardingSummaryScreen(state, onBack)
 		}
 		return onBack()
-	})
+	}, prev)
 }
 
 func newNotificationMessagesScreen(state *wizardState, onBack func() screen) screen {
@@ -626,20 +639,22 @@ func newNotificationMessagesScreen(state *wizardState, onBack func() screen) scr
 		if len(display) > 40 {
 			display = display[:40] + "..."
 		}
-		label := fmt.Sprintf("%s: \"%s\"", def.ConfigKey, display)
-		items = append(items, optionItem{title: label, value: def.ConfigKey})
+		label := formatNotificationMessageTitle(def)
+		desc := fmt.Sprintf("Current: \"%s\"", display)
+		items = append(items, optionItem{title: label, desc: desc, value: def.ConfigKey})
 	}
-	items = append(items, optionItem{title: "Back", value: "back"})
+	items = append(items, optionItem{title: "Back", desc: "Return without editing.", value: "back"})
 	desc := []string{"Select a message to edit."}
+	backFn := onBack
+	if state.onboarding {
+		backFn = func() screen { return onboardingSummaryScreen(state, onBack) }
+	}
 	screen := newListScreen(state, "Notification Messages", desc, items, func(item optionItem) screen {
 		if item.value == "back" {
-			if state.onboarding {
-				return newAdvancedPromptScreen(state, onBack)
-			}
-			return onBack()
+			return backFn()
 		}
 		return newNotificationMessageEditScreen(state, item.value, func() screen { return newNotificationMessagesScreen(state, onBack) })
-	}, func() screen { return onBack() })
+	}, func() screen { return backFn() })
 	screen.footer = "enter select • esc back • / filter"
 	return screen
 }
@@ -675,34 +690,38 @@ func newNotificationMessageEditScreen(state *wizardState, configKey string, onBa
 }
 
 func newAdvancedPromptScreen(state *wizardState, onBack func() screen) screen {
-	desc := []string{"Configure advanced settings like recording parameters and timeouts."}
-	return newConfirmScreen(state, "Configure Advanced Settings?", desc, "Yes", "No", func() screen {
+	desc := []string{"Configure advanced settings like recording, injection, and timeouts."}
+	return newConfirmScreen(state, "Configure Advanced Settings?", desc, "Yes", "Edit recording, injection, and timeout values.", "No", "Skip advanced options for now.", func() screen {
 		return newAdvancedMenuScreen(state, onBack, true)
 	}, func() screen {
 		if state.onboarding {
 			return newMenuScreen(state)
 		}
 		return onBack()
-	})
+	}, onBack)
 }
 
 func newAdvancedMenuScreen(state *wizardState, onBack func() screen, onboarding bool) screen {
 	items := []optionItem{
-		{title: formatAdvancedRecordingLabel(state.cfg), value: "recording"},
-		{title: formatAdvancedInjectionTimeoutLabel(state.cfg), value: "timeouts"},
-		{title: "Back", value: "back"},
+		{title: formatAdvancedRecordingLabel(state.cfg), desc: "Sample rate, channels, device, and timeout.", value: "recording"},
 	}
+	if !onboarding {
+		items = append(items, optionItem{title: formatInjectionLabel(state.cfg), desc: "Backends for typing and clipboard fallback.", value: "injection"})
+	}
+	items = append(items, optionItem{title: formatAdvancedInjectionTimeoutLabel(state.cfg), desc: "Timeouts for ydotool, wtype, clipboard.", value: "timeouts"})
 	if onboarding {
-		items[len(items)-1].title = "Next"
+		items = append(items, optionItem{title: "Next", desc: "Continue without changing advanced settings.", value: "next"})
 	}
 	desc := []string{"Configure low-level options."}
 	screen := newListScreen(state, "Advanced Settings", desc, items, func(item optionItem) screen {
 		switch item.value {
 		case "recording":
 			return newRecordingSettingsScreen(state, func() screen { return newAdvancedMenuScreen(state, onBack, onboarding) })
+		case "injection":
+			return newInjectionScreen(state, func() screen { return newAdvancedMenuScreen(state, onBack, onboarding) })
 		case "timeouts":
 			return newInjectionTimeoutsScreen(state, func() screen { return newAdvancedMenuScreen(state, onBack, onboarding) })
-		case "back":
+		case "next":
 			if onboarding {
 				return newMenuScreen(state)
 			}
@@ -809,8 +828,8 @@ func newInjectionTimeoutsScreen(state *wizardState, onBack func() screen) screen
 func newSummaryScreen(state *wizardState, onBack func() screen) screen {
 	summary := buildSummaryLines(state.cfg)
 	items := []optionItem{
-		{title: "Save", value: "save"},
-		{title: "Cancel", value: "cancel"},
+		{title: "Save", desc: "Write configuration to disk.", value: "save"},
+		{title: "Cancel", desc: "Go back without saving.", value: "cancel"},
 	}
 	desc := []string{}
 	desc = append(desc, summary...)
@@ -831,9 +850,9 @@ func buildVoiceProviderOptions(cfg *config.Config) []optionItem {
 
 	whisperStatus := deps.CheckWhisperCli()
 	if whisperStatus.Installed {
-		options = append(options, optionItem{title: "Whisper.cpp (local, no API key)", value: "whisper-cpp"})
+		options = append(options, optionItem{title: "Whisper.cpp (local)", desc: "Local transcription with no API key.", value: "whisper-cpp"})
 	} else {
-		options = append(options, optionItem{title: "Whisper.cpp (local, install required)", value: "whisper-cpp-disabled"})
+		options = append(options, optionItem{title: "Whisper.cpp (local)", desc: "Install whisper-cli to enable local models.", value: "whisper-cpp-disabled"})
 	}
 
 	configured := getConfiguredProviders(cfg)
@@ -842,18 +861,17 @@ func buildVoiceProviderOptions(cfg *config.Config) []optionItem {
 		if p != nil && len(provider.ModelsOfType(p, provider.Transcription)) > 0 {
 			switch name {
 			case "openai":
-				options = append(options, optionItem{title: "OpenAI Whisper", value: "openai"})
+				options = append(options, optionItem{title: "OpenAI Whisper", desc: "Configured. Balanced quality and cost.", value: "openai"})
 			case "groq":
 				options = append(options,
-					optionItem{title: "Groq Whisper (transcription)", value: "groq-transcription"},
-					optionItem{title: "Groq Whisper (translate to English)", value: "groq-translation"},
+					optionItem{title: "Groq Whisper", desc: "Configured. Fast transcription.", value: "groq-transcription"},
 				)
 			case "mistral":
-				options = append(options, optionItem{title: "Mistral Voxtral", value: "mistral-transcription"})
+				options = append(options, optionItem{title: "Mistral Voxtral", desc: "Configured. Strong European language support.", value: "mistral-transcription"})
 			case "elevenlabs":
-				options = append(options, optionItem{title: "ElevenLabs Scribe", value: "elevenlabs"})
+				options = append(options, optionItem{title: "ElevenLabs Scribe", desc: "Configured. Best cloud quality.", value: "elevenlabs"})
 			case "deepgram":
-				options = append(options, optionItem{title: "Deepgram Nova", value: "deepgram"})
+				options = append(options, optionItem{title: "Deepgram Nova", desc: "Configured. Great streaming performance.", value: "deepgram"})
 			}
 		}
 	}
@@ -864,22 +882,21 @@ func buildVoiceProviderOptions(cfg *config.Config) []optionItem {
 	}
 
 	if !configuredSet["openai"] {
-		options = append(options, optionItem{title: "OpenAI Whisper (add API key)", value: "openai"})
+		options = append(options, optionItem{title: "OpenAI Whisper", desc: "Requires API key. You'll be prompted.", value: "openai"})
 	}
 	if !configuredSet["groq"] {
 		options = append(options,
-			optionItem{title: "Groq Whisper transcription (add API key)", value: "groq-transcription"},
-			optionItem{title: "Groq Whisper translation (add API key)", value: "groq-translation"},
+			optionItem{title: "Groq Whisper", desc: "Requires API key. You'll be prompted.", value: "groq-transcription"},
 		)
 	}
 	if !configuredSet["mistral"] {
-		options = append(options, optionItem{title: "Mistral Voxtral (add API key)", value: "mistral-transcription"})
+		options = append(options, optionItem{title: "Mistral Voxtral", desc: "Requires API key. You'll be prompted.", value: "mistral-transcription"})
 	}
 	if !configuredSet["elevenlabs"] {
-		options = append(options, optionItem{title: "ElevenLabs Scribe (add API key)", value: "elevenlabs"})
+		options = append(options, optionItem{title: "ElevenLabs Scribe", desc: "Requires API key. You'll be prompted.", value: "elevenlabs"})
 	}
 	if !configuredSet["deepgram"] {
-		options = append(options, optionItem{title: "Deepgram Nova (add API key)", value: "deepgram"})
+		options = append(options, optionItem{title: "Deepgram Nova", desc: "Requires API key. You'll be prompted.", value: "deepgram"})
 	}
 
 	return options
@@ -893,9 +910,9 @@ func buildLLMProviderOptions(cfg *config.Config) []optionItem {
 		if p != nil && len(provider.ModelsOfType(p, provider.LLM)) > 0 {
 			switch name {
 			case "openai":
-				options = append(options, optionItem{title: "OpenAI GPT", value: "openai"})
+				options = append(options, optionItem{title: "OpenAI GPT", desc: "Configured. Balanced quality and cost.", value: "openai"})
 			case "groq":
-				options = append(options, optionItem{title: "Groq Llama (fast)", value: "groq"})
+				options = append(options, optionItem{title: "Groq Llama", desc: "Configured. Very fast inference.", value: "groq"})
 			}
 		}
 	}
@@ -905,35 +922,56 @@ func buildLLMProviderOptions(cfg *config.Config) []optionItem {
 		configuredSet[name] = true
 	}
 	if !configuredSet["openai"] {
-		options = append(options, optionItem{title: "OpenAI GPT (add API key)", value: "openai"})
+		options = append(options, optionItem{title: "OpenAI GPT", desc: "Requires API key. You'll be prompted.", value: "openai"})
 	}
 	if !configuredSet["groq"] {
-		options = append(options, optionItem{title: "Groq Llama (add API key)", value: "groq"})
+		options = append(options, optionItem{title: "Groq Llama", desc: "Requires API key. You'll be prompted.", value: "groq"})
 	}
 
 	return options
 }
 
 func formatProviderOption(cfg *config.Config, name string) string {
-	status := "(not configured)"
-	if pc, exists := cfg.Providers[name]; exists && pc.APIKey != "" {
-		status = "(configured)"
-	}
-
 	switch name {
 	case "openai":
-		return fmt.Sprintf("OpenAI - Whisper + GPT %s", status)
+		return "OpenAI - Whisper + GPT"
 	case "groq":
-		return fmt.Sprintf("Groq - Whisper + Llama %s", status)
+		return "Groq - Whisper + Llama"
 	case "mistral":
-		return fmt.Sprintf("Mistral - Voxtral %s", status)
+		return "Mistral - Voxtral"
 	case "elevenlabs":
-		return fmt.Sprintf("ElevenLabs - Scribe %s", status)
+		return "ElevenLabs - Scribe"
 	case "deepgram":
-		return fmt.Sprintf("Deepgram - Nova %s", status)
+		return "Deepgram - Nova"
 	default:
-		return fmt.Sprintf("%s %s", name, status)
+		return name
 	}
+}
+
+func formatProviderOptionDesc(cfg *config.Config, name string) string {
+	status := "Not configured"
+	if pc, exists := cfg.Providers[name]; exists && pc.APIKey != "" {
+		status = "Configured"
+	}
+
+	recommendation := ""
+	switch name {
+	case "openai":
+		recommendation = "Recommended for balanced quality and cost."
+	case "groq":
+		recommendation = "Recommended for fastest turnaround."
+	case "mistral":
+		recommendation = "Recommended for European languages."
+	case "elevenlabs":
+		recommendation = "Recommended for best cloud quality."
+	case "deepgram":
+		recommendation = "Recommended for realtime streaming."
+	}
+
+	if recommendation == "" {
+		return status + "."
+	}
+	return status + ". " + recommendation
 }
 
 func formatProvidersLabel(cfg *config.Config) string {
@@ -1040,6 +1078,11 @@ func findMessageDef(key string) *notify.MessageDef {
 		}
 	}
 	return nil
+}
+
+func formatNotificationMessageTitle(def notify.MessageDef) string {
+	label := strings.ReplaceAll(def.ConfigKey, "_", " ")
+	return strings.Title(label)
 }
 
 func buildSummaryLines(cfg *config.Config) []string {

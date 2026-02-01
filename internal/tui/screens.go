@@ -91,13 +91,18 @@ type confirmScreen struct {
 	footer  string
 	onYes   func() screen
 	onNo    func() screen
+	onBack  func() screen
 	errText string
 }
 
-func newConfirmScreen(state *wizardState, title string, desc []string, yesLabel, noLabel string, onYes func() screen, onNo func() screen) *confirmScreen {
+func newConfirmScreen(state *wizardState, title string, desc []string, yesLabel, yesDesc, noLabel, noDesc string, onYes func() screen, onNo func() screen, onBack func() screen) *confirmScreen {
 	items := []optionItem{
-		{title: yesLabel, value: "yes"},
-		{title: noLabel, value: "no"},
+		{title: yesLabel, desc: yesDesc, value: "yes"},
+		{title: noLabel, desc: noDesc, value: "no"},
+	}
+	footer := "enter select • esc cancel"
+	if onBack != nil {
+		footer = "enter select • esc back"
 	}
 	delegate := list.NewDefaultDelegate()
 	l := list.New(itemsToList(items), delegate, 0, 0)
@@ -106,7 +111,7 @@ func newConfirmScreen(state *wizardState, title string, desc []string, yesLabel,
 	l.SetFilteringEnabled(false)
 	l.SetShowStatusBar(false)
 	l.Title = title
-	return &confirmScreen{state: state, title: title, desc: desc, list: l, footer: "enter select • esc back", onYes: onYes, onNo: onNo}
+	return &confirmScreen{state: state, title: title, desc: desc, list: l, footer: footer, onYes: onYes, onNo: onNo, onBack: onBack}
 }
 
 func (s *confirmScreen) Init() tea.Cmd { return nil }
@@ -127,6 +132,9 @@ func (s *confirmScreen) Update(msg tea.Msg) (screen, tea.Cmd) {
 				}
 			}
 		case "esc", "q":
+			if s.onBack != nil {
+				return s.onBack(), nil
+			}
 			if s.onNo != nil {
 				return s.onNo(), nil
 			}
@@ -314,7 +322,9 @@ func newInfoScreen(state *wizardState, title string, desc []string, next func() 
 	return &infoScreen{state: state, title: title, desc: desc, footer: "enter continue • esc back", next: next, back: back}
 }
 
-func (s *infoScreen) Init() tea.Cmd { return nil }
+func (s *infoScreen) Init() tea.Cmd {
+	return nil
+}
 
 func (s *infoScreen) Update(msg tea.Msg) (screen, tea.Cmd) {
 	switch msg := msg.(type) {

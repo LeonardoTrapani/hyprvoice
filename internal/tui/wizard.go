@@ -78,19 +78,16 @@ func (m wizardModel) View() string {
 }
 
 // Run starts the TUI configuration wizard.
-// If onboarding is true, forces the guided wizard flow even if config exists.
+// If onboarding is true, starts the guided onboarding flow.
 func Run(existingConfig *config.Config, onboarding bool) (*ConfigureResult, error) {
 	if existingConfig == nil {
 		return nil, fmt.Errorf("config is required")
 	}
 
-	state := &wizardState{cfg: existingConfig}
-	if onboarding || !hasUserChanges(existingConfig) {
-		state.onboarding = true
-	}
+	state := &wizardState{cfg: existingConfig, onboarding: onboarding}
 
 	var start screen
-	if state.onboarding {
+	if onboarding {
 		start = newWelcomeScreen(state)
 	} else {
 		start = newMenuScreen(state)

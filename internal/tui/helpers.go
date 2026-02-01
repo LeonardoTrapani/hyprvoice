@@ -3,6 +3,7 @@ package tui
 import (
 	"fmt"
 	"sort"
+	"strings"
 
 	"github.com/leonardotrapani/hyprvoice/internal/config"
 	"github.com/leonardotrapani/hyprvoice/internal/models/whisper"
@@ -39,16 +40,6 @@ func maskAPIKey(key string) string {
 	return key[:7] + "..." + key[len(key)-4:]
 }
 
-func hasUserChanges(cfg *config.Config) bool {
-	if len(cfg.Providers) > 0 {
-		return true
-	}
-	if cfg.Transcription.APIKey != "" {
-		return true
-	}
-	return false
-}
-
 func getConfiguredProviders(cfg *config.Config) []string {
 	providers := make([]string, 0, len(cfg.Providers))
 	for name, pc := range cfg.Providers {
@@ -69,7 +60,7 @@ func isProviderConfigured(cfg *config.Config, providerName string) bool {
 
 func mapConfigProviderToRegistry(configProvider string) string {
 	switch configProvider {
-	case "groq-transcription", "groq-translation":
+	case "groq-transcription":
 		return "groq"
 	case "mistral-transcription":
 		return "mistral"
@@ -78,27 +69,37 @@ func mapConfigProviderToRegistry(configProvider string) string {
 	}
 }
 
-func buildModelLabel(m provider.Model) string {
-	label := fmt.Sprintf("%s (%s)", m.Name, m.Description)
+func buildModelDesc(m provider.Model) string {
+	parts := []string{}
+	if m.Description != "" {
+		parts = append(parts, m.Description)
+	} else if m.Name != "" {
+		parts = append(parts, m.Name)
+	}
 
-	if m.Local && m.LocalInfo != nil {
-		label += fmt.Sprintf(" [%s]", m.LocalInfo.Size)
+	if m.Local {
+		parts = append(parts, "local model")
 	}
 
 	if m.SupportsBothModes() {
-		label += " [batch+streaming]"
+		parts = append(parts, "batch+streaming")
 	} else if m.SupportsStreaming {
-		label += " [streaming]"
+		parts = append(parts, "streaming")
+	} else {
+		parts = append(parts, "batch-only")
 	}
 
-	return label
+	if m.Local && m.LocalInfo != nil && m.LocalInfo.Size != "" {
+		parts = append(parts, fmt.Sprintf("size %s", m.LocalInfo.Size))
+	}
+
+	if len(parts) == 0 {
+		return "Transcription model"
+	}
+	return strings.Join(parts, " - ")
 }
 
 func getTranscriptionModelOptions(configProvider string) []modelOption {
-	if configProvider == "groq-translation" {
-		return []modelOption{{ID: "whisper-large-v3", Label: "whisper-large-v3 (only option)"}}
-	}
-
 	registryName := mapConfigProviderToRegistry(configProvider)
 	p := provider.GetProvider(registryName)
 	if p == nil {
@@ -108,15 +109,15 @@ func getTranscriptionModelOptions(configProvider string) []modelOption {
 	models := provider.ModelsOfType(p, provider.Transcription)
 	options := make([]modelOption, 0, len(models))
 	for _, m := range models {
-		label := buildModelLabel(m)
+		desc := buildModelDesc(m)
 		if m.Local && registryName == "whisper-cpp" {
 			if whisper.IsInstalled(m.ID) {
-				label = "[x] " + label
+				desc = desc + " - installed"
 			} else {
-				label = "[ ] " + label
+				desc = desc + " - not installed"
 			}
 		}
-		options = append(options, modelOption{ID: m.ID, Label: label})
+		options = append(options, modelOption{ID: m.ID, Title: m.ID, Desc: desc})
 	}
 
 	return options
