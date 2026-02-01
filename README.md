@@ -8,7 +8,10 @@ Press a toggle key, speak, and get instant text input. Built natively for Waylan
 - **LLM post-processing**: Automatically cleans up transcriptions - removes stutters, fixes grammar, adds punctuation (enabled by default)
 - **Wayland native**: Purpose-built for Wayland compositors - no legacy X11 dependencies or hacky workarounds
 - **Real-time feedback**: Desktop notifications for recording states and transcription status
-- **Multiple transcription backends**: OpenAI Whisper, Groq, Mistral Voxtral, and Eleven Labs Scribe (99 languages, excellent accuracy)
+- **Multiple transcription backends**: OpenAI Whisper, Groq, Mistral Voxtral, ElevenLabs Scribe, and Deepgram Nova
+- **Local transcription**: Offline transcription via whisper.cpp - no API keys, no cloud, complete privacy
+- **Streaming transcription**: Real-time results with ElevenLabs, Deepgram, and OpenAI Realtime
+- **57 language support**: Full multilingual support with language-model compatibility validation
 - **Smart text injection**: Clipboard save/restore with direct typing fallback
 - **Daemon architecture**: Lightweight control plane with efficient pipeline management
 
@@ -63,7 +66,7 @@ export PATH="$HOME/.local/bin:$PATH"
 
 - **Wayland desktop** (Hyprland, Niri, GNOME, KDE, etc.)
 - **PipeWire audio system** with tools
-- **API key for transcription**: OpenAI, Groq, Mistral, or Eleven Labs API key (check each provider's pricing)
+- **API key for transcription**: OpenAI, Groq, Mistral, ElevenLabs, or Deepgram API key (check each provider's pricing), OR whisper.cpp for local transcription (no API key required)
 
 **System packages** (automatically installed with AUR package):
 
@@ -153,6 +156,25 @@ hyprvoice version
 hyprvoice stop
 ```
 
+### Model Management (Local Transcription)
+
+```bash
+# List all available models
+hyprvoice model list
+
+# List only transcription models
+hyprvoice model list --type transcription
+
+# List models for a specific provider
+hyprvoice model list --provider whisper-cpp
+
+# Download a local model
+hyprvoice model download base.en
+
+# Remove a downloaded model
+hyprvoice model remove base.en
+```
+
 ### Keybinding Pattern
 
 Most setups use this toggle pattern in window manager config:
@@ -215,8 +237,8 @@ hyprvoice configure
 
 The wizard guides you through all settings with a user-friendly interface:
 
-- **Providers** - API keys for OpenAI, Groq, Mistral, ElevenLabs
-- **Transcription** - Speech-to-text provider and model selection
+- **Providers** - API keys for OpenAI, Groq, Mistral, ElevenLabs, Deepgram
+- **Transcription** - Speech-to-text provider and model selection (cloud or local)
 - **LLM** - Post-processing to clean up transcriptions (enabled by default)
 - **Keywords** - Domain-specific terms for better accuracy
 - **Injection** - How text is typed (ydotool, wtype, clipboard)
@@ -226,6 +248,97 @@ The wizard guides you through all settings with a user-friendly interface:
 Configuration is stored in `~/.config/hyprvoice/config.toml`. Changes are applied immediately without restarting the daemon.
 
 For manual configuration and detailed options, see [docs/config.md](docs/config.md).
+
+## Local Transcription
+
+For complete offline privacy, use whisper.cpp for local transcription - no API keys, no cloud, no data leaves your machine.
+
+### Prerequisites
+
+1. **Install whisper.cpp**: Build from source or install via package manager
+
+   ```bash
+   # Arch Linux
+   yay -S whisper.cpp
+
+   # Build from source (recommended for CUDA/Metal support)
+   git clone https://github.com/ggerganov/whisper.cpp
+   cd whisper.cpp && make
+   sudo cp main /usr/local/bin/whisper-cli
+   ```
+
+2. **Download a model**:
+
+   ```bash
+   # List available models
+   hyprvoice model list --provider whisper-cpp
+
+   # Download recommended model (142MB, English-only, fast)
+   hyprvoice model download base.en
+
+   # Or download multilingual model (142MB, 57 languages)
+   hyprvoice model download base
+   ```
+
+### Available Models
+
+| Model      | Size  | Languages   | Speed    | Accuracy |
+| ---------- | ----- | ----------- | -------- | -------- |
+| tiny.en    | 75MB  | English     | Fastest  | Good     |
+| base.en    | 142MB | English     | Fast     | Better   |
+| small.en   | 466MB | English     | Medium   | Great    |
+| medium.en  | 1.5GB | English     | Slow     | Excellent|
+| tiny       | 75MB  | 57 langs    | Fastest  | Good     |
+| base       | 142MB | 57 langs    | Fast     | Better   |
+| small      | 466MB | 57 langs    | Medium   | Great    |
+| medium     | 1.5GB | 57 langs    | Slow     | Excellent|
+| large-v3   | 3GB   | 57 langs    | Slowest  | Best     |
+
+**Recommendation**: Start with `base.en` for English or `base` for multilingual. Models ending in `.en` are English-only but slightly faster.
+
+### Configuration
+
+```toml
+[transcription]
+provider = "whisper-cpp"
+model = "base.en"          # or "base" for multilingual
+language = ""              # empty for auto-detect
+threads = 0                # 0 = auto (NumCPU - 1)
+```
+
+## Streaming Transcription
+
+For real-time transcription results as you speak, use streaming providers. Text appears progressively instead of waiting for the entire recording to finish.
+
+### Streaming Providers
+
+| Provider   | Models                     | Latency    | Languages |
+| ---------- | -------------------------- | ---------- | --------- |
+| ElevenLabs | scribe_v1-streaming, scribe_v2-streaming | ~150ms | 57 langs  |
+| Deepgram   | nova-3, nova-2             | ~100ms     | 40+ langs |
+| OpenAI     | gpt-4o-realtime-preview    | ~200ms     | 57 langs  |
+
+### Configuration
+
+```toml
+# ElevenLabs streaming
+[providers.elevenlabs]
+api_key = "..."
+
+[transcription]
+provider = "elevenlabs"
+model = "scribe_v2-streaming"
+
+# Deepgram streaming
+[providers.deepgram]
+api_key = "..."
+
+[transcription]
+provider = "deepgram"
+model = "nova-3"
+```
+
+**Note**: Streaming models show partial results while recording. Final text is accumulated and injected when you toggle off.
 
 ### Service Management
 
@@ -251,7 +364,8 @@ journalctl --user -u hyprvoice.service -f
 
 - **Socket**: `~/.cache/hyprvoice/control.sock` - IPC communication
 - **PID file**: `~/.cache/hyprvoice/hyprvoice.pid` - Process tracking
-- **Config**: `~/.config/hyprvoice/config.toml` - User settings (planned)
+- **Config**: `~/.config/hyprvoice/config.toml` - User settings
+- **Models**: `~/.local/share/hyprvoice/models/whisper/` - Downloaded whisper models
 
 ## Development Status
 
@@ -261,10 +375,15 @@ journalctl --user -u hyprvoice.service -f
 | Recording workflow       | ✅     | Toggle recording via PipeWire                         |
 | Audio capture            | ✅     | Efficient PipeWire integration                        |
 | Desktop notifications    | ✅     | Status feedback via notify-send                       |
-| OpenAI transcription     | ✅     | HTTP API integration                                  |
+| OpenAI transcription     | ✅     | HTTP API + Realtime streaming                         |
 | Groq transcription       | ✅     | Fast Whisper API with transcription and translation   |
 | Mistral transcription    | ✅     | Voxtral API for European languages                    |
-| ElevenLabs transcription | ✅     | Scribe API with 99 language support                   |
+| ElevenLabs transcription | ✅     | Scribe batch + streaming (90+ languages)              |
+| Deepgram transcription   | ✅     | Nova-3 streaming (40+ languages)                      |
+| Local transcription      | ✅     | whisper.cpp with model download management            |
+| Streaming support        | ✅     | Real-time results with ElevenLabs, Deepgram, OpenAI   |
+| Model management         | ✅     | `hyprvoice model list/download/remove` CLI            |
+| Language validation      | ✅     | Model-language compatibility checking                 |
 | LLM post-processing      | ✅     | OpenAI/Groq text cleanup (enabled by default)         |
 | Text injection           | ✅     | Clipboard + wtype/ydotool with fallback               |
 | Configuration system     | ✅     | TOML-based user settings with hot-reload              |
@@ -272,8 +391,6 @@ journalctl --user -u hyprvoice.service -f
 | Unit test coverage       | ✅     | Comprehensive test suite (100% pass)                  |
 | CI/CD Pipeline           | ✅     | Automated builds and releases via GitHub Actions      |
 | Installation (AUR etc)   | ✅     | AUR package with automated dependency installation    |
-| Light dictation models   | ⏳     | Alternatives to whispers for light and fast dictation |
-| whisper.cpp support      | ⏳     | Local model inference                                 |
 
 **Legend**: ✅ Complete · ⏳ Planned
 
@@ -498,13 +615,16 @@ hyprvoice/
 │   ├── bus/              # IPC (Unix socket) + PID management
 │   ├── config/           # Configuration loading and validation
 │   ├── daemon/           # Control daemon (lifecycle management)
+│   ├── deps/             # Dependency checking (whisper-cli, ffmpeg)
 │   ├── injection/        # Text injection (clipboard + wtype + ydotool)
+│   ├── language/         # Language codes and provider-specific mappings
 │   ├── llm/              # LLM post-processing adapters (OpenAI, Groq)
+│   ├── models/whisper/   # Whisper model info and download management
 │   ├── notify/           # Desktop notification integration
 │   ├── pipeline/         # Audio processing pipeline + state machine
-│   ├── provider/         # Provider registry and capability detection
+│   ├── provider/         # Provider registry with Model metadata
 │   ├── recording/        # PipeWire audio capture
-│   ├── transcriber/      # Transcription adapters (OpenAI, Groq, Mistral, ElevenLabs)
+│   ├── transcriber/      # Batch and streaming adapters (OpenAI, Groq, Mistral, ElevenLabs, Deepgram, whisper-cpp)
 │   └── tui/              # Interactive configuration wizard
 ├── go.mod                # Go module definition
 └── README.md
