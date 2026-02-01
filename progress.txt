@@ -185,3 +185,23 @@ Started: Sun Feb  1 12:22:47 AM CET 2026
 - GetInstalledPath(modelID) returns path or error if not installed
 - Download uses temp file + rename for atomicity, respects context cancellation
 - All tests passing, typecheck passes
+
+### Task 20: Create WhisperCppAdapter implementing BatchAdapter
+- Created `internal/transcriber/adapter_whisper_cpp.go`
+- WhisperCppAdapter struct with modelPath, language, threads fields
+- Constructor: `NewWhisperCppAdapter(modelPath, lang string, threads int)`
+- Transcribe() implementation:
+  - Returns empty string for empty audio (no error)
+  - Checks whisper-cli exists via exec.LookPath
+  - Checks model file exists via os.Stat
+  - Converts raw PCM to WAV using existing convertToWAV helper
+  - Writes to temp file in os.TempDir() with unique timestamp
+  - Uses defer os.Remove(tmpFile) for cleanup
+  - Converts language via language.ToProviderFormat(lang, "whisper-cpp")
+  - Executes: whisper-cli -m {modelPath} -l {lang} -nt -np -f {tempfile}
+  - Adds -t {threads} flag if threads > 0
+  - Respects context cancellation
+  - Parses stdout for transcription text
+- Created comprehensive test file adapter_whisper_cpp_test.go
+- Tests: interface implementation, empty audio, missing model, language, threads, context cancellation
+- All tests passing, typecheck passes

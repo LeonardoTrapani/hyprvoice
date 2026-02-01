@@ -480,7 +480,7 @@
 				"Cleans up temp files",
 				"Typecheck passes"
 			],
-			"passes": false
+			"passes": true
 		},
 		{
 			"title": "Create whisper-cpp Provider",
