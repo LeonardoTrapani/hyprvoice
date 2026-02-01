@@ -134,3 +134,15 @@ Started: Sun Feb  1 12:22:47 AM CET 2026
 - Updated factory to use `NewElevenLabsAdapterFromConfig`
 - Updated tests for new constructor signature
 - All tests passing, typecheck passes
+
+### Task 15: Update transcriber factory to use Model metadata
+- Refactored `NewTranscriber()` to look up Model via `provider.GetModel()`
+- Added `mapConfigProviderToRegistryName()` to map config provider names (e.g., "groq-transcription") to registry names (e.g., "groq")
+- Factory now switches on `model.AdapterType` instead of provider name
+- Special case: "groq-translation" still uses dedicated `GroqTranslationAdapter` (uses CreateTranslation API)
+- For "openai" adapter type: creates `OpenAIAdapter` with model's endpoint config
+- For "elevenlabs" adapter type: creates `ElevenLabsAdapter` with model's endpoint config
+- Streaming models return clear error: "streaming model %s not supported yet (coming soon)"
+- Empty model now uses provider's default transcription model
+- Added tests for streaming model rejection and unknown model error
+- All tests passing, typecheck passes

@@ -373,7 +373,7 @@
 				"Streaming models return clear error until implemented",
 				"Typecheck passes"
 			],
-			"passes": false
+			"passes": true
 		},
 		{
 			"title": "Update config.ToTranscriberConfig to work with new architecture",

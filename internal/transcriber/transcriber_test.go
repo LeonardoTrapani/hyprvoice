@@ -145,14 +145,34 @@ func TestNewTranscriber(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name: "empty model",
+			name: "empty model uses default",
 			config: Config{
 				Provider: "openai",
 				APIKey:   "test-key",
 				Language: "en",
 				Model:    "",
 			},
-			wantErr: false, // Model validation is not implemented in NewTranscriber
+			wantErr: false, // uses default model when empty
+		},
+		{
+			name: "streaming model returns error",
+			config: Config{
+				Provider: "elevenlabs",
+				APIKey:   "test-key",
+				Language: "en",
+				Model:    "scribe_v1-streaming",
+			},
+			wantErr: true, // streaming not yet supported
+		},
+		{
+			name: "unknown model returns error",
+			config: Config{
+				Provider: "openai",
+				APIKey:   "test-key",
+				Language: "en",
+				Model:    "nonexistent-model",
+			},
+			wantErr: true,
 		},
 	}
 

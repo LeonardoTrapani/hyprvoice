@@ -3,6 +3,7 @@ package transcriber
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/leonardotrapani/hyprvoice/internal/provider"
 	"github.com/leonardotrapani/hyprvoice/internal/recording"
@@ -29,52 +30,84 @@ type Config struct {
 	Keywords []string
 }
 
-// NewTranscriber creates a new simple transcriber
-func NewTranscriber(config Config) (Transcriber, error) {
-	// Create the appropriate adapter
-	var adapter BatchAdapter
-
-	switch config.Provider {
-	case "openai":
-		if config.APIKey == "" {
-			return nil, fmt.Errorf("OpenAI API key required")
-		}
-		adapter = NewOpenAIAdapterFromConfig(config)
-
-	case "groq-transcription":
-		if config.APIKey == "" {
-			return nil, fmt.Errorf("Groq API key required")
-		}
-		// use consolidated OpenAI adapter with Groq endpoint
-		endpoint := &provider.EndpointConfig{BaseURL: "https://api.groq.com/openai"}
-		adapter = NewOpenAIAdapter(endpoint, config.APIKey, config.Model, config.Language, config.Keywords, "groq")
-
-	case "groq-translation":
-		if config.APIKey == "" {
-			return nil, fmt.Errorf("Groq API key required")
-		}
-		adapter = NewGroqTranslationAdapter(config)
-
+// mapConfigProviderToRegistryName maps config provider names to provider registry names
+// Config uses names like "groq-transcription", "groq-translation", "mistral-transcription"
+// Registry uses base names like "groq", "mistral"
+func mapConfigProviderToRegistryName(configProvider string) string {
+	switch configProvider {
+	case "groq-transcription", "groq-translation":
+		return "groq"
 	case "mistral-transcription":
-		if config.APIKey == "" {
-			return nil, fmt.Errorf("Mistral API key required")
-		}
-		// use consolidated OpenAI adapter with Mistral endpoint
-		endpoint := &provider.EndpointConfig{BaseURL: "https://api.mistral.ai"}
-		adapter = NewOpenAIAdapter(endpoint, config.APIKey, config.Model, config.Language, config.Keywords, "mistral")
-
-	case "elevenlabs":
-		if config.APIKey == "" {
-			return nil, fmt.Errorf("ElevenLabs API key required")
-		}
-		adapter = NewElevenLabsAdapterFromConfig(config)
-
+		return "mistral"
 	default:
-		return nil, fmt.Errorf("unsupported provider: %s", config.Provider)
+		return configProvider
+	}
+}
+
+// NewTranscriber creates a new transcriber based on model metadata
+func NewTranscriber(config Config) (Transcriber, error) {
+	if config.Provider == "" {
+		return nil, fmt.Errorf("provider is required")
 	}
 
-	// Create simple transcriber that collects all audio
-	transcriber := NewSimpleTranscriber(config, adapter)
+	// special case: groq-translation uses CreateTranslation API (different from transcription)
+	if config.Provider == "groq-translation" {
+		if config.APIKey == "" {
+			return nil, fmt.Errorf("Groq API key required")
+		}
+		adapter := NewGroqTranslationAdapter(config)
+		return NewSimpleTranscriber(config, adapter), nil
+	}
 
-	return transcriber, nil
+	// map config provider name to registry provider name
+	registryProvider := mapConfigProviderToRegistryName(config.Provider)
+
+	// lookup provider
+	p := provider.GetProvider(registryProvider)
+	if p == nil {
+		return nil, fmt.Errorf("unknown provider: %s", config.Provider)
+	}
+
+	// check API key requirement
+	if p.RequiresAPIKey() && config.APIKey == "" {
+		return nil, fmt.Errorf("%s API key required", strings.Title(registryProvider))
+	}
+
+	// lookup model from provider
+	model, err := provider.GetModel(registryProvider, config.Model)
+	if err != nil {
+		// if model not found, try to use default model
+		if config.Model == "" {
+			defaultModel := p.DefaultModel(provider.Transcription)
+			if defaultModel != "" {
+				model, err = provider.GetModel(registryProvider, defaultModel)
+			}
+		}
+		if err != nil || model == nil {
+			return nil, fmt.Errorf("model not found: %s (provider: %s)", config.Model, config.Provider)
+		}
+	}
+
+	// check model type
+	if model.Type != provider.Transcription {
+		return nil, fmt.Errorf("model %s is not a transcription model", config.Model)
+	}
+
+	// streaming models not supported yet
+	if model.Streaming {
+		return nil, fmt.Errorf("streaming model %s not supported yet (coming soon)", config.Model)
+	}
+
+	// create adapter based on model.AdapterType
+	var adapter BatchAdapter
+	switch model.AdapterType {
+	case "openai":
+		adapter = NewOpenAIAdapter(model.Endpoint, config.APIKey, model.ID, config.Language, config.Keywords, registryProvider)
+	case "elevenlabs":
+		adapter = NewElevenLabsAdapter(model.Endpoint, config.APIKey, model.ID, config.Language)
+	default:
+		return nil, fmt.Errorf("unsupported adapter type: %s", model.AdapterType)
+	}
+
+	return NewSimpleTranscriber(config, adapter), nil
 }
