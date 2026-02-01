@@ -806,7 +806,7 @@
 				"Close() terminates cleanly",
 				"Typecheck passes"
 			],
-			"passes": false
+			"passes": true
 		},
 		{
 			"title": "Add reconnection logic to Deepgram StreamingAdapter",

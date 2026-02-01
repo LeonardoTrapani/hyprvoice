@@ -347,3 +347,16 @@ Started: Sun Feb  1 12:22:47 AM CET 2026
 - Registered in provider.init()
 - Comprehensive test file created: deepgram_test.go
 - All tests passing, typecheck passes
+
+### Task 34: Create Deepgram StreamingAdapter
+- Created `internal/transcriber/adapter_deepgram.go`
+- DeepgramAdapter struct: endpoint, apiKey, model, language, conn, resultsCh, mutex, ctx/cancel, WaitGroup
+- Start(): connects to wss://api.deepgram.com/v1/listen with Authorization: Token header
+- Query params: model, language, encoding=linear16, sample_rate=16000, channels=1, interim_results=true, smart_format=true, punctuate=true
+- Language conversion via language.ToProviderFormat(lang, "deepgram")
+- SendChunk(): sends raw binary audio (websocket.BinaryMessage, not base64 like ElevenLabs)
+- readLoop goroutine: parses Metadata, Results (interim + final), Error, UtteranceEnd, SpeechStarted messages
+- Close(): cancels context, sends close frame, waits for reader goroutine
+- Added reconnection logic (maxRetries=3, exponential backoff 1s, 2s, 4s) matching ElevenLabs pattern
+- Comprehensive tests with mock WebSocket server
+- All tests passing with -race flag, typecheck passes
