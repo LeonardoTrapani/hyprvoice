@@ -492,3 +492,17 @@ Started: Sun Feb  1 12:22:47 AM CET 2026
 - Streaming vs Batch explanation with use cases
 - Local vs Cloud comparison with pros/cons and when-to-choose guidelines
 - Typecheck passes
+
+### Task 46: Update docs/config.md with all providers and options
+- Added whisper-cpp provider section with provider, model, threads options and model table
+- Added Deepgram provider section with api_key/DEEPGRAM_API_KEY, models (nova-3, nova-2)
+- Added Deepgram to unified provider system section
+- Documented streaming models: scribe_v1-streaming, scribe_v2-streaming, nova-3, nova-2, gpt-4o-realtime-preview
+- Added streaming models table with Provider/Model/Latency/Languages
+- Added Model Management section with hyprvoice model list/download/remove commands and examples
+- Added Language Configuration section with auto-detect recommendation and language code examples
+- Added Supported Languages subsection listing all 57 language codes
+- Added Language-Model Compatibility section with English-only models table
+- Documented validation behavior: config-time hard error + runtime fallback with notification
+- Added example configurations: Local Transcription, Deepgram Streaming, Ultra-Low Latency Streaming
+- Typecheck passes

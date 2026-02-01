@@ -1082,7 +1082,7 @@
 				"Examples are copy-paste ready",
 				"Typecheck passes"
 			],
-			"passes": false
+			"passes": true
 		}
 	]
 }

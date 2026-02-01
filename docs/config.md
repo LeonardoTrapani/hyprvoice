@@ -12,6 +12,11 @@ Configuration is stored in `~/.config/hyprvoice/config.toml` and changes are app
 
 - [Unified Provider System](#unified-provider-system)
 - [Transcription Providers](#transcription-providers)
+  - [Cloud Providers](#cloud-providers)
+  - [Local Transcription (whisper-cpp)](#local-transcription-whisper-cpp)
+  - [Streaming Transcription](#streaming-transcription)
+- [Language Configuration](#language-configuration)
+- [Model Management](#model-management)
 - [LLM Post-Processing](#llm-post-processing)
 - [Keywords](#keywords)
 - [Recording Configuration](#recording-configuration)
@@ -37,6 +42,9 @@ Hyprvoice uses a unified provider system where API keys are configured once and 
 
 [providers.elevenlabs]
   api_key = "..."              # Or set ELEVENLABS_API_KEY env var
+
+[providers.deepgram]
+  api_key = "..."              # Or set DEEPGRAM_API_KEY env var
 ```
 
 **API key resolution order:**
@@ -46,7 +54,9 @@ Hyprvoice uses a unified provider system where API keys are configured once and 
 
 ## Transcription Providers
 
-Hyprvoice supports multiple transcription backends:
+Hyprvoice supports multiple transcription backends. See [docs/providers.md](./providers.md) for detailed comparisons.
+
+### Cloud Providers
 
 ### OpenAI Whisper API
 
@@ -114,13 +124,199 @@ model = "voxtral-mini-latest"   # Or "voxtral-mini-2507"
 
 ### ElevenLabs Scribe
 
-Transcription using ElevenLabs' Scribe API with 99 language support:
+Transcription using ElevenLabs' Scribe API with 57+ language support:
 
 ```toml
 [transcription]
 provider = "elevenlabs"
 language = ""
-model = "scribe_v1"             # Or "scribe_v2" for real-time, lower latency
+model = "scribe_v1"             # Or "scribe_v2" for lower latency
+```
+
+**Features:**
+
+- 57+ languages supported
+- Both batch and streaming models available
+- Ultra-low latency streaming options
+
+### Deepgram Nova
+
+Fast streaming transcription using Deepgram's Nova models:
+
+```toml
+[providers.deepgram]
+  api_key = "..."               # Or set DEEPGRAM_API_KEY env var
+
+[transcription]
+provider = "deepgram"
+language = ""
+model = "nova-3"                # Or "nova-2" for different language support
+```
+
+**Features:**
+
+- All models are streaming-only
+- Nova-3: 42 languages, best accuracy
+- Nova-2: 33 languages, faster with filler word detection
+- Excellent for real-time transcription and live captions
+
+### Local Transcription (whisper-cpp)
+
+Run Whisper models locally on your machine. No API keys, no network latency, complete privacy.
+
+**Prerequisites:**
+
+1. Install whisper-cli: https://github.com/ggerganov/whisper.cpp
+2. Download a model: `hyprvoice model download base.en`
+
+```toml
+[transcription]
+provider = "whisper-cpp"
+language = ""                   # Empty for auto-detect
+model = "base.en"               # English-only model (fastest)
+threads = 0                     # 0 = auto (uses NumCPU - 1)
+```
+
+**Available models:**
+
+| Model | Size | Languages | Best For |
+|-------|------|-----------|----------|
+| `tiny.en` | 75MB | English only | Quick tests, low-power devices |
+| `base.en` | 142MB | English only | Daily use, good balance |
+| `small.en` | 466MB | English only | Better accuracy |
+| `medium.en` | 1.5GB | English only | Best English accuracy |
+| `tiny` | 75MB | 57 languages | Quick multilingual |
+| `base` | 142MB | 57 languages | Daily multilingual use |
+| `small` | 466MB | 57 languages | Better multilingual |
+| `medium` | 1.5GB | 57 languages | Great accuracy |
+| `large-v3` | 3GB | 57 languages | Best accuracy |
+
+**Threads configuration:**
+
+- `threads = 0` (default): auto-detects, uses NumCPU - 1 to leave one core free
+- `threads = 4`: explicitly use 4 threads
+- Higher thread count = faster transcription but more CPU usage
+
+### Streaming Transcription
+
+For real-time transcription, use streaming models:
+
+```toml
+# ElevenLabs streaming
+[transcription]
+provider = "elevenlabs"
+model = "scribe_v1-streaming"   # Or "scribe_v2-streaming" for <150ms latency
+
+# Deepgram streaming (all models are streaming)
+[transcription]
+provider = "deepgram"
+model = "nova-3"
+
+# OpenAI Realtime
+[transcription]
+provider = "openai"
+model = "gpt-4o-realtime-preview"
+```
+
+**Streaming models:**
+
+| Provider | Model | Latency | Languages |
+|----------|-------|---------|-----------|
+| ElevenLabs | `scribe_v1-streaming` | Low | 57+ |
+| ElevenLabs | `scribe_v2-streaming` | <150ms | 57+ |
+| Deepgram | `nova-3` | Low | 42 |
+| Deepgram | `nova-2` | Very Low | 33 |
+| OpenAI | `gpt-4o-realtime-preview` | Low | 57 |
+
+## Language Configuration
+
+Configure the expected spoken language for better accuracy:
+
+```toml
+[transcription]
+language = ""                   # Empty for auto-detect (recommended)
+# Or specify a language code:
+# language = "en"               # English
+# language = "es"               # Spanish
+# language = "fr"               # French
+# language = "zh"               # Chinese
+# language = "ja"               # Japanese
+```
+
+**Recommendations:**
+
+- Use auto-detect (`language = ""`) for most cases - it works well
+- Specify a language if you always speak the same language (slight accuracy boost)
+- Required for English-only models if you speak English
+
+### Supported Languages
+
+Hyprvoice supports 57 languages:
+
+Afrikaans (af), Arabic (ar), Armenian (hy), Azerbaijani (az), Belarusian (be), Bosnian (bs), Bulgarian (bg), Catalan (ca), Chinese (zh), Croatian (hr), Czech (cs), Danish (da), Dutch (nl), English (en), Estonian (et), Finnish (fi), French (fr), Galician (gl), German (de), Greek (el), Hebrew (he), Hindi (hi), Hungarian (hu), Icelandic (is), Indonesian (id), Italian (it), Japanese (ja), Kannada (kn), Kazakh (kk), Korean (ko), Latvian (lv), Lithuanian (lt), Macedonian (mk), Malay (ms), Marathi (mr), Maori (mi), Nepali (ne), Norwegian (no), Persian (fa), Polish (pl), Portuguese (pt), Romanian (ro), Russian (ru), Serbian (sr), Slovak (sk), Slovenian (sl), Spanish (es), Swahili (sw), Swedish (sv), Tagalog (tl), Tamil (ta), Thai (th), Turkish (tr), Ukrainian (uk), Urdu (ur), Vietnamese (vi), Welsh (cy)
+
+### Language-Model Compatibility
+
+Some models only support English. Hyprvoice validates compatibility:
+
+**English-only models:**
+
+| Provider | Model |
+|----------|-------|
+| Groq | `distil-whisper-large-v3-en` |
+| whisper-cpp | `tiny.en`, `base.en`, `small.en`, `medium.en` |
+
+**Deepgram models** support fewer languages than the full 57 - see [providers.md](./providers.md#deepgram-language-support).
+
+**Validation behavior:**
+
+1. **At config time (TUI/validation):** Selecting an English-only model with a non-English language shows an error and prevents saving
+2. **At runtime (safety net):** If config was manually edited to an invalid combination, hyprvoice logs a warning, sends a desktop notification, and falls back to auto-detect
+
+```
+# This combination will be rejected:
+[transcription]
+provider = "groq-transcription"
+model = "distil-whisper-large-v3-en"   # English only!
+language = "es"                         # Error: model does not support Spanish
+```
+
+## Model Management
+
+Manage local whisper models with CLI commands:
+
+### List Models
+
+```bash
+# List all models
+hyprvoice model list
+
+# Filter by provider
+hyprvoice model list --provider whisper-cpp
+
+# Filter by type
+hyprvoice model list --type transcription
+```
+
+Shows installed status `[x]` for local models and model details.
+
+### Download Models
+
+```bash
+# Download a whisper model
+hyprvoice model download base.en
+
+# Download with progress
+hyprvoice model download large-v3
+```
+
+Cloud models (OpenAI, Groq, etc.) don't require download - this is for local models only.
+
+### Remove Models
+
+```bash
+# Remove a downloaded model
+hyprvoice model remove base.en
 ```
 
 ## LLM Post-Processing
@@ -389,6 +585,48 @@ You can customize notification text via the `[notifications.messages]` section:
   enabled = true
   provider = "openai"
   model = "gpt-4o-mini"
+```
+
+### Local Transcription (Privacy-First)
+
+```toml
+# No API keys needed!
+
+[transcription]
+  provider = "whisper-cpp"
+  model = "base.en"
+  threads = 0                   # Auto-detect (NumCPU - 1)
+
+[llm]
+  enabled = false               # No LLM for full privacy
+```
+
+### Real-Time Streaming with Deepgram
+
+```toml
+[providers.deepgram]
+  api_key = "..."
+
+[transcription]
+  provider = "deepgram"
+  model = "nova-3"              # All Deepgram models are streaming
+
+[llm]
+  enabled = false               # Streaming doesn't need LLM post-processing
+```
+
+### Ultra-Low Latency Streaming
+
+```toml
+[providers.elevenlabs]
+  api_key = "..."
+
+[transcription]
+  provider = "elevenlabs"
+  model = "scribe_v2-streaming" # <150ms latency
+
+[llm]
+  enabled = false
 ```
 
 ## Migration from Old Config Format
