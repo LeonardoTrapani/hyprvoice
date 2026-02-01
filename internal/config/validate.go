@@ -212,16 +212,23 @@ func ValidateModelLanguageCompatibility(registryProvider, modelID, langCode stri
 	// truncate supported languages for error message
 	supported := model.SupportedLanguages
 	suffix := ""
-	if len(supported) > 10 {
-		supported = supported[:10]
+	if len(supported) > 5 {
+		supported = supported[:5]
 		suffix = "..."
 	}
 
+	// build error with docs URL if available
+	docsHint := ""
+	if model.DocsURL != "" {
+		docsHint = fmt.Sprintf(" See %s for full list.", model.DocsURL)
+	}
+
 	return fmt.Errorf(
-		"model %s does not support language '%s' (%s). Either change model, select auto-detect, or choose a supported language: %s%s",
-		modelID,
-		langCode,
+		"model %s does not support %s (%s).%s Supported: %s%s",
+		model.Name,
 		langName,
+		langCode,
+		docsHint,
 		strings.Join(supported, ", "),
 		suffix,
 	)

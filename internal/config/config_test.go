@@ -707,7 +707,7 @@ func TestValidateModelLanguageCompatibility(t *testing.T) {
 			model:       "distil-whisper-large-v3-en",
 			langCode:    "es",
 			wantErr:     true,
-			errContains: "does not support language 'es'",
+			errContains: "does not support Spanish (es)",
 		},
 		{
 			name:     "multilingual model supports spanish",
@@ -722,7 +722,7 @@ func TestValidateModelLanguageCompatibility(t *testing.T) {
 			model:       "base.en",
 			langCode:    "fr",
 			wantErr:     true,
-			errContains: "does not support language 'fr'",
+			errContains: "does not support French (fr)",
 		},
 		{
 			name:     "whisper-cpp multilingual supports french",

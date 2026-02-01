@@ -585,3 +585,14 @@ Started: Sun Feb  1 12:22:47 AM CET 2026
 - LLM models don't have DocsURL (not needed - no language restrictions)
 - Added TestAllTranscriptionModels_HaveDocsURL test verifying all transcription models have correct URLs
 - All tests passing, typecheck passes
+
+### Task 10: Improve language-model compatibility error messages
+- Updated `ValidateModelLanguageCompatibility` in internal/config/validate.go
+- Updated `ValidateModelLanguage` in internal/provider/provider.go
+- Error now includes: model Name (not ID), language Name (not just code), DocsURL, first 5 supported languages
+- Format: "model {Name} does not support {LanguageName} ({code}). See {DocsURL} for full list. Supported: {langs}..."
+- Truncated languages list from 10 to 5 for more concise errors
+- TUI already displays err.Error() so improvements propagate automatically
+- Added TestValidateModelLanguage_ErrorFormat test verifying error includes model name, docs URL, and language
+- Updated test expectations in config_test.go for new error format
+- All tests passing, typecheck passes

@@ -2,6 +2,7 @@ package provider
 
 import (
 	"slices"
+	"strings"
 	"testing"
 )
 
@@ -260,6 +261,35 @@ func TestValidateModelLanguage(t *testing.T) {
 	err = ValidateModelLanguage("openai", "nonexistent", "en")
 	if err == nil {
 		t.Error("ValidateModelLanguage with unknown model should return error")
+	}
+}
+
+func TestValidateModelLanguage_ErrorFormat(t *testing.T) {
+	// verify error includes model name, not ID
+	err := ValidateModelLanguage("groq", "distil-whisper-large-v3-en", "es")
+	if err == nil {
+		t.Fatal("expected error for unsupported language")
+	}
+	errMsg := err.Error()
+
+	// should contain model name (from Model.Name)
+	if !strings.Contains(errMsg, "Distil Whisper Large v3 EN") {
+		t.Errorf("error should contain model name, got: %s", errMsg)
+	}
+
+	// should contain docs URL
+	if !strings.Contains(errMsg, "https://console.groq.com/docs/speech-to-text#supported-languages") {
+		t.Errorf("error should contain docs URL, got: %s", errMsg)
+	}
+
+	// should contain language code
+	if !strings.Contains(errMsg, "'es'") {
+		t.Errorf("error should contain language code, got: %s", errMsg)
+	}
+
+	// should have truncated language list (only 5 supported langs, English-only has 1)
+	if !strings.Contains(errMsg, "en") {
+		t.Errorf("error should contain supported languages, got: %s", errMsg)
 	}
 }
 

@@ -151,15 +151,25 @@ func ValidateModelLanguage(providerName, modelID, langCode string) error {
 
 	// truncate supported languages list for error message
 	supported := model.SupportedLanguages
-	if len(supported) > 10 {
-		supported = append(supported[:10], "...")
+	suffix := ""
+	if len(supported) > 5 {
+		supported = supported[:5]
+		suffix = "..."
+	}
+
+	// build error with docs URL if available
+	docsHint := ""
+	if model.DocsURL != "" {
+		docsHint = fmt.Sprintf(" See %s for full list.", model.DocsURL)
 	}
 
 	return fmt.Errorf(
-		"model %s does not support language '%s'. Supported: %s",
-		modelID,
+		"model %s does not support language '%s'.%s Supported: %s%s",
+		model.Name,
 		langCode,
+		docsHint,
 		strings.Join(supported, ", "),
+		suffix,
 	)
 }
 

@@ -168,7 +168,7 @@
 				"Error is actionable and clear",
 				"Typecheck passes"
 			],
-			"passes": false
+			"passes": true
 		},
 		{
 			"title": "Update config validation for general language",
