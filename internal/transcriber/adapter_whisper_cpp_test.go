@@ -3,6 +3,7 @@ package transcriber
 import (
 	"context"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"testing"
 )
@@ -35,6 +36,29 @@ func TestWhisperCppAdapter_MissingModel(t *testing.T) {
 	}
 	if err != nil && !contains(err.Error(), "model file not found") {
 		t.Errorf("expected 'model file not found' error, got: %v", err)
+	}
+}
+
+func TestWhisperCppAdapter_MissingCli(t *testing.T) {
+	if _, err := exec.LookPath("whisper-cli"); err == nil {
+		t.Skip("whisper-cli is installed")
+	}
+
+	tmpDir := t.TempDir()
+	modelPath := filepath.Join(tmpDir, "model.bin")
+	if err := os.WriteFile(modelPath, []byte("fake"), 0600); err != nil {
+		t.Fatalf("failed to create model: %v", err)
+	}
+
+	adapter := NewWhisperCppAdapter(modelPath, "en", 4)
+	audioData := make([]byte, 32000)
+
+	_, err := adapter.Transcribe(context.Background(), audioData)
+	if err == nil {
+		t.Error("expected error for missing whisper-cli")
+	}
+	if err != nil && !contains(err.Error(), "whisper-cli not found") {
+		t.Errorf("expected 'whisper-cli not found' error, got: %v", err)
 	}
 }
 

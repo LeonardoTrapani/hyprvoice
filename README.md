@@ -12,6 +12,7 @@ Press a toggle key, speak, and get instant text input. Built natively for Waylan
 - Toggle workflow with optional status notifications and cancel support.
 - Text injection via ydotool, wtype, and clipboard fallback with clipboard restore.
 - Guided onboarding and a full configure menu with hot-reload.
+- Personalization through custom prompt and keywords sent both to LLM and to voice model.
 
 ## Voice Providers and Models
 

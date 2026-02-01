@@ -36,15 +36,15 @@ func (a *WhisperCppAdapter) Transcribe(ctx context.Context, audioData []byte) (s
 		return "", nil
 	}
 
+	// check model file exists
+	if _, err := os.Stat(a.modelPath); os.IsNotExist(err) {
+		return "", fmt.Errorf("model file not found: %s", a.modelPath)
+	}
+
 	// check whisper-cli exists
 	whisperPath, err := exec.LookPath("whisper-cli")
 	if err != nil {
 		return "", fmt.Errorf("whisper-cli not found: install whisper.cpp first")
-	}
-
-	// check model file exists
-	if _, err := os.Stat(a.modelPath); os.IsNotExist(err) {
-		return "", fmt.Errorf("model file not found: %s", a.modelPath)
 	}
 
 	// convert raw PCM to WAV
