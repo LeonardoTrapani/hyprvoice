@@ -130,7 +130,7 @@
 				"Clear visual distinction between batch and streaming sections",
 				"Typecheck passes"
 			],
-			"passes": false
+			"passes": true
 		},
 		{
 			"title": "Add docs URLs to provider models",

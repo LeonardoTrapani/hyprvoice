@@ -123,7 +123,13 @@ func editTranscription(cfg *config.Config, configuredProviders []string) ([]stri
 	modelOptions := getTranscriptionModelOptions(selectedProvider, effectiveLanguage)
 	selectedModel := cfg.Transcription.Model
 	if selectedModel == "" && len(modelOptions) > 0 {
-		selectedModel = modelOptions[0].Value
+		// skip header options (empty value) to find first real model
+		for _, opt := range modelOptions {
+			if opt.Value != "" {
+				selectedModel = opt.Value
+				break
+			}
+		}
 	}
 
 	modelDesc := ""
@@ -143,6 +149,11 @@ func editTranscription(cfg *config.Config, configuredProviders []string) ([]stri
 
 	if err := modelForm.Run(); err != nil {
 		return configuredProviders, err
+	}
+
+	// if user selected a section header (empty value), re-prompt
+	if selectedModel == "" {
+		return editTranscription(cfg, configuredProviders)
 	}
 
 	// validate language-model compatibility before saving
@@ -280,12 +291,26 @@ func getTranscriptionModelOptions(configProvider string, currentLang string) []h
 	}
 
 	models := provider.ModelsOfType(p, provider.Transcription)
+
+	// separate batch and streaming models
+	var batchModels, streamingModels []provider.Model
+	for _, m := range models {
+		if m.Streaming {
+			streamingModels = append(streamingModels, m)
+		} else {
+			batchModels = append(batchModels, m)
+		}
+	}
+
 	var options []huh.Option[string]
 
-	for _, m := range models {
+	// add batch models first (with header if we have both types)
+	hasBoth := len(batchModels) > 0 && len(streamingModels) > 0
+	if hasBoth && len(batchModels) > 0 {
+		options = append(options, huh.NewOption("─── Batch ───", ""))
+	}
+	for _, m := range batchModels {
 		label := buildModelLabel(m, currentLang)
-
-		// for local models, show installed status
 		if m.Local && registryName == "whisper-cpp" {
 			if whisper.IsInstalled(m.ID) {
 				label = "[x] " + label
@@ -293,7 +318,15 @@ func getTranscriptionModelOptions(configProvider string, currentLang string) []h
 				label = "[ ] " + label
 			}
 		}
+		options = append(options, huh.NewOption(label, m.ID))
+	}
 
+	// add streaming models (with header if we have both types)
+	if hasBoth && len(streamingModels) > 0 {
+		options = append(options, huh.NewOption("─── Streaming ───", ""))
+	}
+	for _, m := range streamingModels {
+		label := buildModelLabel(m, currentLang)
 		options = append(options, huh.NewOption(label, m.ID))
 	}
 

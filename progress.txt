@@ -563,3 +563,12 @@ Started: Sun Feb  1 12:22:47 AM CET 2026
 - Streaming models now appear in model picker: scribe_v1-streaming, scribe_v2-streaming, nova-3, nova-2, gpt-4o-realtime-preview
 - `buildModelLabel()` already adds `[streaming]` tag (lines 324-327)
 - All tests passing, typecheck passes
+
+### Task 8: Add streaming section header in model picker
+- Updated `getTranscriptionModelOptions()` to separate batch and streaming models
+- Added `─── Batch ───` and `─── Streaming ───` headers when provider has both types
+- Headers use empty string value, selecting header re-prompts user
+- Default selection skips headers to find first real model
+- Providers with only one type (e.g., Groq=batch, Deepgram=streaming) show no headers
+- Added unit tests: GroupsModels, NoHeadersForSingleType, OpenAI_GroupsCorrectly
+- All tests passing, typecheck passes
