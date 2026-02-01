@@ -456,7 +456,7 @@
 				"Remove deletes the model file",
 				"Typecheck passes"
 			],
-			"passes": false
+			"passes": true
 		},
 		{
 			"title": "Create WhisperCppAdapter implementing BatchAdapter",

@@ -167,3 +167,21 @@ Started: Sun Feb  1 12:22:47 AM CET 2026
 - CheckFFmpeg() same pattern, version extraction works
 - Both return Installed=false when binary not found, no errors thrown
 - All tests passing, typecheck passes
+
+### Task 19: Create whisper model info and download management
+- Created `internal/models/whisper/models.go`
+- ModelInfo struct: ID, Name, Filename, Size, SizeBytes, Multilingual
+- 9 models: 4 english-only (tiny.en, base.en, small.en, medium.en) + 5 multilingual (tiny, base, small, medium, large-v3)
+- GetModelsDir() returns `~/.local/share/hyprvoice/models/whisper/` (expanded)
+- GetModelPath(name) returns full path to model file
+- GetDownloadURL(name) returns HuggingFace URL
+- GetModel(id) returns ModelInfo pointer
+- ListModels(), ListMultilingualModels(), ListEnglishOnlyModels() helpers
+- Created `internal/models/whisper/registry.go`
+- IsInstalled(modelID) checks if model file exists
+- ListInstalled() returns all installed model IDs
+- Download(ctx, modelID, progressFn) downloads from HuggingFace with progress callback
+- Remove(modelID) deletes model file
+- GetInstalledPath(modelID) returns path or error if not installed
+- Download uses temp file + rename for atomicity, respects context cancellation
+- All tests passing, typecheck passes
