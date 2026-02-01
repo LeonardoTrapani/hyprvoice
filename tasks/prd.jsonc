@@ -97,7 +97,7 @@
 				"Language validation still occurs using effective language",
 				"Typecheck passes"
 			],
-			"passes": false
+			"passes": true
 		},
 		{
 			"title": "Enable streaming models in TUI model picker",

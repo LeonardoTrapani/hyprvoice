@@ -114,7 +114,13 @@ func editTranscription(cfg *config.Config, configuredProviders []string) ([]stri
 	}
 	cfg.Transcription.Provider = selectedProvider
 
-	modelOptions := getTranscriptionModelOptions(selectedProvider, cfg.Transcription.Language)
+	// use effective language for model compatibility display
+	effectiveLanguage := cfg.General.Language
+	if cfg.Transcription.Language != "" {
+		effectiveLanguage = cfg.Transcription.Language
+	}
+
+	modelOptions := getTranscriptionModelOptions(selectedProvider, effectiveLanguage)
 	selectedModel := cfg.Transcription.Model
 	if selectedModel == "" && len(modelOptions) > 0 {
 		selectedModel = modelOptions[0].Value
@@ -125,17 +131,6 @@ func editTranscription(cfg *config.Config, configuredProviders []string) ([]stri
 		modelDesc = fmt.Sprintf("Currently: %s", cfg.Transcription.Model)
 	}
 
-	selectedLanguage := cfg.Transcription.Language
-
-	// get current model for language compatibility warnings
-	var currentModel *provider.Model
-	registryName := mapConfigProviderToRegistry(selectedProvider)
-	if m, err := provider.GetModel(registryName, selectedModel); err == nil {
-		currentModel = m
-	}
-
-	languageOptions := getLanguageOptions(currentModel)
-
 	modelForm := huh.NewForm(
 		huh.NewGroup(
 			huh.NewSelect[string]().
@@ -143,12 +138,6 @@ func editTranscription(cfg *config.Config, configuredProviders []string) ([]stri
 				Description(modelDesc).
 				Options(modelOptions...).
 				Value(&selectedModel),
-			huh.NewSelect[string]().
-				Title("Language").
-				Description("Select language for transcription").
-				Options(languageOptions...).
-				Filtering(true).
-				Value(&selectedLanguage),
 		),
 	).WithTheme(getTheme())
 
@@ -157,17 +146,16 @@ func editTranscription(cfg *config.Config, configuredProviders []string) ([]stri
 	}
 
 	// validate language-model compatibility before saving
-	registryName = mapConfigProviderToRegistry(selectedProvider)
-	if err := provider.ValidateModelLanguage(registryName, selectedModel, selectedLanguage); err != nil {
-		// show error dialog and let user fix
+	registryName := mapConfigProviderToRegistry(selectedProvider)
+	if err := provider.ValidateModelLanguage(registryName, selectedModel, effectiveLanguage); err != nil {
+		// show error dialog - user needs to change language in Language menu
 		fmt.Println()
 		fmt.Println(StyleError.Render("Language-Model Incompatibility"))
 		fmt.Println(StyleMuted.Render(err.Error()))
 		fmt.Println()
 		fmt.Println(StyleMuted.Render("You can:"))
-		fmt.Println(StyleMuted.Render("  - Change to a different model"))
-		fmt.Println(StyleMuted.Render("  - Select 'Auto-detect' for language"))
-		fmt.Println(StyleMuted.Render("  - Choose a supported language"))
+		fmt.Println(StyleMuted.Render("  - Choose a different model that supports your language"))
+		fmt.Println(StyleMuted.Render("  - Change language to 'Auto-detect' in the Language menu"))
 		fmt.Println()
 
 		var retry bool
@@ -175,8 +163,8 @@ func editTranscription(cfg *config.Config, configuredProviders []string) ([]stri
 			huh.NewGroup(
 				huh.NewConfirm().
 					Title("Try again?").
-					Description("Return to fix the incompatibility").
-					Affirmative("Yes, let me fix it").
+					Description("Choose a different model").
+					Affirmative("Yes, let me pick another model").
 					Negative("Cancel").
 					Value(&retry),
 			),
@@ -187,7 +175,7 @@ func editTranscription(cfg *config.Config, configuredProviders []string) ([]stri
 		}
 
 		if retry {
-			// recurse to let user fix the issue
+			// recurse to let user pick another model
 			return editTranscription(cfg, configuredProviders)
 		}
 		return configuredProviders, nil
@@ -245,7 +233,8 @@ func editTranscription(cfg *config.Config, configuredProviders []string) ([]stri
 	}
 
 	cfg.Transcription.Model = selectedModel
-	cfg.Transcription.Language = selectedLanguage
+	// language is now set in the Language menu (cfg.General.Language)
+	// cfg.Transcription.Language can still be used as override but not set here
 
 	return configuredProviders, nil
 }

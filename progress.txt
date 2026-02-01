@@ -547,3 +547,13 @@ Started: Sun Feb  1 12:22:47 AM CET 2026
 - Shows warning dialog with 3 options: keep incompatible language, use auto-detect, or choose different language
 - Recursive retry flow if user chooses "Choose a different language"
 - All tests passing, typecheck passes
+
+### Task 6: Remove language from transcription edit flow
+- Removed language select from `editTranscription()` model form in configure_transcription.go
+- Model form now only shows model selection (no language picker)
+- Added `effectiveLanguage` calculation: `cfg.Transcription.Language || cfg.General.Language`
+- Language validation still happens using effective language before saving
+- Updated error message to point users to Language menu: "Change language to 'Auto-detect' in the Language menu"
+- Only `cfg.Transcription.Model` saved now, not language
+- `cfg.Transcription.Language` can still be used as manual override but not set via TUI
+- All tests passing, typecheck passes
