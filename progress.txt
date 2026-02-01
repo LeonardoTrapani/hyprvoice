@@ -425,3 +425,20 @@ Started: Sun Feb  1 12:22:47 AM CET 2026
 - Updated config template in save.go with commented deepgram section
 - Added "deepgram" to AllProviders and providerDisplayNames in configure.go for TUI
 - All tests passing, typecheck passes
+
+### Task 40: Write tests for streaming adapters
+- Tests already existed in comprehensive form across multiple files (implemented with tasks 31-39)
+- Verified test coverage in:
+  - `adapter_elevenlabs_streaming_test.go` (744 lines): Start, SendChunk, Results, Error, Language, Close, Reconnect logic
+  - `adapter_deepgram_test.go` (435 lines): Creation, URL building, Results, Binary audio, Errors, Context
+  - `adapter_openai_realtime_test.go` (545 lines): Start, SendChunk, Transcription, Errors, Reconnect, Close, resample
+  - `transcriber_test.go` (StreamingTranscriber tests): Accumulation, Errors, Context cancellation, Concurrent access
+- Tests verify:
+  - StreamingTranscriber accumulates final results (TestStreamingTranscriber_AccumulatesResults)
+  - Error handling (TestStreamingTranscriber_HandlesErrors, adapter error tests)
+  - Context cancellation (TestStreamingTranscriber_ContextCancellation, TestDeepgramAdapter_ContextCancellation)
+  - Concurrent GetFinalTranscription safety (TestStreamingTranscriber_GetFinalTranscriptionSafe)
+  - Reconnection logic with exponential backoff (multiple reconnect tests)
+  - Close cleanup (TestElevenLabsStreamingAdapter_Close, TestOpenAIRealtimeAdapter_Close)
+- `go test -race ./internal/transcriber/...` passes with no race conditions
+- All tests passing, typecheck passes
