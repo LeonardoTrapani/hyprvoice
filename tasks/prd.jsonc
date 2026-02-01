@@ -31,7 +31,7 @@
 				"Config with neither set results in effective language '' (auto)",
 				"Typecheck passes"
 			],
-			"passes": false
+			"passes": true
 		},
 		{
 			"title": "Update config template to include general section",

@@ -513,3 +513,11 @@ Started: Sun Feb  1 12:22:47 AM CET 2026
 - Language field has ISO 639-1 code comment, empty for auto-detect
 - TranscriptionConfig.Language kept for backwards compat (will be used as override)
 - All tests passing, typecheck passes
+
+### Task 48: Update config loading to handle general language
+- Added `resolveEffectiveLanguage()` method to Config in convert.go
+- Logic: transcription.language overrides general.language if set
+- Updated `ToTranscriberConfig()` to use `resolveEffectiveLanguage()`
+- Note: TOML loading already works automatically via struct tags (no load.go changes needed)
+- Added 3 tests in config_test.go: only general set, transcription overrides general, neither set (auto)
+- All tests passing, typecheck passes

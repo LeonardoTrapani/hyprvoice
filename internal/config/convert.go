@@ -23,7 +23,7 @@ func (c *Config) ToRecordingConfig() recording.Config {
 func (c *Config) ToTranscriberConfig() transcriber.Config {
 	config := transcriber.Config{
 		Provider: c.Transcription.Provider,
-		Language: c.Transcription.Language,
+		Language: c.resolveEffectiveLanguage(),
 		Model:    c.Transcription.Model,
 		Keywords: c.Keywords,
 		Threads:  c.Transcription.Threads,
@@ -32,6 +32,15 @@ func (c *Config) ToTranscriberConfig() transcriber.Config {
 	config.APIKey = c.resolveAPIKeyForProvider(c.Transcription.Provider)
 
 	return config
+}
+
+// resolveEffectiveLanguage returns the effective language for transcription.
+// transcription.language overrides general.language if set.
+func (c *Config) resolveEffectiveLanguage() string {
+	if c.Transcription.Language != "" {
+		return c.Transcription.Language
+	}
+	return c.General.Language
 }
 
 // resolveAPIKeyForProvider returns the API key for a provider from multiple sources

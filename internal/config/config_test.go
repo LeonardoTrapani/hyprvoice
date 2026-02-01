@@ -1983,3 +1983,59 @@ func TestConfig_ToTranscriberConfig_Threads(t *testing.T) {
 		t.Errorf("Threads = %d, want 4", transcriberConfig.Threads)
 	}
 }
+
+func TestConfig_EffectiveLanguage(t *testing.T) {
+	t.Run("only general.language set", func(t *testing.T) {
+		config := &Config{
+			General: GeneralConfig{
+				Language: "es",
+			},
+			Transcription: TranscriptionConfig{
+				Provider: "openai",
+				Model:    "whisper-1",
+				Language: "", // not set
+			},
+		}
+
+		transcriberConfig := config.ToTranscriberConfig()
+		if transcriberConfig.Language != "es" {
+			t.Errorf("Language = %q, want %q", transcriberConfig.Language, "es")
+		}
+	})
+
+	t.Run("transcription.language overrides general.language", func(t *testing.T) {
+		config := &Config{
+			General: GeneralConfig{
+				Language: "es",
+			},
+			Transcription: TranscriptionConfig{
+				Provider: "openai",
+				Model:    "whisper-1",
+				Language: "en", // overrides general
+			},
+		}
+
+		transcriberConfig := config.ToTranscriberConfig()
+		if transcriberConfig.Language != "en" {
+			t.Errorf("Language = %q, want %q", transcriberConfig.Language, "en")
+		}
+	})
+
+	t.Run("neither set results in auto", func(t *testing.T) {
+		config := &Config{
+			General: GeneralConfig{
+				Language: "",
+			},
+			Transcription: TranscriptionConfig{
+				Provider: "openai",
+				Model:    "whisper-1",
+				Language: "",
+			},
+		}
+
+		transcriberConfig := config.ToTranscriberConfig()
+		if transcriberConfig.Language != "" {
+			t.Errorf("Language = %q, want empty (auto)", transcriberConfig.Language)
+		}
+	})
+}
