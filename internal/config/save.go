@@ -25,6 +25,13 @@ func SaveDefaultConfig() error {
 # will be automatically migrated to the new [providers.X] format. Run 'hyprvoice configure'
 # to update your config file structure.
 
+# ─────────────────────────────────────────────────────────────────────────────
+# General Settings
+# ─────────────────────────────────────────────────────────────────────────────
+
+[general]
+  language = ""                # Language for transcription (ISO 639-1 code, e.g., en, es, de). Empty for auto-detect.
+
 # Keywords help both transcription and LLM understand domain-specific terms
 # Add names, technical terms, or brand names that might be misheard
 keywords = []
@@ -69,9 +76,9 @@ keywords = []
 
 [transcription]
   provider = "openai"          # "openai", "groq-transcription", "groq-translation", "mistral-transcription", "elevenlabs", "whisper-cpp"
-  language = ""                # Language code (empty = auto-detect, "en", "it", "es", "fr", etc.)
   model = "whisper-1"          # Model: OpenAI="whisper-1", Groq="whisper-large-v3", Mistral="voxtral-mini-latest", ElevenLabs="scribe_v1"
   threads = 0                  # CPU threads for local transcription (0 = auto: uses NumCPU-1)
+  # language = ""              # Override general.language for this provider only
 
 # ─────────────────────────────────────────────────────────────────────────────
 # LLM Post-Processing (Recommended)

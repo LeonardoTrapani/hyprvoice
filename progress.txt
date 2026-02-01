@@ -521,3 +521,10 @@ Started: Sun Feb  1 12:22:47 AM CET 2026
 - Note: TOML loading already works automatically via struct tags (no load.go changes needed)
 - Added 3 tests in config_test.go: only general set, transcription overrides general, neither set (auto)
 - All tests passing, typecheck passes
+
+### Task 49: Update config template to include general section
+- Added `[general]` section at top of configTemplate in save.go
+- Added `language = ""` with comment about ISO 639-1 codes and auto-detect
+- Removed `language = ""` from `[transcription]` section
+- Added commented `# language = ""` in transcription section with note about override
+- All tests passing, typecheck passes

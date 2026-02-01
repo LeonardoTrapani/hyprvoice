@@ -46,7 +46,7 @@
 				"Template shows language under [general] not [transcription]",
 				"Typecheck passes"
 			],
-			"passes": false
+			"passes": true
 		},
 		{
 			"title": "Add SectionLanguage to TUI configure menu",
