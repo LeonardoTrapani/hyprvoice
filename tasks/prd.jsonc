@@ -1,1088 +1,222 @@
 {
-	"project": "Hyprvoice Model Architecture Overhaul",
-	"description": "Refactor to Model as first-class entity with metadata, two adapter types (BatchAdapter/StreamingAdapter), consolidated adapter implementations, local transcription via whisper-cpp, streaming transcription, new cloud providers, and full language-model compatibility validation",
+	"project": "Language & Streaming UX Improvements",
+	"description": "Move language to general config section, add Language menu in TUI, enable streaming model selection with clear indicators, and improve error messages",
+	"previous_prd_summary": "Model Architecture Overhaul (46 tasks completed): Created language package with 57 languages + provider format conversion, Model as first-class entity with full metadata, BatchAdapter/StreamingAdapter interfaces, migrated all providers (OpenAI, Groq, Mistral, ElevenLabs, Deepgram, whisper-cpp), consolidated OpenAI-compatible adapters, added local transcription via whisper-cpp with CLI commands, created streaming adapters for ElevenLabs/Deepgram/OpenAI Realtime, added TUI model picker with language warnings, added config validation for language-model compatibility",
 	"tasks": [
-		// ============================================================================
-		// PHASE 1: FOUNDATION
-		// Model as first-class entity, language handling, adapter interfaces
-		// ============================================================================
 		{
-			"title": "Create language package with core types and helpers",
+			"title": "Add GeneralConfig with Language field to config types",
 			"steps": [
-				"Create internal/language/language.go",
-				"Define Language struct: Code string, Name string, NativeName string",
-				"Define Auto constant: Language{Code: '', Name: 'Auto-detect', NativeName: ''} - represents auto-detection",
-				"Implement FromCode(code string) Language - returns Auto if not found",
-				"Implement List() []Language - returns all supported languages",
-				"Implement Codes() []string - returns all language codes",
-				"Implement AllLanguageCodes() []string - alias for Codes(), used by models that support everything",
-				"Implement IsValidCode(code string) bool - returns true if code is known (including '' for auto)"
+				"Add GeneralConfig struct to internal/config/types.go with Language string field",
+				"Add General GeneralConfig field to Config struct with toml tag 'general'",
+				"Keep TranscriptionConfig.Language field for now (will be used as override)"
 			],
 			"verify": [
-				"FromCode('en') returns Language{Code: 'en', Name: 'English', NativeName: 'English'}",
-				"FromCode('invalid') returns Auto",
-				"IsValidCode('en') returns true",
-				"IsValidCode('invalid') returns false",
-				"IsValidCode('') returns true (auto is valid)",
+				"Config struct has General field of type GeneralConfig",
+				"GeneralConfig has Language string field with toml:'language' tag",
 				"Typecheck passes"
 			],
-			"passes": true
+			"passes": false
 		},
 		{
-"title": "Add language list and provider-specific mappings",
+			"title": "Update config loading to handle general language",
 			"steps": [
-				"Update internal/language/language.go with full language list",
-				"Master language list derived from OpenAI Whisper's 57 supported languages (source: https://platform.openai.com/docs/guides/speech-to-text#supported-languages)",
-				"Add all 57 languages: af/Afrikaans, ar/Arabic/العربية, hy/Armenian/Հdelays, az/Azerbaijani/Azərbaycan, be/Belarusian/Беларуская, bs/Bosnian/Bosanski, bg/Bulgarian/Български, ca/Catalan/Català, zh/Chinese/中文, hr/Croatian/Hrvatski, cs/Czech/Čeština, da/Danish/Dansk, nl/Dutch/Nederlands, en/English, et/Estonian/Eesti, fi/Finnish/Suomi, fr/French/Français, gl/Galician/Galego, de/German/Deutsch, el/Greek/Ελληνικά, he/Hebrew/עברית, hi/Hindi/हिन्दी, hu/Hungarian/Magyar, is/Icelandic/Íslenska, id/Indonesian/Bahasa Indonesia, it/Italian/Italiano, ja/Japanese/日本語, kn/Kannada/ಕನ್ನಡ, kk/Kazakh/Қазақ, ko/Korean/한국어, lv/Latvian/Latviešu, lt/Lithuanian/Lietuvių, mk/Macedonian/Македонски, ms/Malay/Bahasa Melayu, mr/Marathi/मराठी, mi/Maori/Māori, ne/Nepali/नेपाली, no/Norwegian/Norsk, fa/Persian/فارسی, pl/Polish/Polski, pt/Portuguese/Português, ro/Romanian/Română, ru/Russian/Русский, sr/Serbian/Српски, sk/Slovak/Slovenčina, sl/Slovenian/Slovenščina, es/Spanish/Español, sw/Swahili/Kiswahili, sv/Swedish/Svenska, tl/Tagalog, ta/Tamil/தமிழ், th/Thai/ไทย, tr/Turkish/Türkçe, uk/Ukrainian/Українська, ur/Urdu/اردو, vi/Vietnamese/Tiếng Việt, cy/Welsh/Cymraeg",
-				"Implement ToProviderFormat(code string, providerName string) string - maps our code to provider-specific format",
-				"Provider mappings: whisper-cpp uses 'en'/'auto', some APIs use 'english', Deepgram uses 'en-US'",
-				"Each provider can handle Auto ('') differently via ToProviderFormat"
+				"Update internal/config/load.go to read general.language from TOML",
+				"If general.language is set but transcription.language is empty, use general.language as default",
+				"If transcription.language is set, it overrides general.language (provider-specific override)",
+				"Update ToTranscriberConfig() in convert.go to resolve effective language: transcription.language || general.language"
 			],
 			"verify": [
-				"List() returns 57 languages",
-				"Codes() returns []string of all 57 codes",
-				"AllLanguageCodes() returns all 57 codes for use by models",
-				"ToProviderFormat('en', 'whisper-cpp') returns 'en'",
-				"ToProviderFormat('en', 'deepgram') returns 'en-US'",
-				"ToProviderFormat('', 'openai') returns '' or appropriate auto value",
+				"Config with only general.language='es' results in effective language 'es' for transcription",
+				"Config with general.language='es' and transcription.language='en' results in effective language 'en'",
+				"Config with neither set results in effective language '' (auto)",
 				"Typecheck passes"
 			],
-			"passes": true
+			"passes": false
 		},
 		{
-			"title": "Create Model type with full metadata",
+			"title": "Update config template to include general section",
 			"steps": [
-				"Create internal/provider/model.go",
-				"Define ModelType enum: Transcription, LLM",
-				"Define Model struct with fields: ID string, Name string, Description string, Type ModelType, Streaming bool, Local bool, AdapterType string",
-				"Add SupportedLanguages []string field to Model - ALWAYS an explicit list of language codes, never nil",
-				"For models supporting all languages, use language.AllLanguageCodes() to populate the full list",
-				"For English-only models, use []string{'en'}",
-				"Each provider task must research API docs to determine exact supported languages",
-				"Define EndpointConfig struct: BaseURL string, Path string",
-				"Define LocalModelInfo struct: Filename string, Size string, DownloadURL string",
-				"Add Endpoint *EndpointConfig and LocalInfo *LocalModelInfo optional fields to Model",
-				"Add helper method Model.NeedsDownload() bool - returns LocalInfo != nil",
-				"Add helper method Model.IsStreaming() bool - returns Streaming field",
-				"Add helper method Model.SupportsLanguage(code string) bool - returns true if code is in SupportedLanguages OR code is '' (auto always allowed)",
-				"Add helper method Model.SupportsAllLanguages() bool - returns len(SupportedLanguages) == len(language.AllLanguageCodes())"
+				"Update internal/config/save.go configTemplate to add [general] section at top",
+				"Add language field with comment: '# Language for transcription (ISO 639-1 code, e.g., en, es, de). Empty for auto-detect.'",
+				"Remove language from [transcription] section in template (keep for backwards compat in loading)",
+				"Add comment in transcription section: '# language can be set here to override general.language'"
 			],
 			"verify": [
-				"Model struct has all fields: ID, Name, Description, Type, Streaming, Local, AdapterType, SupportedLanguages, Endpoint, LocalInfo",
-				"ModelType has Transcription and LLM constants",
-				"EndpointConfig has BaseURL and Path",
-				"LocalModelInfo has Filename, Size, DownloadURL",
-				"NeedsDownload() returns true when LocalInfo is set",
-				"SupportsLanguage('en') returns true for multilingual model",
-				"SupportsLanguage('es') returns false for English-only model with SupportedLanguages=['en']",
-				"SupportsLanguage('') returns true always (auto is always supported)",
-				"SupportsAllLanguages() returns true when model has all 57 languages",
-				"SupportsAllLanguages() returns false for English-only model",
+				"New config files have [general] section with language field",
+				"Template shows language under [general] not [transcription]",
 				"Typecheck passes"
 			],
-			"passes": true
+			"passes": false
 		},
 		{
-			"title": "Refactor Provider interface to return Models",
+			"title": "Add SectionLanguage to TUI configure menu",
 			"steps": [
-				"Update internal/provider/provider.go Provider interface",
-				"Replace TranscriptionModels() []string and LLMModels() []string with Models() []Model",
-				"Replace DefaultTranscriptionModel() and DefaultLLMModel() with DefaultModel(t ModelType) string",
-				"Keep: Name() string, RequiresAPIKey() bool, ValidateAPIKey(key string) bool",
-				"Add: IsLocal() bool method",
-				"Add package-level helper: GetModel(providerName, modelID string) (*Model, error)",
-				"Add package-level helper: ModelsOfType(p Provider, t ModelType) []Model",
-				"Add package-level helper: FindModelByID(modelID string) (*Model, Provider, error) - searches all providers",
-				"Add package-level helper: ModelsForLanguage(p Provider, t ModelType, langCode string) []Model - returns models that support given language (checks model.SupportsLanguage)",
-				"Add package-level helper: ValidateModelLanguage(providerName, modelID, langCode string) error - returns error with list of supported languages if model doesn't support the language",
-				"Update registry functions to work with new interface"
+				"Add SectionLanguage ConfigSection constant in internal/tui/configure.go",
+				"Add 'Language' option to selectSection() options list after Providers",
+				"Create formatLanguageLabel(cfg) helper that shows current language or 'Auto-detect'",
+				"Add case SectionLanguage in runEditExisting switch that calls new editLanguage function"
 			],
 			"verify": [
-				"Provider interface has Models() []Model method",
-				"Provider interface has DefaultModel(t ModelType) string method",
-				"Provider interface has IsLocal() bool method",
-				"GetModel returns correct model or error if not found",
-				"ModelsOfType filters models by type",
-				"FindModelByID finds model across all providers",
-				"ModelsForLanguage returns only models supporting given language",
-				"ModelsForLanguage with '' (auto) returns all models (auto always supported)",
-				"ValidateModelLanguage returns error listing supported languages for unsupported language",
-				"ValidateModelLanguage returns nil for '' (auto) on any model",
+				"'Language' appears in TUI configuration menu",
+				"Menu shows current language setting in label",
+				"Selecting Language enters language edit flow",
 				"Typecheck passes"
 			],
-			"passes": true
+			"passes": false
 		},
 		{
-			"title": "Define BatchAdapter and StreamingAdapter interfaces",
+			"title": "Create editLanguage function in TUI",
 			"steps": [
-				"Update internal/transcriber/transcriber.go",
-				"Rename TranscriptionAdapter to BatchAdapter",
-				"Keep BatchAdapter interface: Transcribe(ctx context.Context, audioData []byte) (string, error)",
-				"Create internal/transcriber/streaming.go",
-				"Define StreamingAdapter interface: Start(ctx context.Context, language string) error, SendChunk(audio []byte) error, Results() <-chan TranscriptionResult, Close() error",
-				"Define TranscriptionResult struct: Text string, IsFinal bool, Error error",
-				"Both adapter types are used by Transcriber implementations (SimpleTranscriber, StreamingTranscriber)"
+				"Create internal/tui/configure_language.go",
+				"Implement editLanguage(cfg *config.Config) error function",
+				"Use getLanguageOptions(nil) since this is global (no model-specific warnings)",
+				"Show huh.NewSelect with Filtering(true) for language search",
+				"Save selected language to cfg.General.Language",
+				"If language changed and transcription model doesn't support it, show warning with options to change model or keep auto"
 			],
 			"verify": [
-				"BatchAdapter interface exists with Transcribe method",
-				"StreamingAdapter interface exists with Start, SendChunk, Results, Close methods",
-				"TranscriptionResult has Text, IsFinal, Error fields",
+				"Language picker shows all 58 options (57 languages + Auto-detect)",
+				"Filtering works (can type to search)",
+				"Selecting a language saves to cfg.General.Language",
+				"Warning shown if current model doesn't support selected language",
 				"Typecheck passes"
 			],
-			"passes": true
+			"passes": false
 		},
 		{
-			"title": "Create StreamingTranscriber wrapper",
-			"steps": [
-				"Create internal/transcriber/streaming_transcriber.go",
-				"Define StreamingTranscriber struct: adapter StreamingAdapter, finalText strings.Builder, mu sync.Mutex, ctx context.Context, cancel context.CancelFunc",
-				"Implement Start(ctx, frameCh <-chan recording.AudioFrame) (<-chan error, error)",
-				"Create internal cancelable context from parent ctx for coordinated shutdown",
-				"Goroutine 1: call adapter.Start(), loop reading frames with select on ctx.Done(), call adapter.SendChunk()",
-				"Goroutine 2: read from adapter.Results() with select on ctx.Done(), use mutex when writing to finalText builder",
-				"Use sync.WaitGroup to track goroutine completion",
-				"Implement Stop(ctx) error - call cancel(), wait for WaitGroup, then call adapter.Close()",
-				"Handle context cancellation gracefully - don't treat as error, complete with partial results",
-				"Implement GetFinalTranscription() (string, error) - lock mutex, return finalText.String()"
-			],
-			"verify": [
-				"StreamingTranscriber implements Transcriber interface",
-				"Start() begins streaming audio to adapter",
-				"Stop() returns final accumulated text",
-				"GetFinalTranscription() returns complete text",
-				"Context cancellation stops all goroutines cleanly",
-				"No race conditions (run with -race flag)",
-				"Typecheck passes"
-			],
-			"passes": true
-		},
-		{
-			"title": "Write tests for Model, Provider, and interfaces",
-			"steps": [
-				"Create internal/provider/model_test.go",
-				"Test Model.NeedsDownload() returns true when LocalInfo set, false when nil",
-				"Test Model.IsStreaming() returns correct value",
-				"Test Model.SupportsLanguage('en') returns true for model with SupportedLanguages containing 'en'",
-				"Test Model.SupportsLanguage('es') returns false for English-only model with SupportedLanguages=['en']",
-				"Test Model.SupportsLanguage('') returns true for any model (auto always supported)",
-				"Test Model.SupportsAllLanguages() returns true when model has all 57 languages",
-				"Test Model.SupportsAllLanguages() returns false when model has subset of languages",
-				"Create internal/provider/provider_test.go",
-				"Test GetModel returns correct model for valid provider+model",
-				"Test GetModel returns error for unknown provider",
-				"Test GetModel returns error for unknown model",
-				"Test ModelsOfType filters correctly",
-				"Test FindModelByID finds model in any provider",
-				"Test ModelsForLanguage returns only compatible models",
-				"Test ModelsForLanguage with '' (auto) returns all models",
-				"Test ValidateModelLanguage returns error with supported languages list for incompatible language",
-				"Test ValidateModelLanguage returns nil for auto on any model"
-			],
-			"verify": [
-				"go test ./internal/provider/... passes",
-				"Model helper methods tested including explicit language support",
-				"GetModel edge cases tested",
-				"Language validation helpers tested with proper error messages",
-				"Typecheck passes"
-			],
-			"passes": true
-		},
-		// ============================================================================
-		// PHASE 2: MIGRATE PROVIDERS TO NEW MODEL STRUCTURE
-		// ============================================================================
-		{
-			"title": "Migrate OpenAI provider to new Model structure",
-			"steps": [
-				"Update internal/provider/openai.go to implement new Provider interface",
-				"Research OpenAI API docs (https://platform.openai.com/docs/guides/speech-to-text#supported-languages) for exact language support",
-				"Implement Models() returning []Model with: whisper-1, gpt-4o-transcribe, gpt-4o-mini-transcribe (transcription), gpt-4o-mini, gpt-4o (LLM)",
-				"Each model has: ID, Name, Description, Type, AdapterType='openai', Endpoint with BaseURL='https://api.openai.com' and appropriate Path",
-				"Set SupportedLanguages=language.AllLanguageCodes() for whisper-1 (supports all 57 languages - this IS the source list)",
-				"Set SupportedLanguages=language.AllLanguageCodes() for gpt-4o-transcribe and gpt-4o-mini-transcribe (multilingual per docs)",
-				"LLM models: set SupportedLanguages=language.AllLanguageCodes() (LLMs are language-agnostic for prompting)",
-				"Implement DefaultModel(t ModelType) - returns 'whisper-1' for Transcription, 'gpt-4o-mini' for LLM",
-				"Implement IsLocal() returning false",
-				"Remove old TranscriptionModels(), LLMModels(), DefaultTranscriptionModel(), DefaultLLMModel() methods"
-			],
-			"verify": [
-				"OpenAIProvider.Models() returns 5 models with correct metadata",
-				"Each model has AdapterType='openai'",
-				"Each model has Endpoint with BaseURL and Path",
-				"All transcription models have SupportedLanguages with 57 language codes",
-				"whisper-1.SupportsAllLanguages() returns true",
-				"DefaultModel(Transcription) returns 'whisper-1'",
-				"DefaultModel(LLM) returns 'gpt-4o-mini'",
-				"IsLocal() returns false",
-				"Typecheck passes"
-			],
-			"passes": true
-		},
-		{
-			"title": "Migrate Groq provider to new Model structure",
-			"steps": [
-				"Update internal/provider/groq.go to implement new Provider interface",
-				"Research Groq API docs (https://console.groq.com/docs/speech-to-text) for exact language support per model",
-				"Implement Models() returning transcription models: whisper-large-v3, whisper-large-v3-turbo, distil-whisper-large-v3-en",
-				"Add LLM models: llama-3.3-70b-versatile, llama-3.1-8b-instant, mixtral-8x7b-32768",
-				"All models use AdapterType='openai' (Groq is OpenAI-compatible)",
-				"Set Endpoint.BaseURL='https://api.groq.com/openai' for all models",
-				"Set SupportedLanguages=language.AllLanguageCodes() for whisper-large-v3 and whisper-large-v3-turbo (uses Whisper, same 57 languages)",
-				"Set SupportedLanguages=[]string{'en'} for distil-whisper-large-v3-en (English only - fastest but single language)",
-				"LLM models: set SupportedLanguages=language.AllLanguageCodes() (language-agnostic)",
-				"Implement DefaultModel(t ModelType) appropriately",
-				"Remove old methods"
-			],
-			"verify": [
-				"GroqProvider.Models() returns 6 models",
-				"All models have AdapterType='openai'",
-				"All models have Endpoint.BaseURL='https://api.groq.com/openai'",
-				"whisper-large-v3.SupportedLanguages has 57 codes",
-				"whisper-large-v3.SupportsAllLanguages() returns true",
-				"distil-whisper-large-v3-en.SupportedLanguages == ['en']",
-				"distil-whisper-large-v3-en.SupportsLanguage('es') returns false",
-				"distil-whisper-large-v3-en.SupportsLanguage('en') returns true",
-				"distil-whisper-large-v3-en.SupportsLanguage('') returns true (auto always supported)",
-				"Typecheck passes"
-			],
-			"passes": true
-		},
-		{
-			"title": "Migrate Mistral provider to new Model structure",
-			"steps": [
-				"Update internal/provider/mistral.go to implement new Provider interface",
-				"Research Mistral API docs (https://docs.mistral.ai/) for exact Voxtral language support",
-				"Implement Models() returning transcription models: voxtral-mini-latest, voxtral-mini-2507",
-				"All models use AdapterType='openai' (Mistral transcription is OpenAI-compatible)",
-				"Set Endpoint.BaseURL='https://api.mistral.ai'",
-				"Set SupportedLanguages based on Voxtral docs - if docs list specific languages, use that list; if 'multilingual' use language.AllLanguageCodes()",
-				"Implement DefaultModel(t ModelType)",
-				"Remove old methods"
-			],
-			"verify": [
-				"MistralProvider.Models() returns 2 transcription models",
-				"All models have AdapterType='openai'",
-				"All models have explicit SupportedLanguages list (researched from docs)",
-				"Endpoint.BaseURL is 'https://api.mistral.ai'",
-				"Typecheck passes"
-			],
-			"passes": true
-		},
-		{
-			"title": "Migrate ElevenLabs provider to new Model structure",
-			"steps": [
-				"Update internal/provider/elevenlabs.go to implement new Provider interface",
-				"Research ElevenLabs API docs (https://elevenlabs.io/docs/api-reference/speech-to-text) for exact Scribe language support",
-				"Implement Models() returning: scribe_v1, scribe_v2 (batch), scribe_v1-streaming, scribe_v2-streaming (streaming)",
-				"Batch models: AdapterType='elevenlabs', Streaming=false",
-				"Streaming models: AdapterType='elevenlabs-streaming', Streaming=true",
-				"Set Endpoint.BaseURL='https://api.elevenlabs.io'",
-				"Set SupportedLanguages to explicit list from ElevenLabs docs (reportedly 32 languages - get exact codes)",
-				"If ElevenLabs supports languages not in our master list, only include ones we have (intersection with language.AllLanguageCodes())",
-				"Implement DefaultModel(t ModelType) - returns 'scribe_v1'",
-				"Remove old methods"
-			],
-			"verify": [
-				"ElevenLabsProvider.Models() returns 4 models",
-				"scribe_v1 and scribe_v2 have Streaming=false, AdapterType='elevenlabs'",
-				"scribe_v1-streaming and scribe_v2-streaming have Streaming=true, AdapterType='elevenlabs-streaming'",
-				"All models have explicit SupportedLanguages list from docs (subset of our 57)",
-				"Typecheck passes"
-			],
-			"passes": true
-		},
-		// ============================================================================
-		// PHASE 3: CONSOLIDATE BATCH ADAPTER IMPLEMENTATIONS
-		// Reduce duplication: OpenAI adapter handles OpenAI/Groq/Mistral
-		// ============================================================================
-		{
-			"title": "Create consolidated OpenAI-compatible BatchAdapter",
-			"steps": [
-				"Refactor internal/transcriber/adapter_openai.go to be configurable",
-				"Rename to OpenAICompatibleAdapter or keep as OpenAIAdapter",
-				"Constructor takes: endpoint EndpointConfig, apiKey string, model string, language string, keywords []string",
-				"Remove hardcoded base URL, use endpoint.BaseURL + endpoint.Path",
-				"Use language.ToProviderFormat(language, 'openai') for language parameter",
-				"Keep same HTTP request logic (multipart form, Authorization: Bearer header)",
-				"Keep same response parsing"
-			],
-			"verify": [
-				"OpenAIAdapter constructor accepts EndpointConfig",
-				"Adapter uses endpoint.BaseURL from config, not hardcoded",
-				"Language converted to provider format",
-				"Transcribe() works with OpenAI endpoint",
-				"Transcribe() works with Groq endpoint (different BaseURL)",
-				"Typecheck passes"
-			],
-			"passes": true
-		},
-		{
-			"title": "Remove redundant Groq and Mistral transcription adapters",
-			"steps": [
-				"Delete internal/transcriber/adapter_groq_transcription.go (functionality merged into OpenAIAdapter)",
-				"Delete internal/transcriber/adapter_groq_translation.go or keep if translation is different",
-				"Delete internal/transcriber/adapter_mistral.go (functionality merged into OpenAIAdapter)",
-				"Update any imports that referenced these files",
-				"If groq-translation has different logic, keep as separate adapter with AdapterType='groq-translation'"
-			],
-			"verify": [
-				"adapter_groq_transcription.go is deleted",
-				"adapter_mistral.go is deleted",
-				"No broken imports",
-				"Typecheck passes"
-			],
-			"passes": true
-		},
-		{
-			"title": "Update ElevenLabs BatchAdapter to use EndpointConfig",
-			"steps": [
-				"Update internal/transcriber/adapter_elevenlabs.go",
-				"Constructor takes: endpoint EndpointConfig, apiKey string, model string, language string",
-				"Use endpoint.BaseURL + endpoint.Path instead of hardcoded URL",
-				"Use language.ToProviderFormat(language, 'elevenlabs') for language parameter",
-				"Keep ElevenLabs-specific request format (different headers, body structure)",
-				"Keep ElevenLabs-specific response parsing"
-			],
-			"verify": [
-				"ElevenLabsAdapter constructor accepts EndpointConfig",
-				"Uses endpoint config for URL",
-				"Language converted to provider format",
-				"Still uses xi-api-key header (ElevenLabs-specific)",
-				"Typecheck passes"
-			],
-			"passes": true
-		},
-		{
-			"title": "Update transcriber factory to use Model metadata",
-			"steps": [
-				"Update internal/transcriber/transcriber.go NewTranscriber()",
-				"Import provider package",
-				"Lookup model via provider.GetModel(config.Provider, config.Model)",
-				"Get adapter type from model.AdapterType",
-				"Get endpoint from model.Endpoint (may be nil for local)",
-				"Switch on adapterType instead of provider name",
-				"For 'openai': create OpenAIAdapter with model.Endpoint, config.APIKey, model.ID, config.Language, config.Keywords",
-				"For 'elevenlabs': create ElevenLabsAdapter with model.Endpoint",
-				"For streaming models (model.Streaming=true): return error for now (implemented later)",
-				"Remove old provider name switch cases"
-			],
-			"verify": [
-				"Factory looks up Model from provider",
-				"Factory switches on model.AdapterType",
-				"OpenAI, Groq, Mistral all create OpenAIAdapter with different endpoints",
-				"ElevenLabs creates ElevenLabsAdapter",
-				"Streaming models return clear error until implemented",
-				"Typecheck passes"
-			],
-			"passes": true
-		},
-		{
-			"title": "Update config.ToTranscriberConfig to work with new architecture",
-			"steps": [
-				"Update internal/config/convert.go ToTranscriberConfig()",
-				"Keep existing fields: Provider, APIKey, Language, Model, Keywords",
-				"The factory will use provider.GetModel() to get endpoint config",
-				"Config doesn't need to know about endpoints - that's the factory's job",
-				"Ensure language is stored as our canonical code (e.g., 'en'), adapter converts to provider format",
-				"Add Threads field for local providers"
-			],
-			"verify": [
-				"ToTranscriberConfig returns all needed fields",
-				"Language stored as canonical code",
-				"Threads field included",
-				"Config doesn't import provider package (factory does)",
-				"Typecheck passes"
-			],
-			"passes": true
-		},
-		{
-			"title": "Write tests for transcriber factory",
-			"steps": [
-				"Create internal/transcriber/transcriber_test.go",
-				"Test NewTranscriber creates OpenAIAdapter for openai provider",
-				"Test NewTranscriber creates OpenAIAdapter for groq provider (same adapter, different endpoint)",
-				"Test NewTranscriber creates ElevenLabsAdapter for elevenlabs provider",
-				"Test NewTranscriber returns error for unknown provider",
-				"Test NewTranscriber returns error for unknown model",
-				"Test NewTranscriber returns error for streaming model (until implemented)"
-			],
-			"verify": [
-				"go test ./internal/transcriber/... passes",
-				"Factory creates correct adapters for each provider",
-				"Error cases handled",
-				"Typecheck passes"
-			],
-			"passes": true
-		},
-		// ============================================================================
-		// PHASE 4: LOCAL TRANSCRIPTION (whisper-cpp)
-		// ============================================================================
-		{
-			"title": "Create dependency checker for whisper-cli",
-			"steps": [
-				"Create internal/deps/deps.go",
-				"Define Status struct: Installed bool, Path string, Version string",
-				"Implement CheckWhisperCli() Status - uses exec.LookPath for 'whisper-cli'",
-				"If found, try to get version via 'whisper-cli --version' or similar",
-				"Return Status with Installed=false if not found (no error)",
-				"Add CheckFFmpeg() Status for audio conversion dependency"
-			],
-			"verify": [
-				"CheckWhisperCli() returns Installed=true and Path when whisper-cli exists",
-				"CheckWhisperCli() returns Installed=false when not in PATH",
-				"No errors thrown, just returns status",
-				"Typecheck passes"
-			],
-			"passes": true
-		},
-		{
-			"title": "Create whisper model info and download management",
-			"steps": [
-				"Create internal/models/whisper/models.go",
-				"Define available models as data: tiny.en (75MB), base.en (142MB), small.en (466MB), medium.en (1.5GB), tiny, base, small, medium, large-v3 (3GB)",
-				"Implement GetModelsDir() string - returns ~/.local/share/hyprvoice/models/whisper/",
-				"Implement GetModelPath(name string) string - returns full path to model file",
-				"Create internal/models/whisper/registry.go",
-				"Implement IsInstalled(name string) bool",
-				"Implement ListInstalled() []string",
-				"Implement Download(name string, onProgress func(downloaded, total int64)) error - downloads from HuggingFace",
-				"Implement Remove(name string) error",
-				"Download URL: https://huggingface.co/ggerganov/whisper.cpp/resolve/main/{filename}"
-			],
-			"verify": [
-				"GetModelsDir() returns expanded path (no ~)",
-				"GetModelPath('base.en') returns correct path",
-				"IsInstalled returns false for non-existent model",
-				"Download creates directory if needed and downloads with progress",
-				"Remove deletes the model file",
-				"Typecheck passes"
-			],
-			"passes": true
-		},
-		{
-			"title": "Create WhisperCppAdapter implementing BatchAdapter",
-			"steps": [
-				"Create internal/transcriber/adapter_whisper_cpp.go",
-				"Define WhisperCppAdapter struct: modelPath string, language string, threads int",
-				"Constructor takes these fields directly (no EndpointConfig since it's local CLI)",
-				"Use language.ToProviderFormat(language, 'whisper-cpp') for language parameter",
-				"Implement Transcribe(ctx context.Context, audioData []byte) (string, error)",
-				"Write audio to temp WAV file (use existing convertToWAV helper)",
-				"Execute: whisper-cli -m {modelPath} -l {language} -t {threads} -nt -np -f {tempfile}",
-				"Parse stdout for transcription text",
-				"Clean up temp file in defer",
-				"Return clear error if whisper-cli not found"
-			],
-			"verify": [
-				"WhisperCppAdapter implements BatchAdapter interface",
-				"Returns 'whisper-cli not found' error when binary missing",
-				"Returns error if model file missing",
-				"Language converted to whisper-cpp format",
-				"Cleans up temp files",
-				"Typecheck passes"
-			],
-			"passes": true
-		},
-		{
-			"title": "Create whisper-cpp Provider",
-			"steps": [
-				"Create internal/provider/whisper_cpp.go implementing Provider interface",
-				"Name() returns 'whisper-cpp'",
-				"RequiresAPIKey() returns false",
-				"IsLocal() returns true",
-				"Models() returns all whisper models with: Type=Transcription, AdapterType='whisper-cpp', Local=true",
-				"Set SupportedLanguages=[]string{'en'} for English-only models: tiny.en, base.en, small.en, medium.en",
-				"Set SupportedLanguages=language.AllLanguageCodes() for multilingual models: tiny, base, small, medium, large-v3 (same 57 languages as OpenAI Whisper)",
-				"Each model has LocalInfo with Filename, Size, DownloadURL",
-				"No Endpoint (local CLI, not HTTP)",
-				"DefaultModel(Transcription) returns 'base.en'",
-				"Register in provider.init()"
-			],
-			"verify": [
-				"provider.GetProvider('whisper-cpp') returns WhisperCppProvider",
-				"Models() returns 9 whisper models",
-				"Each model has Local=true and LocalInfo set",
-				"Each model has AdapterType='whisper-cpp'",
-				"English-only models (*.en) have SupportedLanguages=['en']",
-				"Multilingual models have SupportedLanguages with 57 codes",
-				"base.en.SupportsLanguage('es') returns false",
-				"base.en.SupportsLanguage('en') returns true",
-				"base.SupportsLanguage('es') returns true",
-				"base.SupportsAllLanguages() returns true",
-				"RequiresAPIKey() returns false",
-				"Typecheck passes"
-			],
-			"passes": true
-		},
-		{
-			"title": "Wire whisper-cpp into transcriber factory",
-			"steps": [
-				"Update internal/transcriber/transcriber.go NewTranscriber()",
-				"Add case for AdapterType='whisper-cpp'",
-				"For whisper-cpp: get model path from whisper.GetModelPath(config.Model)",
-				"Create WhisperCppAdapter with modelPath, language, threads (from config, default 4)",
-				"Add Threads field to transcriber.Config struct",
-				"Update config.ToTranscriberConfig() to pass Threads from config"
-			],
-			"verify": [
-				"Factory creates WhisperCppAdapter for whisper-cpp models",
-				"Model path resolved from model name",
-				"Threads passed to adapter",
-				"Full flow works: config -> factory -> adapter -> transcription",
-				"Typecheck passes"
-			],
-			"passes": true
-		},
-		{
-			"title": "Update config for local transcription",
-			"steps": [
-				"Add Threads int field to TranscriptionConfig in internal/config/types.go",
-				"Update config.Load() to detect CPU cores via runtime.NumCPU() and set Threads to max(1, NumCPU-1) to leave one core free",
-				"Only apply default if Threads is 0 (not explicitly set)",
-				"Update config validation to accept whisper-cpp provider without API key",
-				"Update config.ToTranscriberConfig() to include Threads",
-				"Update config template in save.go with threads field and comment explaining auto-detection"
-			],
-			"verify": [
-				"TranscriptionConfig has Threads field",
-				"Default Threads is runtime.NumCPU()-1 (minimum 1)",
-				"Explicitly set Threads value is preserved",
-				"Validation passes for whisper-cpp without API key",
-				"Config round-trips correctly with threads field",
-				"Typecheck passes"
-			],
-			"passes": true
-		},
-		// ============================================================================
-		// PHASE 5: MODEL CLI COMMANDS
-		// ============================================================================
-		{
-			"title": "Add model list CLI command",
-			"steps": [
-				"Create modelCmd() in cmd/hyprvoice/main.go returning cobra.Command with Use: 'model'",
-				"Add modelListCmd() subcommand with Use: 'list'",
-				"Add --provider flag to filter by provider",
-				"Add --type flag: 'transcription', 'llm', or '' for all",
-				"Iterate all providers, get Models(), filter by type",
-				"For local models: check whisper.IsInstalled() and show checkmark if installed",
-				"Show: Model ID, Name, Description, Size (for local), [streaming] tag if applicable",
-				"Group by provider with headers"
-			],
-			"verify": [
-				"Running 'hyprvoice model list' shows all models grouped by provider",
-				"Running 'hyprvoice model list --type transcription' shows only transcription models",
-				"Running 'hyprvoice model list --provider whisper-cpp' shows only whisper models",
-				"Installed local models show checkmark",
-				"Output includes size for local models",
-				"Typecheck passes"
-			],
-			"passes": true
-		},
-		{
-			"title": "Add model download CLI command",
-			"steps": [
-				"Add modelDownloadCmd() subcommand with Use: 'download <model-name>'",
-				"Use provider.FindModelByID() to search all providers for model",
-				"Check model.NeedsDownload() - if false, print 'model does not require download (cloud model)'",
-				"Check if already installed via whisper.IsInstalled()",
-				"If installed, print 'already installed at {path}'",
-				"Otherwise call whisper.Download() with progress bar (use pb or similar)",
-				"Print success message with model path"
-			],
-			"verify": [
-				"Running 'hyprvoice model download base.en' downloads whisper model",
-				"Shows progress during download",
-				"Shows 'already installed' if model exists",
-				"Shows error for unknown model name",
-				"Shows error for cloud models that don't need download",
-				"Typecheck passes"
-			],
-			"passes": true
-		},
-		{
-			"title": "Add model remove CLI command",
-			"steps": [
-				"Add modelRemoveCmd() subcommand with Use: 'remove <model-name>'",
-				"Use provider.FindModelByID() to search all providers for model",
-				"Check model.NeedsDownload() - if false, print 'model is cloud-based, nothing to remove'",
-				"Check if installed via whisper.IsInstalled()",
-				"If not installed, print error 'model not installed'",
-				"Otherwise call whisper.Remove()",
-				"Print success message"
-			],
-			"verify": [
-				"Running 'hyprvoice model remove base.en' removes whisper model",
-				"Shows error if model not installed",
-				"Shows error for cloud models",
-				"Shows success message after removal",
-				"Typecheck passes"
-			],
-			"passes": true
-		},
-		// ============================================================================
-		// PHASE 6: TUI IMPROVEMENTS
-		// Use Model metadata instead of hardcoded descriptions
-		// ============================================================================
-		{
-			"title": "Refactor TUI to use Model metadata for descriptions",
-			"steps": [
-				"Update internal/tui/configure_transcription.go getTranscriptionModelOptions(providerName string, currentLang string)",
-				"Instead of hardcoded switch, get provider via provider.GetProvider()",
-				"Call provider.ModelsOfType(p, provider.Transcription) to get models",
-				"Build label from model: fmt.Sprintf('%s (%s)', model.Name, model.Description)",
-				"For local models (model.Local): append ' [%s]' with model.LocalInfo.Size",
-				"For streaming models (model.Streaming): append ' [streaming]'",
-				"If currentLang != '' and !model.SupportsLanguage(currentLang): append ' (does not support %s)' with language name to label",
-				"Pass currentLang to getTranscriptionModelOptions() from editTranscription()",
-				"Do same for getLLMModelOptions() in configure_llm.go (though LLMs are language-agnostic for prompting)"
-			],
-			"verify": [
-				"Model options show Name and Description from Model struct",
-				"Local models show size in label",
-				"Streaming models show [streaming] in label",
-				"When Spanish language selected, base.en shows '(does not support Spanish)'",
-				"When auto selected, all models show without warnings",
-				"No more hardcoded descriptions in TUI",
-				"Typecheck passes"
-			],
-			"passes": true
-		},
-		{
-			"title": "Add local provider options to TUI with dependency check",
-			"steps": [
-				"Update editTranscription() provider options to include whisper-cpp",
-				"Before showing whisper-cpp, call deps.CheckWhisperCli()",
-				"If not installed, show as disabled with note: 'whisper-cli not found - install whisper.cpp'",
-				"When whisper-cpp selected, show model picker",
-				"Show installed models with checkmark prefix using whisper.IsInstalled()",
-				"If user selects uninstalled model, show confirm dialog: 'Download {name} ({size})?'",
-				"If confirmed, show progress during whisper.Download()"
-			],
-			"verify": [
-				"whisper-cpp appears in provider list",
-				"Warning shown if whisper-cli not installed",
-				"Model picker shows installed status",
-				"Download prompt appears for uninstalled models",
-				"Download completes with progress",
-				"Typecheck passes"
-			],
-			"passes": true
-		},
-		{
-			"title": "Add language picker to TUI using language package",
-			"steps": [
-				"Create internal/tui/languages.go with getLanguageOptions(currentModel *Model) []huh.Option[string]",
-				"Use language.List() to get all languages",
-				"First option: Auto-detect (Recommended) with value '' from language.Auto - always show as recommended",
-				"Format each as: fmt.Sprintf('%s - %s (%s)', lang.Name, lang.NativeName, lang.Code) or simpler if names match",
-				"If currentModel is not nil and !currentModel.SupportsLanguage(lang.Code), append ' (not supported by current model)' to label",
-				"Use huh.NewSelect with Filtering(true) to enable search through languages",
-				"Update editTranscription() to use filtered language dropdown instead of text input",
-				"Store language.Code in config, not display name",
-				"Pass current model to getLanguageOptions() so it can show compatibility warnings"
-			],
-			"verify": [
-				"Language dropdown shows 50+ options",
-				"Auto-detect (Recommended) is first option with value ''",
-				"Format shows native name where different",
-				"Search/filter works on language dropdown",
-				"If model is English-only, non-English languages show '(not supported by current model)'",
-				"Selecting language saves the Code to config",
-				"Typecheck passes"
-			],
-			"passes": true
-		},
-		{
-			"title": "Add TUI validation for language-model compatibility on save",
+			"title": "Remove language from transcription edit flow",
 			"steps": [
 				"Update internal/tui/configure_transcription.go editTranscription()",
-				"Before saving config, call config.ValidateModelLanguageCompatibility(provider, model, language)",
-				"If validation fails, show error dialog with message from validation",
-				"Error message should be: 'model {model} does not support language {lang}. Change model, select auto-detect, or choose: {supported_languages}'",
-				"Do not save config until user fixes the incompatibility",
-				"User can fix by: changing model, changing language to auto, or changing to supported language",
-				"After showing error, return to the form so user can make changes"
-			],
-		"verify": [
-			"Selecting English-only model + Spanish language shows error on save",
-			"Error dialog displays clear message with options",
-			"Config is not saved when validation fails",
-			"User can change model and save successfully",
-			"User can change language to auto and save successfully",
-			"User can change language to supported language and save successfully",
-			"Typecheck passes"
-		],
-		"passes": true
-	},
-	// ============================================================================
-	// PHASE 7: STREAMING ADAPTER IMPLEMENTATIONS
-		// Each adapter is a separate task for right-sizing
-		// ============================================================================
-		{
-			"title": "Create ElevenLabs StreamingAdapter",
-			"steps": [
-				"Create internal/transcriber/adapter_elevenlabs_streaming.go",
-				"Define ElevenLabsStreamingAdapter struct: apiKey, model, language string, conn *websocket.Conn, resultsCh chan TranscriptionResult, mu sync.Mutex",
-				"Implement Start(ctx): connect to wss://api.elevenlabs.io/v1/speech-to-text/realtime with xi-api-key header",
-				"Use language.ToProviderFormat(language, 'elevenlabs') for language_code param",
-				"Set query params: model_id, language_code, audio_format=pcm_16000",
-				"Implement SendChunk(): send input_audio_chunk message with base64 audio",
-				"Implement Results(): return resultsCh, goroutine reads websocket and parses partial_transcript/committed_transcript",
-				"Implement Close(): close websocket cleanly with proper close frame",
-				"Use gorilla/websocket, respect ctx cancellation throughout"
+				"Remove the language input field from the transcription form",
+				"Keep language validation on save but use effective language from config",
+				"Update any references to selectedLanguage to use cfg.General.Language as fallback"
 			],
 			"verify": [
-				"ElevenLabsStreamingAdapter implements StreamingAdapter interface",
-				"Start() connects to correct WebSocket URL",
-				"Language converted to provider format",
-				"SendChunk() sends properly formatted JSON",
-				"Results() channel receives partial and final transcripts",
-				"Close() terminates cleanly",
+				"Transcription edit no longer shows language field",
+				"Model selection still works",
+				"Language validation still occurs using effective language",
 				"Typecheck passes"
 			],
-			"passes": true
+			"passes": false
 		},
 		{
-			"title": "Add reconnection logic to ElevenLabs StreamingAdapter",
+			"title": "Enable streaming models in TUI model picker",
 			"steps": [
-				"Update internal/transcriber/adapter_elevenlabs_streaming.go",
-				"Add reconnection fields: maxRetries int, retryDelays []time.Duration (1s, 2s, 4s)",
-				"Implement reconnect() helper that attempts to re-establish WebSocket connection",
-				"On read error in Results() goroutine: attempt reconnection before giving up",
-				"On write error in SendChunk(): trigger reconnect, retry the chunk",
-				"On reconnection, send error to resultsCh with IsFinal=false to notify caller of brief interruption",
-				"After max retries exhausted, send final error and close channel"
+				"Update internal/tui/configure_transcription.go getTranscriptionModelOptions()",
+				"Remove the 'if m.Streaming { continue }' filter that skips streaming models",
+				"Ensure buildModelLabel already adds [streaming] tag (verify it does)",
+				"Streaming models should now appear in the list with [streaming] indicator"
 			],
 			"verify": [
-				"Reconnection attempted on connection loss (up to 3 times)",
-				"Exponential backoff between retries (1s, 2s, 4s)",
-				"Caller notified of reconnection via error in results channel",
-				"After max retries, final error sent and channel closed",
+				"scribe_v1-streaming, scribe_v2-streaming appear for ElevenLabs",
+				"nova-3, nova-2 appear for Deepgram (streaming-only)",
+				"gpt-4o-realtime-preview appears for OpenAI",
+				"All streaming models show [streaming] tag in label",
 				"Typecheck passes"
 			],
-			"passes": true
+			"passes": false
 		},
 		{
-			"title": "Create Deepgram Provider",
+			"title": "Add streaming section header in model picker",
 			"steps": [
-				"Create internal/provider/deepgram.go implementing Provider interface",
-				"Research Deepgram API docs (https://developers.deepgram.com/docs/language) for exact Nova-2 language support",
-				"Name() returns 'deepgram', RequiresAPIKey() returns true, IsLocal() returns false",
-				"Models() returns: nova-2, nova-2-general, nova-2-meeting, nova-2-phonecall",
-				"All models: Type=Transcription, Streaming=true, AdapterType='deepgram'",
-				"Set SupportedLanguages to explicit list from Deepgram docs (intersection with our 57 languages)",
-				"Deepgram uses locale codes (en-US, en-GB) - map these to our base codes ('en') for SupportedLanguages",
-				"Set Endpoint.BaseURL='wss://api.deepgram.com'",
-				"Implement DefaultModel returning 'nova-2'",
-				"Register in provider.init()"
+				"Update getTranscriptionModelOptions() to group models into batch and streaming",
+				"Add visual separator or section headers: 'Batch Models' and 'Streaming Models'",
+				"List batch models first, then streaming models",
+				"Use huh.NewOption with description to show streaming info"
 			],
 			"verify": [
-				"provider.GetProvider('deepgram') returns DeepgramProvider",
-				"All Deepgram models have Streaming=true",
-				"All Deepgram models have explicit SupportedLanguages from docs",
-				"All models have AdapterType='deepgram'",
-				"RequiresAPIKey() returns true",
+				"Model picker shows batch models grouped together",
+				"Model picker shows streaming models grouped together",
+				"Clear visual distinction between batch and streaming sections",
 				"Typecheck passes"
 			],
-			"passes": true
+			"passes": false
 		},
 		{
-			"title": "Create Deepgram StreamingAdapter",
+			"title": "Add docs URLs to provider models",
 			"steps": [
-				"Create internal/transcriber/adapter_deepgram.go",
-				"Define DeepgramAdapter struct: apiKey, model, language string, conn *websocket.Conn, resultsCh chan TranscriptionResult",
-				"Implement Start(ctx): connect to wss://api.deepgram.com/v1/listen with Authorization: Token header",
-				"Use language.ToProviderFormat(language, 'deepgram') for language param (e.g., 'en' -> 'en-US')",
-				"Set query params: model, language, encoding=linear16, sample_rate=16000",
-				"Implement SendChunk(): send raw binary audio (not base64)",
-				"Implement Results(): goroutine reads websocket, parse JSON responses with is_final field",
-				"Implement Close(): send close message, close connection"
+				"Add DocsURL string field to Model struct in internal/provider/model.go",
+				"Update each provider to set DocsURL for models pointing to language support docs:",
+				"  - OpenAI: 'https://platform.openai.com/docs/guides/speech-to-text#supported-languages'",
+				"  - Groq: 'https://console.groq.com/docs/speech-to-text#supported-languages'",
+				"  - ElevenLabs: 'https://elevenlabs.io/docs/capabilities/speech-to-text#supported-languages'",
+				"  - Deepgram: 'https://developers.deepgram.com/docs/language'",
+				"  - whisper-cpp: 'https://github.com/openai/whisper#available-models-and-languages'",
+				"  - Mistral: 'https://docs.mistral.ai/capabilities/speech/'"
 			],
 			"verify": [
-				"DeepgramAdapter implements StreamingAdapter",
-				"Language converted to Deepgram format (en -> en-US style)",
-				"Connects with Token auth header",
-				"SendChunk sends binary audio",
-				"Parses interim and final results correctly",
-				"Close() terminates cleanly",
+				"Model struct has DocsURL field",
+				"All transcription models have DocsURL set",
+				"URLs point to correct language support documentation",
 				"Typecheck passes"
 			],
-			"passes": true
+			"passes": false
 		},
 		{
-			"title": "Add reconnection logic to Deepgram StreamingAdapter",
+			"title": "Improve language-model compatibility error messages",
 			"steps": [
-				"Update internal/transcriber/adapter_deepgram.go",
-				"Add reconnection fields: maxRetries int, retryDelays []time.Duration (1s, 2s, 4s)",
-				"Implement reconnect() helper that attempts to re-establish WebSocket connection",
-				"On read error: attempt reconnection before giving up",
-				"On write error in SendChunk(): trigger reconnect, retry the chunk",
-				"On reconnection, send error to resultsCh with IsFinal=false to notify caller",
-				"After max retries exhausted, send final error and close channel",
-				"Respect context cancellation throughout"
+				"Update ValidateModelLanguageCompatibility in internal/config/validate.go",
+				"Error message format: 'Model {name} does not support {language}. See {docsURL} for supported languages. Supported: {first 5 languages}...'",
+				"Lookup model to get DocsURL using provider.GetModel()",
+				"Include both the docs URL and a truncated list of supported languages",
+				"Update error in internal/tui/configure_transcription.go to show this improved message"
 			],
 			"verify": [
-				"Reconnection attempted on connection loss (up to 3 times)",
-				"Exponential backoff between retries",
-				"Caller notified of reconnection via error in results channel",
-				"Context cancellation stops reconnection attempts",
+				"Error includes model name and language name (not just code)",
+				"Error includes docs URL",
+				"Error includes first few supported languages",
+				"Error is actionable and clear",
 				"Typecheck passes"
 			],
-			"passes": true
+			"passes": false
 		},
 		{
-			"title": "Add OpenAI Realtime model to OpenAI provider",
+			"title": "Update config validation for general language",
 			"steps": [
-				"Update internal/provider/openai.go",
-				"Add gpt-realtime model to Models() return value",
-				"Set: Type=Transcription, Streaming=true, AdapterType='openai-realtime'",
-				"Set Endpoint.BaseURL='wss://api.openai.com' (WebSocket endpoint)",
-				"Set SupportedLanguages=language.AllLanguageCodes() (same as other OpenAI transcription models)",
-				"Keep DefaultModel unchanged (batch whisper-1 remains default)"
+				"Update internal/config/validate.go to validate general.language if set",
+				"Use language.IsValidCode() for validation",
+				"Validate that effective language (general or transcription override) is compatible with selected model",
+				"Add clear error when general language set but overridden by transcription language"
 			],
 			"verify": [
-				"OpenAIProvider.Models() now includes gpt-realtime",
-				"gpt-realtime has Streaming=true",
-				"gpt-realtime has AdapterType='openai-realtime'",
-				"gpt-realtime has WebSocket endpoint",
-				"DefaultModel(Transcription) still returns 'whisper-1'",
+				"Invalid general.language code warns user",
+				"Effective language validated against model",
+				"Config with general.language='invalid' warns but doesn't hard fail",
 				"Typecheck passes"
 			],
-			"passes": true
+			"passes": false
 		},
 		{
-			"title": "Create OpenAI Realtime StreamingAdapter",
+			"title": "Update README and docs for general language setting",
 			"steps": [
-				"Create internal/transcriber/adapter_openai_realtime.go",
-				"Define OpenAIRealtimeAdapter struct: apiKey, model, language string, conn *websocket.Conn, resultsCh chan TranscriptionResult",
-				"Implement Start(ctx): connect to wss://api.openai.com/v1/realtime with Bearer auth header",
-				"Send session.update event to configure transcription mode",
-				"Implement SendChunk(): send input_audio_buffer.append events with base64 audio",
-				"Implement Results(): goroutine reads websocket, parse response.output_text.delta and .done events",
-				"Implement Close(): send session.close event, close connection"
+				"Update README.md to show language in [general] section in example config",
+				"Update docs/config.md to document [general] section and language field",
+				"Add note that transcription.language can override general.language",
+				"Update any references to transcription.language to point to general.language"
 			],
 			"verify": [
-				"OpenAIRealtimeAdapter implements StreamingAdapter",
-				"Connects with correct Bearer auth",
-				"Session configured for transcription mode",
-				"SendChunk sends audio buffer events",
-				"Receives transcription delta and done events",
-				"Close() terminates cleanly",
+				"README shows language under [general]",
+				"docs/config.md documents general section",
+				"Override behavior documented",
 				"Typecheck passes"
 			],
-			"passes": true
+			"passes": false
 		},
 		{
-			"title": "Add reconnection logic to OpenAI Realtime StreamingAdapter",
+			"title": "Add migration for existing configs",
 			"steps": [
-				"Update internal/transcriber/adapter_openai_realtime.go",
-				"Add reconnection fields: maxRetries int, retryDelays []time.Duration (1s, 2s, 4s)",
-				"Implement reconnect() helper that re-establishes WebSocket and re-sends session.update",
-				"On read/write errors: attempt reconnection before giving up",
-				"On reconnection, send error to resultsCh with IsFinal=false",
-				"After max retries exhausted, send final error and close channel",
-				"Respect context cancellation throughout"
+				"Update internal/config/load.go to migrate old configs",
+				"If transcription.language is set but general.language is not, copy to general.language",
+				"Log info message about migration: 'Migrated language setting to [general] section'",
+				"Only migrate on load, don't modify file until user saves"
 			],
 			"verify": [
-				"Reconnection attempted on connection loss (up to 3 times)",
-				"Session reconfigured after reconnection",
-				"Exponential backoff between retries",
-				"Context cancellation stops reconnection attempts",
+				"Old config with transcription.language='es' loads with general.language='es'",
+				"Migration logged when it occurs",
+				"Original file not modified until explicit save",
 				"Typecheck passes"
 			],
-			"passes": true
-		},
-		{
-			"title": "Update factory to create streaming transcribers",
-			"steps": [
-				"Update internal/transcriber/transcriber.go NewTranscriber()",
-				"After getting Model, check model.Streaming",
-				"If streaming: create appropriate StreamingAdapter based on AdapterType",
-				"Wrap in StreamingTranscriber and return",
-				"If not streaming: create BatchAdapter, wrap in SimpleTranscriber (existing behavior)",
-				"Add case 'elevenlabs-streaming' -> ElevenLabsStreamingAdapter",
-				"Add case 'deepgram' -> DeepgramAdapter",
-				"Add case 'openai-realtime' -> OpenAIRealtimeAdapter"
-			],
-			"verify": [
-				"Factory creates StreamingTranscriber for scribe_v1-streaming",
-				"Factory creates StreamingTranscriber for nova-2",
-				"Factory creates StreamingTranscriber for gpt-realtime",
-				"Factory creates SimpleTranscriber for scribe_v1 (batch)",
-				"Factory creates SimpleTranscriber for whisper-1",
-				"Typecheck passes"
-			],
-			"passes": true
-		},
-		{
-			"title": "Write tests for streaming adapters",
-			"steps": [
-				"Create internal/transcriber/streaming_test.go",
-				"Test StreamingTranscriber accumulates final results correctly",
-				"Test StreamingTranscriber handles adapter errors",
-				"Test context cancellation stops StreamingTranscriber cleanly",
-				"Test concurrent access to GetFinalTranscription is safe",
-				"Mock WebSocket for unit testing adapters",
-				"Test ElevenLabsStreamingAdapter message format",
-				"Test DeepgramAdapter binary audio sending",
-				"Test OpenAIRealtimeAdapter session configuration",
-				"Test reconnection logic with simulated connection drops",
-				"Test Close() cleans up resources and goroutines"
-			],
-			"verify": [
-				"go test ./internal/transcriber/... passes",
-				"go test -race ./internal/transcriber/... passes (no race conditions)",
-				"Streaming accumulation tested",
-				"Context cancellation tested",
-				"Reconnection logic tested",
-				"Error handling tested",
-				"Typecheck passes"
-			],
-			"passes": true
-		},
-		// ============================================================================
-		// PHASE 8: CONFIG AND VALIDATION UPDATES
-		// ============================================================================
-		{
-			"title": "Update config validation to use provider registry",
-			"steps": [
-				"Update internal/config/validate.go",
-				"For provider validation: use provider.GetProvider() instead of hardcoded list",
-				"For model validation: use provider.GetModel() to verify model exists",
-				"For API key validation: check provider.RequiresAPIKey() and provider.IsLocal()",
-				"Remove hardcoded provider and model lists from validation",
-				"Validate language using language.IsValidCode() - warn if not recognized but don't error",
-				"Add ValidateModelLanguageCompatibility(providerName, modelID, langCode string) error",
-				"Get model via provider.GetModel(), check model.SupportsLanguage(langCode)",
-				"If not supported, return error: 'model {model} does not support language {lang}. Either change model, select auto-detect, or choose a supported language: {model.SupportedLanguages[:10]}...' (truncate if many)",
-				"This validation runs at configure time (TUI save, CLI config set) and returns hard error"
-			],
-			"verify": [
-				"Validation uses provider registry",
-				"Unknown provider returns clear error",
-				"Unknown model returns clear error",
-				"Missing API key for cloud provider returns error",
-				"No API key required for local provider",
-				"Language validation warns but doesn't error for unknown language codes",
-				"Model-language incompatibility returns hard error with supported languages list",
-				"Error message includes model name, language, and list of supported languages (from model.SupportedLanguages)",
-				"Auto language ('') passes validation for any model",
-				"Typecheck passes"
-			],
-			"passes": true
-		},
-		{
-			"title": "Add runtime language-model compatibility check with fallback",
-			"steps": [
-				"Update internal/transcriber/transcriber.go NewTranscriber()",
-				"After looking up model via provider.GetModel(), check model.SupportsLanguage(config.Language)",
-				"If language not supported and language != '' (not auto):",
-				"  - Log warning: 'model {model} does not support language {lang}, falling back to auto-detect'",
-				"  - Send notification via internal/notify package (desktop notification)",
-				"  - Override config.Language to '' (auto) for this transcription session",
-				"This allows runtime to proceed even if config was manually edited to invalid state",
-				"Configure-time validation is still the primary guard (hard error)",
-				"Runtime check is fallback safety net with user notification"
-			],
-			"verify": [
-				"NewTranscriber with incompatible language logs warning",
-				"NewTranscriber with incompatible language sends desktop notification",
-				"NewTranscriber with incompatible language falls back to auto-detect",
-				"Transcription still works after fallback",
-				"NewTranscriber with '' (auto) never triggers warning",
-				"NewTranscriber with compatible language works normally",
-				"Typecheck passes"
-			],
-			"passes": true
-		},
-		{
-			"title": "Add DEEPGRAM_API_KEY env var support",
-			"steps": [
-				"Update internal/config/convert.go resolveAPIKeyForProvider()",
-				"Add case for 'deepgram' provider with DEEPGRAM_API_KEY env var",
-				"Update providers config section to include deepgram",
-				"Update config template in save.go with deepgram section"
-			],
-		"verify": [
-			"Deepgram API key resolved from config or DEEPGRAM_API_KEY env",
-			"Config template includes deepgram section",
-			"Typecheck passes"
-		],
-		"passes": true
-	},
-		// ============================================================================
-		// PHASE 9: DOCUMENTATION
-		// Consolidated at the end - update all docs once architecture is stable
-		// ============================================================================
-		{
-			"title": "Update README with new architecture",
-			"steps": [
-				"Update Features section to mention: local transcription (whisper-cpp), streaming support",
-				"Add '## Local Transcription' section explaining whisper-cpp setup: install whisper.cpp, download model, configure",
-				"Add '## Streaming Transcription' section explaining streaming providers and models",
-				"Update provider list in Configuration section to include all providers",
-				"Add 'hyprvoice model list/download/remove' commands to Quick Reference",
-				"Update Development Status table with completed items",
-				"Update Architecture Overview if needed"
-			],
-			"verify": [
-				"README mentions local and streaming support",
-				"Local setup instructions are clear",
-				"Model commands documented",
-				"Provider list is complete and accurate",
-				"Typecheck passes"
-			],
-			"passes": true
-		},
-		{
-			"title": "Create docs/providers.md comparison guide",
-			"steps": [
-				"Create docs/providers.md",
-				"Add Transcription Providers table: Provider, Type (Cloud/Local), Models, Language Support, Streaming Support, Speed, Quality, Cost, Notes",
-				"Language Support column: 'All' for multilingual, 'English only' for *.en models, specific count like '36 languages' where known",
-				"Add LLM Providers table with similar columns (language support less relevant for LLMs)",
-				"Add '## Choosing a Provider' section with decision flowchart or guide",
-				"Add '## Language Support' section explaining which models support which languages",
-				"Clearly list English-only models: tiny.en, base.en, small.en, medium.en, distil-whisper-large-v3-en",
-				"Recommend auto-detect for most users unless specific language needed",
-				"Add '## Streaming vs Batch' section explaining when to use each",
-				"Add '## Local vs Cloud' section with tradeoffs (privacy, latency, cost, setup)"
-			],
-		"verify": [
-			"Comparison tables are complete with Language Support column",
-			"All providers listed with accurate info",
-			"English-only models clearly marked",
-			"Language support section is comprehensive",
-			"Decision guide is helpful",
-			"File is well-formatted markdown",
-			"Typecheck passes"
-		],
-		"passes": true
-	},
-	{
-		"title": "Update docs/config.md with all providers and options",
-			"steps": [
-				"Add whisper-cpp provider section with: provider, model, threads options",
-				"Add Deepgram provider section with: provider, model, api_key / DEEPGRAM_API_KEY",
-				"Document streaming models (scribe_v1-streaming, nova-2, gpt-realtime)",
-				"Document 'hyprvoice model list/download/remove' commands with examples",
-				"Add language configuration section explaining language codes and auto-detect",
-				"Document language-model compatibility: which models support which languages",
-				"Note that *.en models (base.en, tiny.en, distil-whisper-large-v3-en) are English only",
-				"Explain validation behavior: configure-time hard error, runtime warning + fallback to auto",
-				"Update examples throughout to reflect new Model-based architecture"
-			],
-			"verify": [
-				"All providers documented with all options",
-				"Model commands documented with examples",
-				"Streaming configuration documented",
-				"Language configuration documented with auto-detect recommendation",
-				"Language-model compatibility clearly explained",
-				"English-only models listed",
-				"Validation behavior documented",
-				"Examples are copy-paste ready",
-				"Typecheck passes"
-			],
-			"passes": true
+			"passes": false
 		}
 	]
 }
