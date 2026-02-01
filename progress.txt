@@ -205,3 +205,16 @@ Started: Sun Feb  1 12:22:47 AM CET 2026
 - Created comprehensive test file adapter_whisper_cpp_test.go
 - Tests: interface implementation, empty audio, missing model, language, threads, context cancellation
 - All tests passing, typecheck passes
+
+### Task 21: Create whisper-cpp Provider
+- Created `internal/provider/whisper_cpp.go` implementing Provider interface
+- Name() returns 'whisper-cpp', RequiresAPIKey() returns false, IsLocal() returns true
+- Models() returns 9 whisper models from whisper.ListModels()
+- English-only models (*.en) have SupportedLanguages=['en']
+- Multilingual models have SupportedLanguages with all 57 language codes
+- Each model has: Type=Transcription, AdapterType='whisper-cpp', Local=true, LocalInfo with Filename/Size/DownloadURL
+- No Endpoint (local CLI, not HTTP)
+- DefaultModel(Transcription) returns 'base.en'
+- Registered in provider.init()
+- Comprehensive test file created: whisper_cpp_test.go
+- All tests passing, typecheck passes

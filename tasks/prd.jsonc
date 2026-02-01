@@ -511,7 +511,7 @@
 				"RequiresAPIKey() returns false",
 				"Typecheck passes"
 			],
-			"passes": false
+			"passes": true
 		},
 		{
 			"title": "Wire whisper-cpp into transcriber factory",

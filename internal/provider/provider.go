@@ -28,6 +28,7 @@ func init() {
 	Register(&GroqProvider{})
 	Register(&MistralProvider{})
 	Register(&ElevenLabsProvider{})
+	Register(&WhisperCppProvider{})
 }
 
 // Register adds a provider to the registry
