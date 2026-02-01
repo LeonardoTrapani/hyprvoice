@@ -506,3 +506,10 @@ Started: Sun Feb  1 12:22:47 AM CET 2026
 - Documented validation behavior: config-time hard error + runtime fallback with notification
 - Added example configurations: Local Transcription, Deepgram Streaming, Ultra-Low Latency Streaming
 - Typecheck passes
+
+### Task 47: Add GeneralConfig with Language field to config types
+- Added `GeneralConfig` struct to internal/config/types.go with Language string field
+- Added `General GeneralConfig` field to Config struct with toml tag 'general'
+- Language field has ISO 639-1 code comment, empty for auto-detect
+- TranscriptionConfig.Language kept for backwards compat (will be used as override)
+- All tests passing, typecheck passes

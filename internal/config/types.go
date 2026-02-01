@@ -7,7 +7,13 @@ import (
 	"github.com/leonardotrapani/hyprvoice/internal/notify"
 )
 
+// GeneralConfig holds global settings that apply across the application
+type GeneralConfig struct {
+	Language string `toml:"language"` // ISO 639-1 code (e.g., en, es, de). Empty for auto-detect.
+}
+
 type Config struct {
+	General       GeneralConfig             `toml:"general"`
 	Recording     RecordingConfig           `toml:"recording"`
 	Transcription TranscriptionConfig       `toml:"transcription"`
 	Injection     InjectionConfig           `toml:"injection"`

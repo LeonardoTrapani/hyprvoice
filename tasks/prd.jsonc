@@ -15,7 +15,7 @@
 				"GeneralConfig has Language string field with toml:'language' tag",
 				"Typecheck passes"
 			],
-			"passes": false
+			"passes": true
 		},
 		{
 			"title": "Update config loading to handle general language",
