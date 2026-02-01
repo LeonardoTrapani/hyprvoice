@@ -27,6 +27,7 @@ func (p *GroqProvider) IsLocal() bool {
 
 func (p *GroqProvider) Models() []Model {
 	allLangs := language.AllLanguageCodes()
+	docsURL := "https://console.groq.com/docs/speech-to-text#supported-languages"
 
 	return []Model{
 		// transcription models
@@ -40,6 +41,7 @@ func (p *GroqProvider) Models() []Model {
 			AdapterType:        "openai",
 			SupportedLanguages: allLangs,
 			Endpoint:           &EndpointConfig{BaseURL: "https://api.groq.com/openai", Path: "/v1/audio/transcriptions"},
+			DocsURL:            docsURL,
 		},
 		{
 			ID:                 "whisper-large-v3-turbo",
@@ -51,6 +53,7 @@ func (p *GroqProvider) Models() []Model {
 			AdapterType:        "openai",
 			SupportedLanguages: allLangs,
 			Endpoint:           &EndpointConfig{BaseURL: "https://api.groq.com/openai", Path: "/v1/audio/transcriptions"},
+			DocsURL:            docsURL,
 		},
 		{
 			ID:                 "distil-whisper-large-v3-en",
@@ -62,6 +65,7 @@ func (p *GroqProvider) Models() []Model {
 			AdapterType:        "openai",
 			SupportedLanguages: []string{"en"},
 			Endpoint:           &EndpointConfig{BaseURL: "https://api.groq.com/openai", Path: "/v1/audio/transcriptions"},
+			DocsURL:            docsURL,
 		},
 		// LLM models
 		{

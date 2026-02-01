@@ -150,7 +150,7 @@
 				"URLs point to correct language support documentation",
 				"Typecheck passes"
 			],
-			"passes": false
+			"passes": true
 		},
 		{
 			"title": "Improve language-model compatibility error messages",

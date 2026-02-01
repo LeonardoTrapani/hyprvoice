@@ -296,6 +296,7 @@ func TestModel_AllFields(t *testing.T) {
 			Size:        "100MB",
 			DownloadURL: "https://example.com/test.bin",
 		},
+		DocsURL: "https://example.com/docs/languages",
 	}
 
 	if model.ID != "test-model" {
@@ -327,5 +328,42 @@ func TestModel_AllFields(t *testing.T) {
 	}
 	if model.LocalInfo == nil {
 		t.Error("LocalInfo should not be nil")
+	}
+	if model.DocsURL != "https://example.com/docs/languages" {
+		t.Errorf("DocsURL = %q, want 'https://example.com/docs/languages'", model.DocsURL)
+	}
+}
+
+func TestAllTranscriptionModels_HaveDocsURL(t *testing.T) {
+	// verify all transcription models have DocsURL set
+	providers := []string{"openai", "groq", "mistral", "elevenlabs", "deepgram", "whisper-cpp"}
+
+	expectedDocsURLs := map[string]string{
+		"openai":      "https://platform.openai.com/docs/guides/speech-to-text#supported-languages",
+		"groq":        "https://console.groq.com/docs/speech-to-text#supported-languages",
+		"mistral":     "https://docs.mistral.ai/capabilities/speech/",
+		"elevenlabs":  "https://elevenlabs.io/docs/capabilities/speech-to-text#supported-languages",
+		"deepgram":    "https://developers.deepgram.com/docs/language",
+		"whisper-cpp": "https://github.com/openai/whisper#available-models-and-languages",
+	}
+
+	for _, pName := range providers {
+		p := GetProvider(pName)
+		if p == nil {
+			t.Errorf("GetProvider(%q) returned nil", pName)
+			continue
+		}
+
+		expectedURL := expectedDocsURLs[pName]
+		for _, m := range p.Models() {
+			if m.Type != Transcription {
+				continue
+			}
+			if m.DocsURL == "" {
+				t.Errorf("%s/%s: DocsURL is empty", pName, m.ID)
+			} else if m.DocsURL != expectedURL {
+				t.Errorf("%s/%s: DocsURL = %q, want %q", pName, m.ID, m.DocsURL, expectedURL)
+			}
+		}
 	}
 }

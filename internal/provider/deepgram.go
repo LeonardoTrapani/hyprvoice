@@ -37,6 +37,8 @@ func (p *DeepgramProvider) Models() []Model {
 		"ro", "ru", "sk", "es", "sv", "th", "tr", "uk", "vi",
 	}
 
+	docsURL := "https://developers.deepgram.com/docs/language"
+
 	return []Model{
 		{
 			ID:                 "nova-3",
@@ -48,6 +50,7 @@ func (p *DeepgramProvider) Models() []Model {
 			AdapterType:        "deepgram",
 			SupportedLanguages: nova3Langs,
 			Endpoint:           &EndpointConfig{BaseURL: "wss://api.deepgram.com", Path: "/v1/listen"},
+			DocsURL:            docsURL,
 		},
 		{
 			ID:                 "nova-3-general",
@@ -59,6 +62,7 @@ func (p *DeepgramProvider) Models() []Model {
 			AdapterType:        "deepgram",
 			SupportedLanguages: nova3Langs,
 			Endpoint:           &EndpointConfig{BaseURL: "wss://api.deepgram.com", Path: "/v1/listen"},
+			DocsURL:            docsURL,
 		},
 		{
 			ID:                 "nova-2",
@@ -70,6 +74,7 @@ func (p *DeepgramProvider) Models() []Model {
 			AdapterType:        "deepgram",
 			SupportedLanguages: nova2Langs,
 			Endpoint:           &EndpointConfig{BaseURL: "wss://api.deepgram.com", Path: "/v1/listen"},
+			DocsURL:            docsURL,
 		},
 		{
 			ID:                 "nova-2-general",
@@ -81,6 +86,7 @@ func (p *DeepgramProvider) Models() []Model {
 			AdapterType:        "deepgram",
 			SupportedLanguages: nova2Langs,
 			Endpoint:           &EndpointConfig{BaseURL: "wss://api.deepgram.com", Path: "/v1/listen"},
+			DocsURL:            docsURL,
 		},
 	}
 }

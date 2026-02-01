@@ -28,6 +28,8 @@ func (p *OpenAIProvider) IsLocal() bool {
 func (p *OpenAIProvider) Models() []Model {
 	allLangs := language.AllLanguageCodes()
 
+	docsURL := "https://platform.openai.com/docs/guides/speech-to-text#supported-languages"
+
 	return []Model{
 		// transcription models
 		{
@@ -40,6 +42,7 @@ func (p *OpenAIProvider) Models() []Model {
 			AdapterType:        "openai",
 			SupportedLanguages: allLangs,
 			Endpoint:           &EndpointConfig{BaseURL: "https://api.openai.com", Path: "/v1/audio/transcriptions"},
+			DocsURL:            docsURL,
 		},
 		{
 			ID:                 "gpt-4o-transcribe",
@@ -51,6 +54,7 @@ func (p *OpenAIProvider) Models() []Model {
 			AdapterType:        "openai",
 			SupportedLanguages: allLangs,
 			Endpoint:           &EndpointConfig{BaseURL: "https://api.openai.com", Path: "/v1/audio/transcriptions"},
+			DocsURL:            docsURL,
 		},
 		{
 			ID:                 "gpt-4o-mini-transcribe",
@@ -62,6 +66,7 @@ func (p *OpenAIProvider) Models() []Model {
 			AdapterType:        "openai",
 			SupportedLanguages: allLangs,
 			Endpoint:           &EndpointConfig{BaseURL: "https://api.openai.com", Path: "/v1/audio/transcriptions"},
+			DocsURL:            docsURL,
 		},
 		{
 			ID:                 "gpt-4o-realtime-preview",
@@ -73,6 +78,7 @@ func (p *OpenAIProvider) Models() []Model {
 			AdapterType:        "openai-realtime",
 			SupportedLanguages: allLangs,
 			Endpoint:           &EndpointConfig{BaseURL: "wss://api.openai.com", Path: "/v1/realtime"},
+			DocsURL:            docsURL,
 		},
 		// LLM models
 		{

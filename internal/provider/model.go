@@ -22,6 +22,7 @@ type Model struct {
 	SupportedLanguages []string        // explicit list of supported language codes
 	Endpoint           *EndpointConfig // nil for local models
 	LocalInfo          *LocalModelInfo // nil for cloud models
+	DocsURL            string          // URL to provider's language support documentation
 }
 
 // EndpointConfig holds HTTP/WebSocket endpoint configuration

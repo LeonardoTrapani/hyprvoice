@@ -24,6 +24,7 @@ func (p *MistralProvider) IsLocal() bool {
 
 func (p *MistralProvider) Models() []Model {
 	allLangs := language.AllLanguageCodes()
+	docsURL := "https://docs.mistral.ai/capabilities/speech/"
 
 	return []Model{
 		{
@@ -36,6 +37,7 @@ func (p *MistralProvider) Models() []Model {
 			AdapterType:        "openai",
 			SupportedLanguages: allLangs,
 			Endpoint:           &EndpointConfig{BaseURL: "https://api.mistral.ai", Path: "/v1/audio/transcriptions"},
+			DocsURL:            docsURL,
 		},
 		{
 			ID:                 "voxtral-mini-2507",
@@ -47,6 +49,7 @@ func (p *MistralProvider) Models() []Model {
 			AdapterType:        "openai",
 			SupportedLanguages: allLangs,
 			Endpoint:           &EndpointConfig{BaseURL: "https://api.mistral.ai", Path: "/v1/audio/transcriptions"},
+			DocsURL:            docsURL,
 		},
 	}
 }

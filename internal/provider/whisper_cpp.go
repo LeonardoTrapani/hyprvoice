@@ -27,6 +27,7 @@ func (p *WhisperCppProvider) IsLocal() bool {
 func (p *WhisperCppProvider) Models() []Model {
 	allLangs := language.AllLanguageCodes()
 	englishOnly := []string{"en"}
+	docsURL := "https://github.com/openai/whisper#available-models-and-languages"
 
 	whisperModels := whisper.ListModels()
 	result := make([]Model, 0, len(whisperModels))
@@ -54,6 +55,7 @@ func (p *WhisperCppProvider) Models() []Model {
 				Size:        wm.Size,
 				DownloadURL: whisper.GetDownloadURL(wm.ID),
 			},
+			DocsURL: docsURL,
 		})
 	}
 

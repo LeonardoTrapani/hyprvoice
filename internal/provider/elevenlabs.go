@@ -26,6 +26,7 @@ func (p *ElevenLabsProvider) Models() []Model {
 	// ElevenLabs Scribe supports 90+ languages, including all 57 from our master list
 	// See: https://elevenlabs.io/speech-to-text
 	allLangs := language.AllLanguageCodes()
+	docsURL := "https://elevenlabs.io/docs/capabilities/speech-to-text#supported-languages"
 
 	return []Model{
 		// batch models
@@ -39,6 +40,7 @@ func (p *ElevenLabsProvider) Models() []Model {
 			AdapterType:        "elevenlabs",
 			SupportedLanguages: allLangs,
 			Endpoint:           &EndpointConfig{BaseURL: "https://api.elevenlabs.io", Path: "/v1/speech-to-text"},
+			DocsURL:            docsURL,
 		},
 		{
 			ID:                 "scribe_v2",
@@ -50,6 +52,7 @@ func (p *ElevenLabsProvider) Models() []Model {
 			AdapterType:        "elevenlabs",
 			SupportedLanguages: allLangs,
 			Endpoint:           &EndpointConfig{BaseURL: "https://api.elevenlabs.io", Path: "/v1/speech-to-text"},
+			DocsURL:            docsURL,
 		},
 		// streaming models
 		{
@@ -62,6 +65,7 @@ func (p *ElevenLabsProvider) Models() []Model {
 			AdapterType:        "elevenlabs-streaming",
 			SupportedLanguages: allLangs,
 			Endpoint:           &EndpointConfig{BaseURL: "wss://api.elevenlabs.io", Path: "/v1/speech-to-text/realtime"},
+			DocsURL:            docsURL,
 		},
 		{
 			ID:                 "scribe_v2-streaming",
@@ -73,6 +77,7 @@ func (p *ElevenLabsProvider) Models() []Model {
 			AdapterType:        "elevenlabs-streaming",
 			SupportedLanguages: allLangs,
 			Endpoint:           &EndpointConfig{BaseURL: "wss://api.elevenlabs.io", Path: "/v1/speech-to-text/realtime"},
+			DocsURL:            docsURL,
 		},
 	}
 }

@@ -572,3 +572,16 @@ Started: Sun Feb  1 12:22:47 AM CET 2026
 - Providers with only one type (e.g., Groq=batch, Deepgram=streaming) show no headers
 - Added unit tests: GroupsModels, NoHeadersForSingleType, OpenAI_GroupsCorrectly
 - All tests passing, typecheck passes
+
+### Task 9: Add docs URLs to provider models
+- Added `DocsURL string` field to Model struct in internal/provider/model.go
+- Updated all 6 providers to set DocsURL for transcription models:
+  - OpenAI: https://platform.openai.com/docs/guides/speech-to-text#supported-languages
+  - Groq: https://console.groq.com/docs/speech-to-text#supported-languages
+  - Mistral: https://docs.mistral.ai/capabilities/speech/
+  - ElevenLabs: https://elevenlabs.io/docs/capabilities/speech-to-text#supported-languages
+  - Deepgram: https://developers.deepgram.com/docs/language
+  - whisper-cpp: https://github.com/openai/whisper#available-models-and-languages
+- LLM models don't have DocsURL (not needed - no language restrictions)
+- Added TestAllTranscriptionModels_HaveDocsURL test verifying all transcription models have correct URLs
+- All tests passing, typecheck passes
