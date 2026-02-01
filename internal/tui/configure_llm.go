@@ -8,6 +8,11 @@ import (
 	"github.com/leonardotrapani/hyprvoice/internal/provider"
 )
 
+// buildLLMModelLabel creates the display label for an LLM model option
+func buildLLMModelLabel(m provider.Model) string {
+	return fmt.Sprintf("%s (%s)", m.Name, m.Description)
+}
+
 // editLLM handles the LLM section edit with smart provider detection
 func editLLM(cfg *config.Config, configuredProviders []string) ([]string, error) {
 	var llmProviders []string
@@ -210,24 +215,21 @@ func getUnconfiguredLLMOptions(configuredProviders []string) []huh.Option[string
 	return options
 }
 
-func getLLMModelOptions(provider string) []huh.Option[string] {
-	switch provider {
-	case "openai":
-		return []huh.Option[string]{
-			huh.NewOption("gpt-4o-mini (recommended)", "gpt-4o-mini"),
-			huh.NewOption("gpt-4o", "gpt-4o"),
-			huh.NewOption("gpt-4-turbo", "gpt-4-turbo"),
-			huh.NewOption("gpt-3.5-turbo", "gpt-3.5-turbo"),
-		}
-	case "groq":
-		return []huh.Option[string]{
-			huh.NewOption("llama-3.3-70b-versatile (recommended)", "llama-3.3-70b-versatile"),
-			huh.NewOption("llama-3.1-8b-instant (faster)", "llama-3.1-8b-instant"),
-			huh.NewOption("mixtral-8x7b-32768", "mixtral-8x7b-32768"),
-		}
-	default:
+func getLLMModelOptions(providerName string) []huh.Option[string] {
+	p := provider.GetProvider(providerName)
+	if p == nil {
 		return []huh.Option[string]{}
 	}
+
+	models := provider.ModelsOfType(p, provider.LLM)
+	var options []huh.Option[string]
+
+	for _, m := range models {
+		label := buildLLMModelLabel(m)
+		options = append(options, huh.NewOption(label, m.ID))
+	}
+
+	return options
 }
 
 // selectPostProcessingOptions shows a multi-select for LLM post-processing toggles

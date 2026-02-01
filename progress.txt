@@ -264,3 +264,14 @@ Started: Sun Feb  1 12:22:47 AM CET 2026
 - Not installed: returns error 'model is not installed'
 - Installed: calls `whisper.Remove()`, prints success message
 - All verification scenarios tested, typecheck passes
+
+### Task 27: Refactor TUI to use Model metadata for descriptions
+- Refactored `getTranscriptionModelOptions()` to use `provider.ModelsOfType()` instead of hardcoded switch
+- Added `currentLang` parameter to show language compatibility warnings
+- Created `buildModelLabel()` helper: formats "Name (Description)", adds [size] for local, [streaming] for streaming models
+- Created `mapConfigProviderToRegistry()` to map config provider names (groq-transcription, mistral-transcription) to registry names
+- Refactored `getLLMModelOptions()` to use `provider.ModelsOfType()` instead of hardcoded switch
+- Created `buildLLMModelLabel()` helper for LLM model formatting
+- Added `getLangName()` helper to get human-readable language name from code
+- Added language import to configure_transcription.go
+- All tests passing, typecheck passes

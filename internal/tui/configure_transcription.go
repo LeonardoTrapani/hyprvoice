@@ -5,6 +5,7 @@ import (
 
 	"github.com/charmbracelet/huh"
 	"github.com/leonardotrapani/hyprvoice/internal/config"
+	"github.com/leonardotrapani/hyprvoice/internal/language"
 	"github.com/leonardotrapani/hyprvoice/internal/provider"
 )
 
@@ -68,7 +69,7 @@ func editTranscription(cfg *config.Config, configuredProviders []string) ([]stri
 	configuredProviders = ensureProviderConfigured(cfg, selectedProvider, configuredProviders)
 	cfg.Transcription.Provider = selectedProvider
 
-	modelOptions := getTranscriptionModelOptions(selectedProvider)
+	modelOptions := getTranscriptionModelOptions(selectedProvider, cfg.Transcription.Language)
 	selectedModel := cfg.Transcription.Model
 	if selectedModel == "" && len(modelOptions) > 0 {
 		selectedModel = modelOptions[0].Value
@@ -136,32 +137,77 @@ func getUnconfiguredTranscriptionOptions(configuredProviders []string) []huh.Opt
 	return options
 }
 
-func getTranscriptionModelOptions(provider string) []huh.Option[string] {
-	switch provider {
-	case "openai":
-		return []huh.Option[string]{
-			huh.NewOption("whisper-1", "whisper-1"),
-		}
-	case "groq-transcription":
-		return []huh.Option[string]{
-			huh.NewOption("whisper-large-v3-turbo (faster)", "whisper-large-v3-turbo"),
-			huh.NewOption("whisper-large-v3 (standard)", "whisper-large-v3"),
-		}
-	case "groq-translation":
+func getTranscriptionModelOptions(configProvider string, currentLang string) []huh.Option[string] {
+	// special case: groq-translation only supports whisper-large-v3
+	if configProvider == "groq-translation" {
 		return []huh.Option[string]{
 			huh.NewOption("whisper-large-v3 (only option)", "whisper-large-v3"),
 		}
-	case "mistral-transcription":
-		return []huh.Option[string]{
-			huh.NewOption("voxtral-mini-latest (recommended)", "voxtral-mini-latest"),
-			huh.NewOption("voxtral-mini-2507", "voxtral-mini-2507"),
-		}
-	case "elevenlabs":
-		return []huh.Option[string]{
-			huh.NewOption("scribe_v1 (99 languages, best accuracy)", "scribe_v1"),
-			huh.NewOption("scribe_v2 (real-time, lower latency)", "scribe_v2"),
-		}
-	default:
+	}
+
+	// map config provider name to registry provider name
+	registryName := mapConfigProviderToRegistry(configProvider)
+	p := provider.GetProvider(registryName)
+	if p == nil {
 		return []huh.Option[string]{}
 	}
+
+	models := provider.ModelsOfType(p, provider.Transcription)
+	var options []huh.Option[string]
+
+	for _, m := range models {
+		// skip streaming models for now (not yet implemented)
+		if m.Streaming {
+			continue
+		}
+
+		label := buildModelLabel(m, currentLang)
+		options = append(options, huh.NewOption(label, m.ID))
+	}
+
+	return options
+}
+
+// mapConfigProviderToRegistry maps config provider names to registry provider names
+func mapConfigProviderToRegistry(configProvider string) string {
+	switch configProvider {
+	case "groq-transcription", "groq-translation":
+		return "groq"
+	case "mistral-transcription":
+		return "mistral"
+	default:
+		return configProvider
+	}
+}
+
+// buildModelLabel creates the display label for a model option
+func buildModelLabel(m provider.Model, currentLang string) string {
+	label := fmt.Sprintf("%s (%s)", m.Name, m.Description)
+
+	// append size for local models
+	if m.Local && m.LocalInfo != nil {
+		label += fmt.Sprintf(" [%s]", m.LocalInfo.Size)
+	}
+
+	// append streaming tag
+	if m.Streaming {
+		label += " [streaming]"
+	}
+
+	// append language warning if model doesn't support current language
+	if currentLang != "" && !m.SupportsLanguage(currentLang) {
+		langName := getLangName(currentLang)
+		label += fmt.Sprintf(" (does not support %s)", langName)
+	}
+
+	return label
+}
+
+// getLangName returns a human-readable language name for a code
+func getLangName(code string) string {
+	lang := language.FromCode(code)
+	if lang.Code == "" {
+		return code // unknown code, return as-is
+	}
+	return lang.Name
 }

@@ -644,7 +644,7 @@
 				"No more hardcoded descriptions in TUI",
 				"Typecheck passes"
 			],
-			"passes": false
+			"passes": true
 		},
 		{
 			"title": "Add local provider options to TUI with dependency check",
