@@ -298,3 +298,12 @@ Started: Sun Feb  1 12:22:47 AM CET 2026
 - Language code saved to config, not display name
 - All 57 languages + Auto = 58 options total
 - All tests passing, typecheck passes
+
+### Task 30: Add TUI validation for language-model compatibility on save
+- Added validation check in `editTranscription()` before saving config
+- Uses `provider.ValidateModelLanguage(registryName, selectedModel, selectedLanguage)`
+- If validation fails: shows error with message and options (change model, select auto-detect, choose supported language)
+- Shows confirm dialog "Try again?" - if yes, recursively calls `editTranscription()` to let user fix
+- Config only saved AFTER validation passes (no save on cancel)
+- Leverages existing `ValidateModelLanguage` which returns error with supported languages list
+- All tests passing, typecheck passes

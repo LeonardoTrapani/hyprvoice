@@ -702,19 +702,19 @@
 				"User can fix by: changing model, changing language to auto, or changing to supported language",
 				"After showing error, return to the form so user can make changes"
 			],
-			"verify": [
-				"Selecting English-only model + Spanish language shows error on save",
-				"Error dialog displays clear message with options",
-				"Config is not saved when validation fails",
-				"User can change model and save successfully",
-				"User can change language to auto and save successfully",
-				"User can change language to supported language and save successfully",
-				"Typecheck passes"
-			],
-			"passes": false
-		},
-		// ============================================================================
-		// PHASE 7: STREAMING ADAPTER IMPLEMENTATIONS
+		"verify": [
+			"Selecting English-only model + Spanish language shows error on save",
+			"Error dialog displays clear message with options",
+			"Config is not saved when validation fails",
+			"User can change model and save successfully",
+			"User can change language to auto and save successfully",
+			"User can change language to supported language and save successfully",
+			"Typecheck passes"
+		],
+		"passes": true
+	},
+	// ============================================================================
+	// PHASE 7: STREAMING ADAPTER IMPLEMENTATIONS
 		// Each adapter is a separate task for right-sizing
 		// ============================================================================
 		{

@@ -156,6 +156,43 @@ func editTranscription(cfg *config.Config, configuredProviders []string) ([]stri
 		return configuredProviders, err
 	}
 
+	// validate language-model compatibility before saving
+	registryName = mapConfigProviderToRegistry(selectedProvider)
+	if err := provider.ValidateModelLanguage(registryName, selectedModel, selectedLanguage); err != nil {
+		// show error dialog and let user fix
+		fmt.Println()
+		fmt.Println(StyleError.Render("Language-Model Incompatibility"))
+		fmt.Println(StyleMuted.Render(err.Error()))
+		fmt.Println()
+		fmt.Println(StyleMuted.Render("You can:"))
+		fmt.Println(StyleMuted.Render("  - Change to a different model"))
+		fmt.Println(StyleMuted.Render("  - Select 'Auto-detect' for language"))
+		fmt.Println(StyleMuted.Render("  - Choose a supported language"))
+		fmt.Println()
+
+		var retry bool
+		retryForm := huh.NewForm(
+			huh.NewGroup(
+				huh.NewConfirm().
+					Title("Try again?").
+					Description("Return to fix the incompatibility").
+					Affirmative("Yes, let me fix it").
+					Negative("Cancel").
+					Value(&retry),
+			),
+		).WithTheme(getTheme())
+
+		if err := retryForm.Run(); err != nil {
+			return configuredProviders, err
+		}
+
+		if retry {
+			// recurse to let user fix the issue
+			return editTranscription(cfg, configuredProviders)
+		}
+		return configuredProviders, nil
+	}
+
 	// for whisper-cpp, check if model needs download
 	if selectedProvider == "whisper-cpp" && !whisper.IsInstalled(selectedModel) {
 		modelInfo := whisper.GetModel(selectedModel)
