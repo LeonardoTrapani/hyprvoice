@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 	"time"
 
@@ -1768,5 +1769,166 @@ func TestConfig_LLMDefaultsPreserveExplicit(t *testing.T) {
 	// Since at least one is true, defaults should NOT be applied
 	if config.LLM.PostProcessing.AddPunctuation {
 		t.Error("AddPunctuation should remain false (explicit)")
+	}
+}
+
+func TestConfig_Validate_WhisperCpp(t *testing.T) {
+	baseConfig := func() *Config {
+		return &Config{
+			Recording: RecordingConfig{
+				SampleRate:        16000,
+				Channels:          1,
+				Format:            "s16",
+				BufferSize:        8192,
+				ChannelBufferSize: 30,
+				Timeout:           time.Minute,
+			},
+			Injection: InjectionConfig{
+				Backends:         []string{"clipboard"},
+				YdotoolTimeout:   5 * time.Second,
+				WtypeTimeout:     5 * time.Second,
+				ClipboardTimeout: 3 * time.Second,
+			},
+			Notifications: NotificationsConfig{Type: "log"},
+		}
+	}
+
+	t.Run("whisper-cpp valid without API key", func(t *testing.T) {
+		config := baseConfig()
+		config.Transcription = TranscriptionConfig{
+			Provider: "whisper-cpp",
+			Model:    "base.en",
+			// No API key required
+		}
+
+		err := config.Validate()
+		if err != nil {
+			t.Errorf("Validate() should pass for whisper-cpp without API key: %v", err)
+		}
+	})
+
+	t.Run("whisper-cpp valid multilingual model", func(t *testing.T) {
+		config := baseConfig()
+		config.Transcription = TranscriptionConfig{
+			Provider: "whisper-cpp",
+			Model:    "large-v3",
+		}
+
+		err := config.Validate()
+		if err != nil {
+			t.Errorf("Validate() should pass for whisper-cpp with large-v3: %v", err)
+		}
+	})
+
+	t.Run("whisper-cpp invalid model", func(t *testing.T) {
+		config := baseConfig()
+		config.Transcription = TranscriptionConfig{
+			Provider: "whisper-cpp",
+			Model:    "invalid-model",
+		}
+
+		err := config.Validate()
+		if err == nil {
+			t.Error("Validate() should fail for whisper-cpp with invalid model")
+		}
+	})
+
+	t.Run("whisper-cpp invalid language", func(t *testing.T) {
+		config := baseConfig()
+		config.Transcription = TranscriptionConfig{
+			Provider: "whisper-cpp",
+			Model:    "base.en",
+			Language: "invalid-lang",
+		}
+
+		err := config.Validate()
+		if err == nil {
+			t.Error("Validate() should fail for whisper-cpp with invalid language")
+		}
+	})
+
+	t.Run("whisper-cpp valid with language", func(t *testing.T) {
+		config := baseConfig()
+		config.Transcription = TranscriptionConfig{
+			Provider: "whisper-cpp",
+			Model:    "base",
+			Language: "en",
+		}
+
+		err := config.Validate()
+		if err != nil {
+			t.Errorf("Validate() should pass for whisper-cpp with valid language: %v", err)
+		}
+	})
+}
+
+func TestConfig_ThreadsDefault(t *testing.T) {
+	t.Run("threads defaults to NumCPU-1", func(t *testing.T) {
+		config := &Config{
+			Transcription: TranscriptionConfig{
+				Provider: "whisper-cpp",
+				Model:    "base.en",
+				Threads:  0, // Not set
+			},
+		}
+
+		config.applyThreadsDefault()
+
+		expectedThreads := runtime.NumCPU() - 1
+		if expectedThreads < 1 {
+			expectedThreads = 1
+		}
+
+		if config.Transcription.Threads != expectedThreads {
+			t.Errorf("Threads = %d, want %d", config.Transcription.Threads, expectedThreads)
+		}
+	})
+
+	t.Run("explicit threads preserved", func(t *testing.T) {
+		config := &Config{
+			Transcription: TranscriptionConfig{
+				Provider: "whisper-cpp",
+				Model:    "base.en",
+				Threads:  2, // Explicitly set
+			},
+		}
+
+		config.applyThreadsDefault()
+
+		if config.Transcription.Threads != 2 {
+			t.Errorf("Threads = %d, want 2", config.Transcription.Threads)
+		}
+	})
+
+	t.Run("threads minimum is 1", func(t *testing.T) {
+		config := &Config{
+			Transcription: TranscriptionConfig{
+				Provider: "whisper-cpp",
+				Model:    "base.en",
+				Threads:  0,
+			},
+		}
+
+		config.applyThreadsDefault()
+
+		if config.Transcription.Threads < 1 {
+			t.Errorf("Threads = %d, should be at least 1", config.Transcription.Threads)
+		}
+	})
+}
+
+func TestConfig_ToTranscriberConfig_Threads(t *testing.T) {
+	config := &Config{
+		Transcription: TranscriptionConfig{
+			Provider: "whisper-cpp",
+			Model:    "base.en",
+			Threads:  4,
+		},
+	}
+
+	transcriberConfig := config.ToTranscriberConfig()
+
+	if transcriberConfig.Threads != 4 {
+		t.Errorf("Threads = %d, want 4", transcriberConfig.Threads)
 	}
 }

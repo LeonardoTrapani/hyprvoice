@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"runtime"
 	"time"
 
 	"github.com/BurntSushi/toml"
@@ -76,9 +77,21 @@ func Load() (*Config, error) {
 	}
 
 	config.applyLLMDefaults()
+	config.applyThreadsDefault()
 
 	log.Printf("Config: configuration loaded successfully")
 	return &config, nil
+}
+
+// applyThreadsDefault sets default threads for local transcription if not explicitly set
+func (c *Config) applyThreadsDefault() {
+	if c.Transcription.Threads == 0 {
+		threads := runtime.NumCPU() - 1
+		if threads < 1 {
+			threads = 1
+		}
+		c.Transcription.Threads = threads
+	}
 }
 
 // migrateTranscriptionAPIKey migrates old transcription.api_key to providers map

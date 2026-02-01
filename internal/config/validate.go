@@ -93,8 +93,22 @@ func (c *Config) Validate() error {
 			return fmt.Errorf("invalid model for elevenlabs: %s (must be scribe_v1 or scribe_v2)", c.Transcription.Model)
 		}
 
+	case "whisper-cpp":
+		// whisper-cpp is local, no API key required
+		if c.Transcription.Language != "" && !isValidLanguageCode(c.Transcription.Language) {
+			return fmt.Errorf("invalid transcription.language: %s (use empty string for auto-detect or ISO-639-1 codes like 'en', 'es', 'fr')", c.Transcription.Language)
+		}
+
+		validWhisperModels := map[string]bool{
+			"tiny.en": true, "base.en": true, "small.en": true, "medium.en": true,
+			"tiny": true, "base": true, "small": true, "medium": true, "large-v3": true,
+		}
+		if c.Transcription.Model != "" && !validWhisperModels[c.Transcription.Model] {
+			return fmt.Errorf("invalid model for whisper-cpp: %s (must be tiny.en, base.en, small.en, medium.en, tiny, base, small, medium, or large-v3)", c.Transcription.Model)
+		}
+
 	default:
-		return fmt.Errorf("unsupported transcription.provider: %s (must be openai, groq-transcription, groq-translation, mistral-transcription, or elevenlabs)", c.Transcription.Provider)
+		return fmt.Errorf("unsupported transcription.provider: %s (must be openai, groq-transcription, groq-translation, mistral-transcription, elevenlabs, or whisper-cpp)", c.Transcription.Provider)
 	}
 
 	if c.Transcription.Model == "" {

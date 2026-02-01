@@ -226,3 +226,12 @@ Started: Sun Feb  1 12:22:47 AM CET 2026
 - Returns error if whisper model ID is unknown
 - Added tests for whisper-cpp factory cases: valid config, no API key required, unknown model error
 - All tests passing, typecheck passes
+
+### Task 23: Update config for local transcription
+- Added `applyThreadsDefault()` to config.Load() - sets Threads to max(1, NumCPU-1) when 0
+- Added whisper-cpp case to config validation (no API key required)
+- Validates whisper model names: tiny.en, base.en, small.en, medium.en, tiny, base, small, medium, large-v3
+- Validates language codes for whisper-cpp same as other providers
+- Note: Threads field, ToTranscriberConfig, and template were already done in Task 16
+- Added comprehensive tests for whisper-cpp validation and threads auto-detection
+- All tests passing, typecheck passes

@@ -550,7 +550,7 @@
 				"Config round-trips correctly with threads field",
 				"Typecheck passes"
 			],
-			"passes": false
+			"passes": true
 		},
 		// ============================================================================
 		// PHASE 5: MODEL CLI COMMANDS
