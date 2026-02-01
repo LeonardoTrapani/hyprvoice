@@ -147,3 +147,15 @@ Started: Sun Feb  1 12:22:47 AM CET 2026
 - Empty model now uses provider's default transcription model
 - Added tests for streaming model rejection and unknown model error
 - All tests passing, typecheck passes
+
+### Task 17: Write tests for transcriber factory
+- Tests already exist in `internal/transcriber/transcriber_test.go` from Task 15
+- Verified test coverage:
+  - `TestNewTranscriber/valid_openai_config` - creates OpenAIAdapter for openai
+  - `TestNewTranscriber/valid_groq-transcription_config` - creates OpenAIAdapter for groq
+  - `TestNewTranscriber/valid_elevenlabs_config_with_scribe_v1` - creates ElevenLabsAdapter
+  - `TestNewTranscriber/unsupported_provider` - returns error for unknown provider
+  - `TestNewTranscriber/unknown_model_returns_error` - returns error for unknown model
+  - `TestNewTranscriber/streaming_model_returns_error` - returns error for streaming model
+- `go test ./internal/transcriber/...` passes
+- Typecheck passes
