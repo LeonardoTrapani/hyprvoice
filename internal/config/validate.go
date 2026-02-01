@@ -1,6 +1,45 @@
 package config
 
-import "fmt"
+import (
+	"fmt"
+	"log"
+	"strings"
+
+	"github.com/leonardotrapani/hyprvoice/internal/language"
+	"github.com/leonardotrapani/hyprvoice/internal/provider"
+)
+
+// mapConfigProviderToRegistryName maps config provider names to provider registry names
+// Config uses names like "groq-transcription", "groq-translation", "mistral-transcription"
+// Registry uses base names like "groq", "mistral"
+func mapConfigProviderToRegistryName(configProvider string) string {
+	switch configProvider {
+	case "groq-transcription", "groq-translation":
+		return "groq"
+	case "mistral-transcription":
+		return "mistral"
+	default:
+		return configProvider
+	}
+}
+
+// envVarForProvider returns the environment variable name for a provider's API key
+func envVarForProvider(registryName string) string {
+	switch registryName {
+	case "openai":
+		return "OPENAI_API_KEY"
+	case "groq":
+		return "GROQ_API_KEY"
+	case "mistral":
+		return "MISTRAL_API_KEY"
+	case "elevenlabs":
+		return "ELEVENLABS_API_KEY"
+	case "deepgram":
+		return "DEEPGRAM_API_KEY"
+	default:
+		return ""
+	}
+}
 
 func (c *Config) Validate() error {
 	if c.Recording.SampleRate <= 0 {
@@ -26,95 +65,58 @@ func (c *Config) Validate() error {
 		return fmt.Errorf("invalid transcription.provider: empty")
 	}
 
-	apiKey := c.resolveAPIKeyForProvider(c.Transcription.Provider)
+	// map config provider name to registry provider name
+	registryName := mapConfigProviderToRegistryName(c.Transcription.Provider)
 
-	switch c.Transcription.Provider {
-	case "openai":
-		if apiKey == "" {
-			return fmt.Errorf("OpenAI API key required: not found in config (providers.openai.api_key, transcription.api_key) or environment variable (OPENAI_API_KEY)")
-		}
-
-		if c.Transcription.Language != "" && !isValidLanguageCode(c.Transcription.Language) {
-			return fmt.Errorf("invalid transcription.language: %s (use empty string for auto-detect or ISO-639-1 codes like 'en', 'es', 'fr')", c.Transcription.Language)
-		}
-
-	case "groq-transcription":
-		if apiKey == "" {
-			return fmt.Errorf("Groq API key required: not found in config (providers.groq.api_key, transcription.api_key) or environment variable (GROQ_API_KEY)")
-		}
-
-		if c.Transcription.Language != "" && !isValidLanguageCode(c.Transcription.Language) {
-			return fmt.Errorf("invalid transcription.language: %s (use empty string for auto-detect or ISO-639-1 codes like 'en', 'es', 'fr')", c.Transcription.Language)
-		}
-
-		validGroqModels := map[string]bool{"whisper-large-v3": true, "whisper-large-v3-turbo": true}
-		if c.Transcription.Model != "" && !validGroqModels[c.Transcription.Model] {
-			return fmt.Errorf("invalid model for groq-transcription: %s (must be whisper-large-v3 or whisper-large-v3-turbo)", c.Transcription.Model)
-		}
-
-	case "groq-translation":
-		if apiKey == "" {
-			return fmt.Errorf("Groq API key required: not found in config (providers.groq.api_key, transcription.api_key) or environment variable (GROQ_API_KEY)")
-		}
-
-		if c.Transcription.Language != "" && !isValidLanguageCode(c.Transcription.Language) {
-			return fmt.Errorf("invalid transcription.language: %s (use empty string for auto-detect or ISO-639-1 codes like 'en', 'es', 'fr')", c.Transcription.Language)
-		}
-
-		if c.Transcription.Model != "" && c.Transcription.Model != "whisper-large-v3" {
-			return fmt.Errorf("invalid model for groq-translation: %s (must be whisper-large-v3, turbo version not supported for translation)", c.Transcription.Model)
-		}
-
-	case "mistral-transcription":
-		if apiKey == "" {
-			return fmt.Errorf("Mistral API key required: not found in config (providers.mistral.api_key, transcription.api_key) or environment variable (MISTRAL_API_KEY)")
-		}
-
-		if c.Transcription.Language != "" && !isValidLanguageCode(c.Transcription.Language) {
-			return fmt.Errorf("invalid transcription.language: %s (use empty string for auto-detect or ISO-639-1 codes like 'en', 'es', 'fr')", c.Transcription.Language)
-		}
-
-		validMistralModels := map[string]bool{"voxtral-mini-latest": true, "voxtral-mini-2507": true}
-		if c.Transcription.Model != "" && !validMistralModels[c.Transcription.Model] {
-			return fmt.Errorf("invalid model for mistral-transcription: %s (must be voxtral-mini-latest or voxtral-mini-2507)", c.Transcription.Model)
-		}
-
-	case "elevenlabs":
-		if apiKey == "" {
-			return fmt.Errorf("ElevenLabs API key required: not found in config (providers.elevenlabs.api_key, transcription.api_key) or environment variable (ELEVENLABS_API_KEY)")
-		}
-
-		if c.Transcription.Language != "" && !isValidLanguageCode(c.Transcription.Language) {
-			return fmt.Errorf("invalid transcription.language: %s (use empty string for auto-detect or ISO-639-1 codes like 'en', 'pt', 'es')", c.Transcription.Language)
-		}
-
-		validModels := map[string]bool{"scribe_v1": true, "scribe_v2": true}
-		if c.Transcription.Model != "" && !validModels[c.Transcription.Model] {
-			return fmt.Errorf("invalid model for elevenlabs: %s (must be scribe_v1 or scribe_v2)", c.Transcription.Model)
-		}
-
-	case "whisper-cpp":
-		// whisper-cpp is local, no API key required
-		if c.Transcription.Language != "" && !isValidLanguageCode(c.Transcription.Language) {
-			return fmt.Errorf("invalid transcription.language: %s (use empty string for auto-detect or ISO-639-1 codes like 'en', 'es', 'fr')", c.Transcription.Language)
-		}
-
-		validWhisperModels := map[string]bool{
-			"tiny.en": true, "base.en": true, "small.en": true, "medium.en": true,
-			"tiny": true, "base": true, "small": true, "medium": true, "large-v3": true,
-		}
-		if c.Transcription.Model != "" && !validWhisperModels[c.Transcription.Model] {
-			return fmt.Errorf("invalid model for whisper-cpp: %s (must be tiny.en, base.en, small.en, medium.en, tiny, base, small, medium, or large-v3)", c.Transcription.Model)
-		}
-
-	default:
-		return fmt.Errorf("unsupported transcription.provider: %s (must be openai, groq-transcription, groq-translation, mistral-transcription, elevenlabs, or whisper-cpp)", c.Transcription.Provider)
+	// validate provider exists in registry
+	p := provider.GetProvider(registryName)
+	if p == nil {
+		providers := provider.ListProvidersWithTranscription()
+		return fmt.Errorf("unknown transcription.provider: %s (available: %s)", c.Transcription.Provider, strings.Join(providers, ", "))
 	}
 
+	// validate API key requirement using registry
+	if p.RequiresAPIKey() {
+		apiKey := c.resolveAPIKeyForProvider(c.Transcription.Provider)
+		if apiKey == "" {
+			envVar := envVarForProvider(registryName)
+			return fmt.Errorf("%s API key required: not found in config (providers.%s.api_key, transcription.api_key) or environment variable (%s)",
+				strings.Title(registryName), registryName, envVar)
+		}
+	}
+
+	// validate language code - warn if not recognized but don't error
+	if c.Transcription.Language != "" && !language.IsValidCode(c.Transcription.Language) {
+		log.Printf("warning: unrecognized language code '%s', will be passed as-is to provider", c.Transcription.Language)
+	}
+
+	// validate model exists
 	if c.Transcription.Model == "" {
 		return fmt.Errorf("invalid transcription.model: empty")
 	}
 
+	// groq-translation is a special case - only supports whisper-large-v3
+	if c.Transcription.Provider == "groq-translation" && c.Transcription.Model != "whisper-large-v3" {
+		return fmt.Errorf("invalid model for groq-translation: %s (must be whisper-large-v3, turbo version not supported for translation)", c.Transcription.Model)
+	}
+
+	// validate model exists in provider
+	_, err := provider.GetModel(registryName, c.Transcription.Model)
+	if err != nil {
+		models := provider.ModelsOfType(p, provider.Transcription)
+		modelIDs := make([]string, len(models))
+		for i, m := range models {
+			modelIDs[i] = m.ID
+		}
+		return fmt.Errorf("invalid model for %s: %s (available: %s)", c.Transcription.Provider, c.Transcription.Model, strings.Join(modelIDs, ", "))
+	}
+
+	// validate language-model compatibility
+	if err := ValidateModelLanguageCompatibility(registryName, c.Transcription.Model, c.Transcription.Language); err != nil {
+		return err
+	}
+
+	// LLM validation
 	if c.LLM.Enabled {
 		if c.LLM.Provider == "" {
 			return fmt.Errorf("llm.provider required when llm.enabled = true")
@@ -123,18 +125,36 @@ func (c *Config) Validate() error {
 			return fmt.Errorf("llm.model required when llm.enabled = true")
 		}
 
-		validLLMProviders := map[string]bool{"openai": true, "groq": true}
-		if !validLLMProviders[c.LLM.Provider] {
-			return fmt.Errorf("invalid llm.provider: %s (must be openai or groq)", c.LLM.Provider)
+		// validate LLM provider exists
+		llmProvider := provider.GetProvider(c.LLM.Provider)
+		if llmProvider == nil {
+			providers := provider.ListProvidersWithLLM()
+			return fmt.Errorf("invalid llm.provider: %s (available: %s)", c.LLM.Provider, strings.Join(providers, ", "))
 		}
 
-		llmAPIKey := c.resolveAPIKeyForLLMProvider(c.LLM.Provider)
-		if llmAPIKey == "" {
-			switch c.LLM.Provider {
-			case "openai":
-				return fmt.Errorf("OpenAI API key required for LLM: not found in config (providers.openai.api_key) or environment variable (OPENAI_API_KEY)")
-			case "groq":
-				return fmt.Errorf("Groq API key required for LLM: not found in config (providers.groq.api_key) or environment variable (GROQ_API_KEY)")
+		// validate LLM model exists
+		llmModel, err := provider.GetModel(c.LLM.Provider, c.LLM.Model)
+		if err != nil {
+			models := provider.ModelsOfType(llmProvider, provider.LLM)
+			modelIDs := make([]string, len(models))
+			for i, m := range models {
+				modelIDs[i] = m.ID
+			}
+			return fmt.Errorf("invalid llm.model: %s (available for %s: %s)", c.LLM.Model, c.LLM.Provider, strings.Join(modelIDs, ", "))
+		}
+
+		// verify model is actually an LLM
+		if llmModel.Type != provider.LLM {
+			return fmt.Errorf("invalid llm.model: %s is not an LLM model", c.LLM.Model)
+		}
+
+		// validate LLM API key
+		if llmProvider.RequiresAPIKey() {
+			llmAPIKey := c.resolveAPIKeyForLLMProvider(c.LLM.Provider)
+			if llmAPIKey == "" {
+				envVar := envVarForProvider(c.LLM.Provider)
+				return fmt.Errorf("%s API key required for LLM: not found in config (providers.%s.api_key) or environment variable (%s)",
+					strings.Title(c.LLM.Provider), c.LLM.Provider, envVar)
 			}
 		}
 	}
@@ -166,22 +186,43 @@ func (c *Config) Validate() error {
 	return nil
 }
 
-func isValidLanguageCode(code string) bool {
-	validCodes := map[string]bool{
-		"en": true, "es": true, "fr": true, "de": true, "it": true, "pt": true,
-		"ru": true, "ja": true, "ko": true, "zh": true, "ar": true, "hi": true,
-		"nl": true, "sv": true, "da": true, "no": true, "fi": true, "pl": true,
-		"tr": true, "he": true, "th": true, "vi": true, "id": true, "ms": true,
-		"uk": true, "cs": true, "hu": true, "ro": true, "bg": true, "hr": true,
-		"sk": true, "sl": true, "et": true, "lv": true, "lt": true, "mt": true,
-		"cy": true, "ga": true, "eu": true, "ca": true, "gl": true, "is": true,
-		"mk": true, "sq": true, "az": true, "be": true, "ka": true, "hy": true,
-		"kk": true, "ky": true, "tg": true, "uz": true, "mn": true, "ne": true,
-		"si": true, "km": true, "lo": true, "my": true, "fa": true, "ps": true,
-		"ur": true, "bn": true, "ta": true, "te": true, "ml": true, "kn": true,
-		"gu": true, "pa": true, "or": true, "as": true, "mr": true, "sa": true,
-		"sw": true, "yo": true, "ig": true, "ha": true, "zu": true, "xh": true,
-		"af": true, "am": true, "mg": true, "so": true, "sn": true, "rw": true,
+// ValidateModelLanguageCompatibility validates that a model supports the given language.
+// Returns error if the language is not supported, nil if supported or if langCode is empty (auto).
+func ValidateModelLanguageCompatibility(registryProvider, modelID, langCode string) error {
+	// empty language code means auto-detect, always supported
+	if langCode == "" {
+		return nil
 	}
-	return validCodes[code]
+
+	model, err := provider.GetModel(registryProvider, modelID)
+	if err != nil {
+		return err // model not found errors handled elsewhere
+	}
+
+	if model.SupportsLanguage(langCode) {
+		return nil
+	}
+
+	// language not supported - build helpful error message
+	langName := language.FromCode(langCode).Name
+	if langName == "Auto-detect" {
+		langName = langCode // use code if not found
+	}
+
+	// truncate supported languages for error message
+	supported := model.SupportedLanguages
+	suffix := ""
+	if len(supported) > 10 {
+		supported = supported[:10]
+		suffix = "..."
+	}
+
+	return fmt.Errorf(
+		"model %s does not support language '%s' (%s). Either change model, select auto-detect, or choose a supported language: %s%s",
+		modelID,
+		langCode,
+		langName,
+		strings.Join(supported, ", "),
+		suffix,
+	)
 }

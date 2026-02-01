@@ -442,3 +442,20 @@ Started: Sun Feb  1 12:22:47 AM CET 2026
   - Close cleanup (TestElevenLabsStreamingAdapter_Close, TestOpenAIRealtimeAdapter_Close)
 - `go test -race ./internal/transcriber/...` passes with no race conditions
 - All tests passing, typecheck passes
+
+### Task 41: Update config validation to use provider registry
+- Refactored `internal/config/validate.go` to use provider registry
+- Added `mapConfigProviderToRegistryName()` to map config names to registry names
+- Added `envVarForProvider()` helper for error messages
+- Provider validation now uses `provider.GetProvider()` instead of hardcoded switch
+- Model validation now uses `provider.GetModel()` to verify model exists
+- API key validation uses `p.RequiresAPIKey()` - local providers (whisper-cpp) skip this check
+- Language validation: warns for unrecognized codes (log.Printf) but doesn't error
+- Added `ValidateModelLanguageCompatibility(registryProvider, modelID, langCode)`:
+  - Returns nil for auto language ("")
+  - Checks `model.SupportsLanguage(langCode)`
+  - Returns error with model name, language, and truncated list of supported languages
+- LLM validation also refactored to use registry
+- Removed old hardcoded `isValidLanguageCode()` function
+- Updated tests: replaced TestIsValidLanguageCode with TestValidateModelLanguageCompatibility
+- All tests passing, typecheck passes

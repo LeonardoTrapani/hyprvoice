@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 	"time"
 
@@ -677,22 +678,72 @@ func TestConfig_ConversionMethods(t *testing.T) {
 	})
 }
 
-func TestIsValidLanguageCode(t *testing.T) {
-	validCodes := []string{"en", "es", "fr", "de", "it", "pt", "ru", "ja", "ko", "zh", "ar", "hi"}
-	invalidCodes := []string{"", "invalid", "xx", "123", "EN", "en-us"}
-
-	for _, code := range validCodes {
-		t.Run("valid_"+code, func(t *testing.T) {
-			if !isValidLanguageCode(code) {
-				t.Errorf("isValidLanguageCode(%s) = false, want true", code)
-			}
-		})
+func TestValidateModelLanguageCompatibility(t *testing.T) {
+	tests := []struct {
+		name        string
+		provider    string
+		model       string
+		langCode    string
+		wantErr     bool
+		errContains string
+	}{
+		{
+			name:     "auto language always passes",
+			provider: "groq",
+			model:    "distil-whisper-large-v3-en",
+			langCode: "",
+			wantErr:  false,
+		},
+		{
+			name:     "english model supports english",
+			provider: "groq",
+			model:    "distil-whisper-large-v3-en",
+			langCode: "en",
+			wantErr:  false,
+		},
+		{
+			name:        "english model rejects spanish",
+			provider:    "groq",
+			model:       "distil-whisper-large-v3-en",
+			langCode:    "es",
+			wantErr:     true,
+			errContains: "does not support language 'es'",
+		},
+		{
+			name:     "multilingual model supports spanish",
+			provider: "groq",
+			model:    "whisper-large-v3",
+			langCode: "es",
+			wantErr:  false,
+		},
+		{
+			name:        "whisper-cpp english-only rejects french",
+			provider:    "whisper-cpp",
+			model:       "base.en",
+			langCode:    "fr",
+			wantErr:     true,
+			errContains: "does not support language 'fr'",
+		},
+		{
+			name:     "whisper-cpp multilingual supports french",
+			provider: "whisper-cpp",
+			model:    "base",
+			langCode: "fr",
+			wantErr:  false,
+		},
 	}
 
-	for _, code := range invalidCodes {
-		t.Run("invalid_"+code, func(t *testing.T) {
-			if isValidLanguageCode(code) {
-				t.Errorf("isValidLanguageCode(%s) = true, want false", code)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := ValidateModelLanguageCompatibility(tt.provider, tt.model, tt.langCode)
+			if tt.wantErr {
+				if err == nil {
+					t.Errorf("expected error containing %q, got nil", tt.errContains)
+				} else if tt.errContains != "" && !strings.Contains(err.Error(), tt.errContains) {
+					t.Errorf("error = %q, should contain %q", err.Error(), tt.errContains)
+				}
+			} else if err != nil {
+				t.Errorf("unexpected error: %v", err)
 			}
 		})
 	}
