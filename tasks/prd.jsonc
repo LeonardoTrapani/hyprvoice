@@ -184,7 +184,7 @@
 				"Config with general.language='invalid' warns but doesn't hard fail",
 				"Typecheck passes"
 			],
-			"passes": false
+			"passes": true
 		},
 		{
 			"title": "Update README and docs for general language setting",

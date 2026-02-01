@@ -2039,3 +2039,100 @@ func TestConfig_EffectiveLanguage(t *testing.T) {
 		}
 	})
 }
+
+func TestConfig_Validate_GeneralLanguage(t *testing.T) {
+	baseConfig := func() *Config {
+		return &Config{
+			Recording: RecordingConfig{
+				SampleRate:        16000,
+				Channels:          1,
+				Format:            "s16",
+				BufferSize:        8192,
+				ChannelBufferSize: 30,
+				Timeout:           time.Minute,
+			},
+			Transcription: TranscriptionConfig{
+				Provider: "openai",
+				APIKey:   "test-key",
+				Model:    "whisper-1",
+			},
+			Injection: InjectionConfig{
+				Backends:         []string{"clipboard"},
+				YdotoolTimeout:   5 * time.Second,
+				WtypeTimeout:     5 * time.Second,
+				ClipboardTimeout: 3 * time.Second,
+			},
+			Notifications: NotificationsConfig{Type: "log"},
+		}
+	}
+
+	t.Run("valid general.language passes validation", func(t *testing.T) {
+		config := baseConfig()
+		config.General.Language = "es"
+
+		err := config.Validate()
+		if err != nil {
+			t.Errorf("Validate() should pass with valid general.language: %v", err)
+		}
+	})
+
+	t.Run("general.language validated against model", func(t *testing.T) {
+		config := baseConfig()
+		config.General.Language = "es"
+		config.Transcription.Provider = "groq-transcription"
+		config.Transcription.Model = "distil-whisper-large-v3-en" // english-only model
+		config.Transcription.APIKey = "gsk-test-key"
+
+		err := config.Validate()
+		if err == nil {
+			t.Error("Validate() should fail when general.language incompatible with model")
+		}
+		if err != nil && !strings.Contains(err.Error(), "does not support Spanish") {
+			t.Errorf("error should mention Spanish, got: %v", err)
+		}
+	})
+
+	t.Run("transcription.language override validated against model", func(t *testing.T) {
+		config := baseConfig()
+		config.General.Language = "en"       // compatible
+		config.Transcription.Language = "es" // override with incompatible
+		config.Transcription.Provider = "groq-transcription"
+		config.Transcription.Model = "distil-whisper-large-v3-en" // english-only model
+		config.Transcription.APIKey = "gsk-test-key"
+
+		err := config.Validate()
+		if err == nil {
+			t.Error("Validate() should fail when transcription.language override is incompatible")
+		}
+		if err != nil && !strings.Contains(err.Error(), "does not support Spanish") {
+			t.Errorf("error should mention Spanish, got: %v", err)
+		}
+	})
+
+	t.Run("valid override with compatible language", func(t *testing.T) {
+		config := baseConfig()
+		config.General.Language = "es"       // would be incompatible
+		config.Transcription.Language = "en" // override with compatible
+		config.Transcription.Provider = "groq-transcription"
+		config.Transcription.Model = "distil-whisper-large-v3-en" // english-only model
+		config.Transcription.APIKey = "gsk-test-key"
+
+		err := config.Validate()
+		if err != nil {
+			t.Errorf("Validate() should pass when transcription.language override is compatible: %v", err)
+		}
+	})
+
+	t.Run("auto language always passes", func(t *testing.T) {
+		config := baseConfig()
+		config.General.Language = "" // auto
+		config.Transcription.Provider = "groq-transcription"
+		config.Transcription.Model = "distil-whisper-large-v3-en" // english-only model
+		config.Transcription.APIKey = "gsk-test-key"
+
+		err := config.Validate()
+		if err != nil {
+			t.Errorf("Validate() should pass with auto language: %v", err)
+		}
+	})
+}

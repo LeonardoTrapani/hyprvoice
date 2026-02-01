@@ -85,9 +85,12 @@ func (c *Config) Validate() error {
 		}
 	}
 
-	// validate language code - warn if not recognized but don't error
+	// validate language codes - warn if not recognized but don't error
+	if c.General.Language != "" && !language.IsValidCode(c.General.Language) {
+		log.Printf("warning: unrecognized language code '%s' in general.language, will be passed as-is to provider", c.General.Language)
+	}
 	if c.Transcription.Language != "" && !language.IsValidCode(c.Transcription.Language) {
-		log.Printf("warning: unrecognized language code '%s', will be passed as-is to provider", c.Transcription.Language)
+		log.Printf("warning: unrecognized language code '%s' in transcription.language, will be passed as-is to provider", c.Transcription.Language)
 	}
 
 	// validate model exists
@@ -111,8 +114,9 @@ func (c *Config) Validate() error {
 		return fmt.Errorf("invalid model for %s: %s (available: %s)", c.Transcription.Provider, c.Transcription.Model, strings.Join(modelIDs, ", "))
 	}
 
-	// validate language-model compatibility
-	if err := ValidateModelLanguageCompatibility(registryName, c.Transcription.Model, c.Transcription.Language); err != nil {
+	// validate language-model compatibility using effective language (transcription overrides general)
+	effectiveLanguage := c.resolveEffectiveLanguage()
+	if err := ValidateModelLanguageCompatibility(registryName, c.Transcription.Model, effectiveLanguage); err != nil {
 		return err
 	}
 

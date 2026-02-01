@@ -596,3 +596,16 @@ Started: Sun Feb  1 12:22:47 AM CET 2026
 - Added TestValidateModelLanguage_ErrorFormat test verifying error includes model name, docs URL, and language
 - Updated test expectations in config_test.go for new error format
 - All tests passing, typecheck passes
+
+### Task 11: Update config validation for general language
+- Updated `internal/config/validate.go` to validate `general.language` if set
+- Added warning for unrecognized `general.language` code (warns but doesn't error)
+- Changed language-model compatibility check to use effective language (`resolveEffectiveLanguage()`)
+- Effective language = transcription.language override, or general.language if no override
+- Added comprehensive tests in config_test.go:
+  - `TestConfig_Validate_GeneralLanguage/valid_general.language_passes_validation`
+  - `TestConfig_Validate_GeneralLanguage/general.language_validated_against_model`
+  - `TestConfig_Validate_GeneralLanguage/transcription.language_override_validated_against_model`
+  - `TestConfig_Validate_GeneralLanguage/valid_override_with_compatible_language`
+  - `TestConfig_Validate_GeneralLanguage/auto_language_always_passes`
+- All tests passing, typecheck passes
