@@ -395,3 +395,14 @@ Started: Sun Feb  1 12:22:47 AM CET 2026
 - Added reconnection logic (maxRetries=3, exponential backoff 1s, 2s, 4s) - same pattern as ElevenLabs/Deepgram
 - Comprehensive tests with mock WebSocket server
 - All tests passing with -race flag, typecheck passes
+
+### Task 38: Add reconnection logic to OpenAI Realtime StreamingAdapter
+- Implemented as part of Task 37 (same commit)
+- maxRetries=3 with retryDelays [1s, 2s, 4s] (exponential backoff)
+- reconnect() method re-establishes connection and calls configureSession()
+- readLoop calls reconnect() on read errors
+- SendChunk() calls reconnect() on write errors and retries the chunk
+- Sends notification error to resultsCh on successful reconnect
+- Context cancellation stops reconnection attempts (checked in reconnect loop)
+- TestOpenAIRealtimeAdapter_Reconnection verifies behavior
+- All tests passing with -race flag, typecheck passes
