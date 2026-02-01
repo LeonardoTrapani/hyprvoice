@@ -783,7 +783,7 @@
 				"RequiresAPIKey() returns true",
 				"Typecheck passes"
 			],
-			"passes": false
+			"passes": true
 		},
 		{
 			"title": "Create Deepgram StreamingAdapter",

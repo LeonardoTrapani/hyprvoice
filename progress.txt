@@ -335,3 +335,15 @@ Started: Sun Feb  1 12:22:47 AM CET 2026
 - After max retries exhausted, sends final error and closes channel
 - Added tests: ReconnectOnReadError, ReconnectNotifiesClient, MaxRetriesExhausted, ReconnectExponentialBackoff
 - All tests passing with -race flag, typecheck passes
+
+### Task 33: Create Deepgram Provider
+- Created `internal/provider/deepgram.go` implementing Provider interface
+- Researched Deepgram docs: Nova-3 and Nova-2 are main models, both streaming-only
+- Models: nova-3, nova-3-general, nova-2, nova-2-general (all Streaming=true)
+- Nova-3 supports 42 languages from our list (ar, be, bs, bg, ca, hr, cs, da, nl, en, et, fi, fr, de, el, hi, hu, id, it, ja, kn, ko, lv, lt, mk, ms, mr, no, pl, pt, ro, ru, sr, sk, sl, es, sv, tl, ta, tr, uk, vi)
+- Nova-2 supports 33 languages (subset of nova-3)
+- All models have AdapterType='deepgram', Endpoint.BaseURL='wss://api.deepgram.com'
+- DefaultModel(Transcription) returns 'nova-3'
+- Registered in provider.init()
+- Comprehensive test file created: deepgram_test.go
+- All tests passing, typecheck passes
