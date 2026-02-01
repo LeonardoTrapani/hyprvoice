@@ -66,9 +66,10 @@ keywords = []
 # ─────────────────────────────────────────────────────────────────────────────
 
 [transcription]
-  provider = "openai"          # "openai", "groq-transcription", "groq-translation", "mistral-transcription", "elevenlabs"
+  provider = "openai"          # "openai", "groq-transcription", "groq-translation", "mistral-transcription", "elevenlabs", "whisper-cpp"
   language = ""                # Language code (empty = auto-detect, "en", "it", "es", "fr", etc.)
   model = "whisper-1"          # Model: OpenAI="whisper-1", Groq="whisper-large-v3", Mistral="voxtral-mini-latest", ElevenLabs="scribe_v1"
+  threads = 0                  # CPU threads for local transcription (0 = auto: uses NumCPU-1)
 
 # ─────────────────────────────────────────────────────────────────────────────
 # LLM Post-Processing (Recommended)

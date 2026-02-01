@@ -26,6 +26,7 @@ func (c *Config) ToTranscriberConfig() transcriber.Config {
 		Language: c.Transcription.Language,
 		Model:    c.Transcription.Model,
 		Keywords: c.Keywords,
+		Threads:  c.Transcription.Threads,
 	}
 
 	config.APIKey = c.resolveAPIKeyForProvider(c.Transcription.Provider)

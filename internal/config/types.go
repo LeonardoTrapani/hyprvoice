@@ -60,6 +60,7 @@ type TranscriptionConfig struct {
 	APIKey   string `toml:"api_key"`
 	Language string `toml:"language"`
 	Model    string `toml:"model"`
+	Threads  int    `toml:"threads"` // CPU threads for local transcription (0 = auto: NumCPU-1)
 }
 
 type InjectionConfig struct {

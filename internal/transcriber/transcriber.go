@@ -28,6 +28,7 @@ type Config struct {
 	Language string
 	Model    string
 	Keywords []string
+	Threads  int // CPU threads for local transcription (0 = auto)
 }
 
 // mapConfigProviderToRegistryName maps config provider names to provider registry names
