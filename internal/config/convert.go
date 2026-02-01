@@ -4,6 +4,7 @@ import (
 	"os"
 
 	"github.com/leonardotrapani/hyprvoice/internal/injection"
+	"github.com/leonardotrapani/hyprvoice/internal/provider"
 	"github.com/leonardotrapani/hyprvoice/internal/recording"
 	"github.com/leonardotrapani/hyprvoice/internal/transcriber"
 )
@@ -22,11 +23,12 @@ func (c *Config) ToRecordingConfig() recording.Config {
 
 func (c *Config) ToTranscriberConfig() transcriber.Config {
 	config := transcriber.Config{
-		Provider: c.Transcription.Provider,
-		Language: c.resolveEffectiveLanguage(),
-		Model:    c.Transcription.Model,
-		Keywords: c.Keywords,
-		Threads:  c.Transcription.Threads,
+		Provider:  c.Transcription.Provider,
+		Language:  c.resolveEffectiveLanguage(),
+		Model:     c.Transcription.Model,
+		Keywords:  c.Keywords,
+		Threads:   c.Transcription.Threads,
+		Streaming: c.Transcription.Streaming,
 	}
 
 	config.APIKey = c.resolveAPIKeyForProvider(c.Transcription.Provider)
@@ -44,29 +46,12 @@ func (c *Config) resolveEffectiveLanguage() string {
 }
 
 // resolveAPIKeyForProvider returns the API key for a provider from multiple sources
-func (c *Config) resolveAPIKeyForProvider(provider string) string {
-	providerName := provider
-	envVar := ""
-	switch provider {
-	case "openai":
-		providerName = "openai"
-		envVar = "OPENAI_API_KEY"
-	case "groq-transcription", "groq-translation":
-		providerName = "groq"
-		envVar = "GROQ_API_KEY"
-	case "mistral-transcription":
-		providerName = "mistral"
-		envVar = "MISTRAL_API_KEY"
-	case "elevenlabs":
-		providerName = "elevenlabs"
-		envVar = "ELEVENLABS_API_KEY"
-	case "deepgram":
-		providerName = "deepgram"
-		envVar = "DEEPGRAM_API_KEY"
-	}
+func (c *Config) resolveAPIKeyForProvider(providerName string) string {
+	baseName := provider.BaseProviderName(providerName)
+	envVar := provider.EnvVarForProvider(providerName)
 
 	if c.Providers != nil {
-		if pc, ok := c.Providers[providerName]; ok && pc.APIKey != "" {
+		if pc, ok := c.Providers[baseName]; ok && pc.APIKey != "" {
 			return pc.APIKey
 		}
 	}
@@ -106,17 +91,11 @@ func (c *Config) ToLLMConfig() LLMAdapterConfig {
 }
 
 // resolveAPIKeyForLLMProvider returns the API key for an LLM provider
-func (c *Config) resolveAPIKeyForLLMProvider(provider string) string {
-	envVar := ""
-	switch provider {
-	case "openai":
-		envVar = "OPENAI_API_KEY"
-	case "groq":
-		envVar = "GROQ_API_KEY"
-	}
+func (c *Config) resolveAPIKeyForLLMProvider(providerName string) string {
+	envVar := provider.EnvVarForProvider(providerName)
 
 	if c.Providers != nil {
-		if pc, ok := c.Providers[provider]; ok && pc.APIKey != "" {
+		if pc, ok := c.Providers[providerName]; ok && pc.APIKey != "" {
 			return pc.APIKey
 		}
 	}

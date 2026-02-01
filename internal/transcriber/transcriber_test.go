@@ -157,30 +157,33 @@ func TestNewTranscriber(t *testing.T) {
 		{
 			name: "elevenlabs streaming model creates StreamingTranscriber",
 			config: Config{
-				Provider: "elevenlabs",
-				APIKey:   "test-key",
-				Language: "en",
-				Model:    "scribe_v1-streaming",
-			},
-			wantErr: false, // streaming is now supported
-		},
-		{
-			name: "deepgram streaming model creates StreamingTranscriber",
-			config: Config{
-				Provider: "deepgram",
-				APIKey:   "test-key",
-				Language: "en",
-				Model:    "nova-3",
+				Provider:  "elevenlabs",
+				APIKey:    "test-key",
+				Language:  "en",
+				Model:     "scribe_v2_realtime",
+				Streaming: true,
 			},
 			wantErr: false,
 		},
 		{
-			name: "openai realtime streaming model creates StreamingTranscriber",
+			name: "deepgram streaming model creates StreamingTranscriber",
 			config: Config{
-				Provider: "openai",
-				APIKey:   "test-key",
-				Language: "en",
-				Model:    "gpt-4o-realtime-preview",
+				Provider:  "deepgram",
+				APIKey:    "test-key",
+				Language:  "en",
+				Model:     "nova-3",
+				Streaming: true,
+			},
+			wantErr: false,
+		},
+		{
+			name: "openai streaming model creates StreamingTranscriber",
+			config: Config{
+				Provider:  "openai",
+				APIKey:    "test-key",
+				Language:  "en",
+				Model:     "gpt-4o-transcribe",
+				Streaming: true,
 			},
 			wantErr: false,
 		},
@@ -997,12 +1000,11 @@ func TestStreamingTranscriber_GetFinalTranscriptionSafe(t *testing.T) {
 
 func TestNewTranscriber_LanguageFallback(t *testing.T) {
 	// test that incompatible language falls back to auto-detect (no error)
-	// distil-whisper-large-v3-en only supports English
+	// base.en only supports English
 	config := Config{
-		Provider: "groq-transcription",
-		APIKey:   "test-key",
+		Provider: "whisper-cpp",
 		Language: "es", // Spanish not supported by English-only model
-		Model:    "distil-whisper-large-v3-en",
+		Model:    "base.en",
 	}
 
 	// should succeed (fallback to auto), not error
@@ -1020,10 +1022,9 @@ func TestNewTranscriber_LanguageFallback(t *testing.T) {
 func TestNewTranscriber_AutoLanguageNoFallback(t *testing.T) {
 	// test that auto language never triggers warning/fallback
 	config := Config{
-		Provider: "groq-transcription",
-		APIKey:   "test-key",
+		Provider: "whisper-cpp",
 		Language: "", // auto
-		Model:    "distil-whisper-large-v3-en",
+		Model:    "base.en",
 	}
 
 	transcriber, err := NewTranscriber(config)
@@ -1040,10 +1041,9 @@ func TestNewTranscriber_AutoLanguageNoFallback(t *testing.T) {
 func TestNewTranscriber_CompatibleLanguageNoFallback(t *testing.T) {
 	// test that compatible language works normally
 	config := Config{
-		Provider: "groq-transcription",
-		APIKey:   "test-key",
+		Provider: "whisper-cpp",
 		Language: "en", // English supported by English-only model
-		Model:    "distil-whisper-large-v3-en",
+		Model:    "base.en",
 	}
 
 	transcriber, err := NewTranscriber(config)

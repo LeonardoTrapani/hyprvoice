@@ -39,26 +39,31 @@ func runFreshInstall(cfg *config.Config) (*ConfigureResult, error) {
 		return &ConfigureResult{Cancelled: true}, nil
 	}
 
-	// 4. Keywords
+	// 4. Language selection
+	if err := editLanguage(cfg); err != nil {
+		return &ConfigureResult{Cancelled: true}, nil
+	}
+
+	// 5. Keywords
 	keywords, err := inputKeywords(cfg.Keywords)
 	if err != nil {
 		return &ConfigureResult{Cancelled: true}, nil
 	}
 	cfg.Keywords = keywords
 
-	// 5. Injection backends
+	// 6. Injection backends
 	backends, err := selectBackends(cfg.Injection.Backends)
 	if err != nil {
 		return &ConfigureResult{Cancelled: true}, nil
 	}
 	cfg.Injection.Backends = backends
 
-	// 6. Notifications - same screen as menu
+	// 7. Notifications - same screen as menu
 	if err := editNotifications(cfg); err != nil {
 		return &ConfigureResult{Cancelled: true}, nil
 	}
 
-	// 7. Advanced settings prompt
+	// 8. Advanced settings prompt
 	wantAdvanced, err := askAdvancedSettings()
 	if err != nil {
 		return &ConfigureResult{Cancelled: true}, nil

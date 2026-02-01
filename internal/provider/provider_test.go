@@ -177,9 +177,9 @@ func TestModelsOfType(t *testing.T) {
 	trans := ModelsOfType(p, Transcription)
 	llm := ModelsOfType(p, LLM)
 
-	// OpenAI has 4 transcription models: whisper-1, gpt-4o-transcribe, gpt-4o-mini-transcribe, gpt-4o-realtime-preview
-	if len(trans) != 4 {
-		t.Errorf("ModelsOfType(Transcription) = %d, want 4", len(trans))
+	// OpenAI has 3 transcription models: whisper-1, gpt-4o-transcribe, gpt-4o-mini-transcribe
+	if len(trans) != 3 {
+		t.Errorf("ModelsOfType(Transcription) = %d, want 3", len(trans))
 	}
 	// OpenAI has 2 LLM models: gpt-4o-mini, gpt-4o
 	if len(llm) != 2 {
@@ -213,22 +213,22 @@ func TestFindModelByID(t *testing.T) {
 func TestModelsForLanguage(t *testing.T) {
 	groq := GetProvider("groq")
 
-	// en should include all models (distil supports en)
+	// en should include all models
 	enModels := ModelsForLanguage(groq, Transcription, "en")
-	if len(enModels) != 3 {
-		t.Errorf("ModelsForLanguage('en') = %d, want 3", len(enModels))
+	if len(enModels) != 2 {
+		t.Errorf("ModelsForLanguage('en') = %d, want 2", len(enModels))
 	}
 
-	// es should exclude distil-whisper-large-v3-en
+	// es should include all models (both are multilingual)
 	esModels := ModelsForLanguage(groq, Transcription, "es")
 	if len(esModels) != 2 {
-		t.Errorf("ModelsForLanguage('es') = %d, want 2 (distil excluded)", len(esModels))
+		t.Errorf("ModelsForLanguage('es') = %d, want 2", len(esModels))
 	}
 
 	// auto ("") should include all models
 	autoModels := ModelsForLanguage(groq, Transcription, "")
-	if len(autoModels) != 3 {
-		t.Errorf("ModelsForLanguage('') = %d, want 3 (auto returns all)", len(autoModels))
+	if len(autoModels) != 2 {
+		t.Errorf("ModelsForLanguage('') = %d, want 2 (auto returns all)", len(autoModels))
 	}
 }
 
@@ -239,16 +239,16 @@ func TestValidateModelLanguage(t *testing.T) {
 		t.Errorf("ValidateModelLanguage(whisper-large-v3, 'es') unexpected error: %v", err)
 	}
 
-	// invalid language for English-only model
-	err = ValidateModelLanguage("groq", "distil-whisper-large-v3-en", "es")
-	if err == nil {
-		t.Error("ValidateModelLanguage(distil-whisper, 'es') should return error")
+	// valid language for another multilingual model
+	err = ValidateModelLanguage("groq", "whisper-large-v3-turbo", "de")
+	if err != nil {
+		t.Errorf("ValidateModelLanguage(whisper-large-v3-turbo, 'de') unexpected error: %v", err)
 	}
 
 	// auto always passes
-	err = ValidateModelLanguage("groq", "distil-whisper-large-v3-en", "")
+	err = ValidateModelLanguage("groq", "whisper-large-v3", "")
 	if err != nil {
-		t.Errorf("ValidateModelLanguage(distil-whisper, '') should pass (auto): %v", err)
+		t.Errorf("ValidateModelLanguage(whisper-large-v3, '') should pass (auto): %v", err)
 	}
 
 	// unknown provider
@@ -266,19 +266,20 @@ func TestValidateModelLanguage(t *testing.T) {
 
 func TestValidateModelLanguage_ErrorFormat(t *testing.T) {
 	// verify error includes model name, not ID
-	err := ValidateModelLanguage("groq", "distil-whisper-large-v3-en", "es")
+	// use whisper-cpp base.en model which is English-only
+	err := ValidateModelLanguage("whisper-cpp", "base.en", "es")
 	if err == nil {
 		t.Fatal("expected error for unsupported language")
 	}
 	errMsg := err.Error()
 
 	// should contain model name (from Model.Name)
-	if !strings.Contains(errMsg, "Distil Whisper Large v3 EN") {
+	if !strings.Contains(errMsg, "Base English") {
 		t.Errorf("error should contain model name, got: %s", errMsg)
 	}
 
 	// should contain docs URL
-	if !strings.Contains(errMsg, "https://console.groq.com/docs/speech-to-text#supported-languages") {
+	if !strings.Contains(errMsg, "https://github.com/openai/whisper") {
 		t.Errorf("error should contain docs URL, got: %s", errMsg)
 	}
 
@@ -287,36 +288,39 @@ func TestValidateModelLanguage_ErrorFormat(t *testing.T) {
 		t.Errorf("error should contain language code, got: %s", errMsg)
 	}
 
-	// should have truncated language list (only 5 supported langs, English-only has 1)
+	// should contain supported languages (English-only has just 'en')
 	if !strings.Contains(errMsg, "en") {
 		t.Errorf("error should contain supported languages, got: %s", errMsg)
 	}
 }
 
-func TestOpenAIRealtimeModel(t *testing.T) {
-	m, err := GetModel("openai", "gpt-4o-realtime-preview")
+func TestOpenAIStreamingModels(t *testing.T) {
+	// gpt-4o-transcribe supports both batch and streaming
+	m, err := GetModel("openai", "gpt-4o-transcribe")
 	if err != nil {
-		t.Fatalf("GetModel('openai', 'gpt-4o-realtime-preview') error: %v", err)
+		t.Fatalf("GetModel('openai', 'gpt-4o-transcribe') error: %v", err)
 	}
 
-	if !m.Streaming {
-		t.Error("gpt-4o-realtime-preview should have Streaming=true")
+	if !m.SupportsBatch {
+		t.Error("gpt-4o-transcribe should have SupportsBatch=true")
+	}
+	if !m.SupportsStreaming {
+		t.Error("gpt-4o-transcribe should have SupportsStreaming=true")
+	}
+	if !m.SupportsBothModes() {
+		t.Error("gpt-4o-transcribe should support both modes")
 	}
 
-	if m.AdapterType != "openai-realtime" {
-		t.Errorf("gpt-4o-realtime-preview AdapterType=%q, want 'openai-realtime'", m.AdapterType)
+	if m.StreamingAdapter != "openai-realtime" {
+		t.Errorf("gpt-4o-transcribe StreamingAdapter=%q, want 'openai-realtime'", m.StreamingAdapter)
 	}
 
-	if m.Endpoint == nil {
-		t.Fatal("gpt-4o-realtime-preview should have Endpoint set")
+	if m.StreamingEndpoint == nil {
+		t.Fatal("gpt-4o-transcribe should have StreamingEndpoint set")
 	}
 
-	if m.Endpoint.BaseURL != "wss://api.openai.com" {
-		t.Errorf("gpt-4o-realtime-preview Endpoint.BaseURL=%q, want 'wss://api.openai.com'", m.Endpoint.BaseURL)
-	}
-
-	if len(m.SupportedLanguages) != 57 {
-		t.Errorf("gpt-4o-realtime-preview has %d languages, want 57", len(m.SupportedLanguages))
+	if m.StreamingEndpoint.BaseURL != "wss://api.openai.com" {
+		t.Errorf("gpt-4o-transcribe StreamingEndpoint.BaseURL=%q, want 'wss://api.openai.com'", m.StreamingEndpoint.BaseURL)
 	}
 
 	// default model should still be whisper-1
@@ -334,18 +338,21 @@ func TestElevenLabsProvider(t *testing.T) {
 
 	models := p.Models()
 
-	// ElevenLabsProvider.Models() returns 4 models
-	if len(models) != 4 {
-		t.Errorf("ElevenLabsProvider.Models() = %d models, want 4", len(models))
+	// ElevenLabsProvider.Models() returns 3 models
+	if len(models) != 3 {
+		t.Errorf("ElevenLabsProvider.Models() = %d models, want 3", len(models))
 	}
 
-	// Check batch models
+	// Check batch-only models
 	scribeV1, err := GetModel("elevenlabs", "scribe_v1")
 	if err != nil {
 		t.Fatalf("GetModel('elevenlabs', 'scribe_v1') error: %v", err)
 	}
-	if scribeV1.Streaming {
-		t.Error("scribe_v1 should have Streaming=false")
+	if !scribeV1.SupportsBatch {
+		t.Error("scribe_v1 should have SupportsBatch=true")
+	}
+	if scribeV1.SupportsStreaming {
+		t.Error("scribe_v1 should have SupportsStreaming=false")
 	}
 	if scribeV1.AdapterType != "elevenlabs" {
 		t.Errorf("scribe_v1 AdapterType=%q, want 'elevenlabs'", scribeV1.AdapterType)
@@ -355,34 +362,29 @@ func TestElevenLabsProvider(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetModel('elevenlabs', 'scribe_v2') error: %v", err)
 	}
-	if scribeV2.Streaming {
-		t.Error("scribe_v2 should have Streaming=false")
+	if !scribeV2.SupportsBatch {
+		t.Error("scribe_v2 should have SupportsBatch=true")
+	}
+	if scribeV2.SupportsStreaming {
+		t.Error("scribe_v2 should have SupportsStreaming=false")
 	}
 	if scribeV2.AdapterType != "elevenlabs" {
 		t.Errorf("scribe_v2 AdapterType=%q, want 'elevenlabs'", scribeV2.AdapterType)
 	}
 
-	// Check streaming models
-	scribeV1S, err := GetModel("elevenlabs", "scribe_v1-streaming")
+	// Check streaming-only model
+	scribeV2Realtime, err := GetModel("elevenlabs", "scribe_v2_realtime")
 	if err != nil {
-		t.Fatalf("GetModel('elevenlabs', 'scribe_v1-streaming') error: %v", err)
+		t.Fatalf("GetModel('elevenlabs', 'scribe_v2_realtime') error: %v", err)
 	}
-	if !scribeV1S.Streaming {
-		t.Error("scribe_v1-streaming should have Streaming=true")
+	if scribeV2Realtime.SupportsBatch {
+		t.Error("scribe_v2_realtime should have SupportsBatch=false")
 	}
-	if scribeV1S.AdapterType != "elevenlabs-streaming" {
-		t.Errorf("scribe_v1-streaming AdapterType=%q, want 'elevenlabs-streaming'", scribeV1S.AdapterType)
+	if !scribeV2Realtime.SupportsStreaming {
+		t.Error("scribe_v2_realtime should have SupportsStreaming=true")
 	}
-
-	scribeV2S, err := GetModel("elevenlabs", "scribe_v2-streaming")
-	if err != nil {
-		t.Fatalf("GetModel('elevenlabs', 'scribe_v2-streaming') error: %v", err)
-	}
-	if !scribeV2S.Streaming {
-		t.Error("scribe_v2-streaming should have Streaming=true")
-	}
-	if scribeV2S.AdapterType != "elevenlabs-streaming" {
-		t.Errorf("scribe_v2-streaming AdapterType=%q, want 'elevenlabs-streaming'", scribeV2S.AdapterType)
+	if scribeV2Realtime.AdapterType != "elevenlabs-streaming" {
+		t.Errorf("scribe_v2_realtime AdapterType=%q, want 'elevenlabs-streaming'", scribeV2Realtime.AdapterType)
 	}
 
 	// All models have explicit SupportedLanguages from docs (subset of our 57)

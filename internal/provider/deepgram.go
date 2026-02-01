@@ -4,7 +4,7 @@ package provider
 type DeepgramProvider struct{}
 
 func (p *DeepgramProvider) Name() string {
-	return "deepgram"
+	return ProviderDeepgram
 }
 
 func (p *DeepgramProvider) RequiresAPIKey() bool {
@@ -43,25 +43,15 @@ func (p *DeepgramProvider) Models() []Model {
 		{
 			ID:                 "nova-3",
 			Name:               "Nova-3",
-			Description:        "Best accuracy, 40+ languages, real-time",
+			Description:        "Best accuracy, 40+ languages",
 			Type:               Transcription,
-			Streaming:          true,
+			SupportsBatch:      true,
+			SupportsStreaming:  true,
 			Local:              false,
-			AdapterType:        "deepgram",
+			AdapterType:        AdapterDeepgram,
 			SupportedLanguages: nova3Langs,
-			Endpoint:           &EndpointConfig{BaseURL: "wss://api.deepgram.com", Path: "/v1/listen"},
-			DocsURL:            docsURL,
-		},
-		{
-			ID:                 "nova-3-general",
-			Name:               "Nova-3 General",
-			Description:        "General purpose, same as nova-3",
-			Type:               Transcription,
-			Streaming:          true,
-			Local:              false,
-			AdapterType:        "deepgram",
-			SupportedLanguages: nova3Langs,
-			Endpoint:           &EndpointConfig{BaseURL: "wss://api.deepgram.com", Path: "/v1/listen"},
+			Endpoint:           &EndpointConfig{BaseURL: "https://api.deepgram.com", Path: "/v1/listen"},
+			StreamingEndpoint:  &EndpointConfig{BaseURL: "wss://api.deepgram.com", Path: "/v1/listen"},
 			DocsURL:            docsURL,
 		},
 		{
@@ -69,23 +59,13 @@ func (p *DeepgramProvider) Models() []Model {
 			Name:               "Nova-2",
 			Description:        "Fast, 30+ languages, filler words",
 			Type:               Transcription,
-			Streaming:          true,
+			SupportsBatch:      true,
+			SupportsStreaming:  true,
 			Local:              false,
-			AdapterType:        "deepgram",
+			AdapterType:        AdapterDeepgram,
 			SupportedLanguages: nova2Langs,
-			Endpoint:           &EndpointConfig{BaseURL: "wss://api.deepgram.com", Path: "/v1/listen"},
-			DocsURL:            docsURL,
-		},
-		{
-			ID:                 "nova-2-general",
-			Name:               "Nova-2 General",
-			Description:        "General purpose, same as nova-2",
-			Type:               Transcription,
-			Streaming:          true,
-			Local:              false,
-			AdapterType:        "deepgram",
-			SupportedLanguages: nova2Langs,
-			Endpoint:           &EndpointConfig{BaseURL: "wss://api.deepgram.com", Path: "/v1/listen"},
+			Endpoint:           &EndpointConfig{BaseURL: "https://api.deepgram.com", Path: "/v1/listen"},
+			StreamingEndpoint:  &EndpointConfig{BaseURL: "wss://api.deepgram.com", Path: "/v1/listen"},
 			DocsURL:            docsURL,
 		},
 	}

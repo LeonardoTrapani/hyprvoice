@@ -41,6 +41,10 @@ func editProviders(cfg *config.Config, onboarding bool) error {
 	if onboarding {
 		exitLabel = "Next"
 	}
+
+	// track if we should default to "back" (Next) after configuring a provider
+	defaultToExit := false
+
 	for {
 		var options []huh.Option[string]
 		for _, name := range AllProviders {
@@ -48,7 +52,11 @@ func editProviders(cfg *config.Config, onboarding bool) error {
 		}
 		options = append(options, huh.NewOption(exitLabel, "back"))
 
-		var selected string
+		selected := ""
+		if defaultToExit {
+			selected = "back"
+		}
+
 		form := huh.NewForm(
 			huh.NewGroup(
 				huh.NewSelect[string]().
@@ -77,6 +85,7 @@ func editProviders(cfg *config.Config, onboarding bool) error {
 				cfg.Providers = make(map[string]config.ProviderConfig)
 			}
 			cfg.Providers[selected] = config.ProviderConfig{APIKey: apiKey}
+			defaultToExit = true
 		}
 	}
 }

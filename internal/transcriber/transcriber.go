@@ -4,11 +4,12 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"strings"
 
-	"github.com/leonardotrapani/hyprvoice/internal/language"
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
+
+	lang "github.com/leonardotrapani/hyprvoice/internal/language"
 	"github.com/leonardotrapani/hyprvoice/internal/models/whisper"
-	"github.com/leonardotrapani/hyprvoice/internal/notify"
 	"github.com/leonardotrapani/hyprvoice/internal/provider"
 	"github.com/leonardotrapani/hyprvoice/internal/recording"
 )
@@ -27,26 +28,13 @@ type BatchAdapter interface {
 
 // Configuration for the transcriber
 type Config struct {
-	Provider string
-	APIKey   string
-	Language string
-	Model    string
-	Keywords []string
-	Threads  int // CPU threads for local transcription (0 = auto)
-}
-
-// mapConfigProviderToRegistryName maps config provider names to provider registry names
-// Config uses names like "groq-transcription", "groq-translation", "mistral-transcription"
-// Registry uses base names like "groq", "mistral"
-func mapConfigProviderToRegistryName(configProvider string) string {
-	switch configProvider {
-	case "groq-transcription", "groq-translation":
-		return "groq"
-	case "mistral-transcription":
-		return "mistral"
-	default:
-		return configProvider
-	}
+	Provider  string
+	APIKey    string
+	Language  string
+	Model     string
+	Keywords  []string
+	Threads   int  // CPU threads for local transcription (0 = auto)
+	Streaming bool // use streaming mode if model supports it
 }
 
 // NewTranscriber creates a new transcriber based on model metadata
@@ -56,7 +44,7 @@ func NewTranscriber(config Config) (Transcriber, error) {
 	}
 
 	// special case: groq-translation uses CreateTranslation API (different from transcription)
-	if config.Provider == "groq-translation" {
+	if config.Provider == provider.ConfigProviderGroqTranslation {
 		if config.APIKey == "" {
 			return nil, fmt.Errorf("Groq API key required")
 		}
@@ -65,7 +53,7 @@ func NewTranscriber(config Config) (Transcriber, error) {
 	}
 
 	// map config provider name to registry provider name
-	registryProvider := mapConfigProviderToRegistryName(config.Provider)
+	registryProvider := provider.BaseProviderName(config.Provider)
 
 	// lookup provider
 	p := provider.GetProvider(registryProvider)
@@ -75,7 +63,7 @@ func NewTranscriber(config Config) (Transcriber, error) {
 
 	// check API key requirement
 	if p.RequiresAPIKey() && config.APIKey == "" {
-		return nil, fmt.Errorf("%s API key required", strings.Title(registryProvider))
+		return nil, fmt.Errorf("%s API key required", cases.Title(language.English).String(registryProvider))
 	}
 
 	// lookup model from provider
@@ -101,41 +89,57 @@ func NewTranscriber(config Config) (Transcriber, error) {
 	// runtime language-model compatibility check with fallback
 	// primary validation happens at config time (hard error), this is a safety net
 	if config.Language != "" && !model.SupportsLanguage(config.Language) {
-		langName := language.FromCode(config.Language).Name
+		langName := lang.FromCode(config.Language).Name
 		log.Printf("warning: model %s does not support language %s, falling back to auto-detect", model.ID, langName)
-
-		// send desktop notification to alert user
-		notifier := notify.NewDesktop(nil)
-		notifier.Error(fmt.Sprintf("Model %s does not support %s. Using auto-detect.", model.Name, langName))
-
-		// override language to auto for this session
 		config.Language = ""
 	}
 
-	// streaming models use StreamingTranscriber
-	if model.Streaming {
+	// determine if we should use streaming mode
+	useStreaming := config.Streaming && model.SupportsStreaming
+
+	// fail if streaming-only model is used without streaming enabled
+	if !useStreaming && !model.SupportsBatch {
+		return nil, fmt.Errorf("model %s requires streaming mode (set streaming = true in config)", model.ID)
+	}
+
+	// streaming mode: use StreamingTranscriber
+	if useStreaming {
+		// pick the right adapter type for streaming
+		adapterType := model.AdapterType
+		if model.StreamingAdapter != "" {
+			adapterType = model.StreamingAdapter
+		}
+
+		// pick the right endpoint for streaming
+		endpoint := model.Endpoint
+		if model.StreamingEndpoint != nil {
+			endpoint = model.StreamingEndpoint
+		}
+
 		var streamingAdapter StreamingAdapter
-		switch model.AdapterType {
-		case "elevenlabs-streaming":
-			streamingAdapter = NewElevenLabsStreamingAdapter(model.Endpoint, config.APIKey, model.ID, config.Language)
-		case "deepgram":
-			streamingAdapter = NewDeepgramAdapter(model.Endpoint, config.APIKey, model.ID, config.Language)
-		case "openai-realtime":
-			streamingAdapter = NewOpenAIRealtimeAdapter(model.Endpoint, config.APIKey, model.ID, config.Language)
+		switch adapterType {
+		case provider.AdapterElevenLabsStream:
+			streamingAdapter = NewElevenLabsStreamingAdapter(endpoint, config.APIKey, model.ID, config.Language)
+		case provider.AdapterDeepgram:
+			streamingAdapter = NewDeepgramAdapter(endpoint, config.APIKey, model.ID, config.Language)
+		case provider.AdapterOpenAIRealtime:
+			streamingAdapter = NewOpenAIRealtimeAdapter(endpoint, config.APIKey, model.ID, config.Language)
 		default:
-			return nil, fmt.Errorf("unsupported streaming adapter type: %s", model.AdapterType)
+			return nil, fmt.Errorf("unsupported streaming adapter type: %s", adapterType)
 		}
 		return NewStreamingTranscriber(streamingAdapter, config.Language), nil
 	}
 
-	// batch models use SimpleTranscriber
+	// batch mode: use SimpleTranscriber
 	var adapter BatchAdapter
 	switch model.AdapterType {
-	case "openai":
+	case provider.AdapterOpenAI:
 		adapter = NewOpenAIAdapter(model.Endpoint, config.APIKey, model.ID, config.Language, config.Keywords, registryProvider)
-	case "elevenlabs":
+	case provider.AdapterElevenLabs:
 		adapter = NewElevenLabsAdapter(model.Endpoint, config.APIKey, model.ID, config.Language)
-	case "whisper-cpp":
+	case provider.AdapterDeepgram:
+		adapter = NewDeepgramBatchAdapter(model.Endpoint, config.APIKey, model.ID, config.Language)
+	case provider.AdapterWhisperCpp:
 		modelPath := whisper.GetModelPath(config.Model)
 		if modelPath == "" {
 			return nil, fmt.Errorf("unknown whisper model: %s", config.Model)

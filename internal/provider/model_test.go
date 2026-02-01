@@ -60,14 +60,19 @@ func TestModel_IsStreaming(t *testing.T) {
 		expected bool
 	}{
 		{
-			name:     "streaming model",
-			model:    Model{ID: "scribe_v1-streaming", Streaming: true},
+			name:     "streaming-only model",
+			model:    Model{ID: "scribe_v2_realtime", SupportsBatch: false, SupportsStreaming: true},
 			expected: true,
 		},
 		{
-			name:     "batch model",
-			model:    Model{ID: "whisper-1", Streaming: false},
+			name:     "batch-only model",
+			model:    Model{ID: "whisper-1", SupportsBatch: true, SupportsStreaming: false},
 			expected: false,
+		},
+		{
+			name:     "both modes model",
+			model:    Model{ID: "nova-3", SupportsBatch: true, SupportsStreaming: true},
+			expected: true,
 		},
 	}
 
@@ -75,6 +80,38 @@ func TestModel_IsStreaming(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			if got := tc.model.IsStreaming(); got != tc.expected {
 				t.Errorf("IsStreaming() = %v, want %v", got, tc.expected)
+			}
+		})
+	}
+}
+
+func TestModel_SupportsBothModes(t *testing.T) {
+	tests := []struct {
+		name     string
+		model    Model
+		expected bool
+	}{
+		{
+			name:     "streaming-only model",
+			model:    Model{ID: "scribe_v2_realtime", SupportsBatch: false, SupportsStreaming: true},
+			expected: false,
+		},
+		{
+			name:     "batch-only model",
+			model:    Model{ID: "whisper-1", SupportsBatch: true, SupportsStreaming: false},
+			expected: false,
+		},
+		{
+			name:     "both modes model",
+			model:    Model{ID: "nova-3", SupportsBatch: true, SupportsStreaming: true},
+			expected: true,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := tc.model.SupportsBothModes(); got != tc.expected {
+				t.Errorf("SupportsBothModes() = %v, want %v", got, tc.expected)
 			}
 		})
 	}
@@ -283,13 +320,19 @@ func TestModel_AllFields(t *testing.T) {
 		Name:               "Test Model",
 		Description:        "A test model for verification",
 		Type:               Transcription,
-		Streaming:          true,
+		SupportsBatch:      true,
+		SupportsStreaming:  true,
 		Local:              true,
 		AdapterType:        "test-adapter",
+		StreamingAdapter:   "test-streaming-adapter",
 		SupportedLanguages: []string{"en", "es"},
 		Endpoint: &EndpointConfig{
 			BaseURL: "https://api.test.com",
 			Path:    "/v1/test",
+		},
+		StreamingEndpoint: &EndpointConfig{
+			BaseURL: "wss://api.test.com",
+			Path:    "/v1/stream",
 		},
 		LocalInfo: &LocalModelInfo{
 			Filename:    "test.bin",
@@ -311,8 +354,11 @@ func TestModel_AllFields(t *testing.T) {
 	if model.Type != Transcription {
 		t.Errorf("Type = %v, want Transcription", model.Type)
 	}
-	if !model.Streaming {
-		t.Error("Streaming should be true")
+	if !model.SupportsBatch {
+		t.Error("SupportsBatch should be true")
+	}
+	if !model.SupportsStreaming {
+		t.Error("SupportsStreaming should be true")
 	}
 	if !model.Local {
 		t.Error("Local should be true")

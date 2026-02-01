@@ -16,9 +16,12 @@ type Model struct {
 	Name               string          // display name (e.g., "Whisper 1", "GPT-4o Mini")
 	Description        string          // short description
 	Type               ModelType       // transcription or LLM
-	Streaming          bool            // supports streaming
+	SupportsBatch      bool            // can do batch/non-streaming transcription
+	SupportsStreaming  bool            // can do real-time streaming transcription
 	Local              bool            // runs locally (no API call)
 	AdapterType        string          // which adapter to use (e.g., "openai", "elevenlabs", "whisper-cpp")
+	StreamingAdapter   string          // adapter for streaming mode (if different from AdapterType)
+	StreamingEndpoint  *EndpointConfig // endpoint for streaming mode (if different from Endpoint)
 	SupportedLanguages []string        // explicit list of supported language codes
 	Endpoint           *EndpointConfig // nil for local models
 	LocalInfo          *LocalModelInfo // nil for cloud models
@@ -45,7 +48,12 @@ func (m *Model) NeedsDownload() bool {
 
 // IsStreaming returns true if this model supports streaming
 func (m *Model) IsStreaming() bool {
-	return m.Streaming
+	return m.SupportsStreaming
+}
+
+// SupportsBothModes returns true if this model supports both batch and streaming
+func (m *Model) SupportsBothModes() bool {
+	return m.SupportsBatch && m.SupportsStreaming
 }
 
 // SupportsLanguage returns true if the model supports the given language code.

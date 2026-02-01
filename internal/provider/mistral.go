@@ -6,7 +6,7 @@ import "github.com/leonardotrapani/hyprvoice/internal/language"
 type MistralProvider struct{}
 
 func (p *MistralProvider) Name() string {
-	return "mistral"
+	return ProviderMistral
 }
 
 func (p *MistralProvider) RequiresAPIKey() bool {
@@ -32,9 +32,11 @@ func (p *MistralProvider) Models() []Model {
 			Name:               "Voxtral Mini Latest",
 			Description:        "Latest Voxtral model, best for most uses",
 			Type:               Transcription,
-			Streaming:          false,
+			SupportsBatch:      true,
+			SupportsStreaming:  true,
 			Local:              false,
-			AdapterType:        "openai",
+			AdapterType:        AdapterOpenAI,
+			StreamingAdapter:   "mistral-streaming", // not yet implemented
 			SupportedLanguages: allLangs,
 			Endpoint:           &EndpointConfig{BaseURL: "https://api.mistral.ai", Path: "/v1/audio/transcriptions"},
 			DocsURL:            docsURL,
@@ -44,9 +46,11 @@ func (p *MistralProvider) Models() []Model {
 			Name:               "Voxtral Mini 2507",
 			Description:        "Stable Voxtral version from July 2025",
 			Type:               Transcription,
-			Streaming:          false,
+			SupportsBatch:      true,
+			SupportsStreaming:  true,
 			Local:              false,
-			AdapterType:        "openai",
+			AdapterType:        AdapterOpenAI,
+			StreamingAdapter:   "mistral-streaming", // not yet implemented
 			SupportedLanguages: allLangs,
 			Endpoint:           &EndpointConfig{BaseURL: "https://api.mistral.ai", Path: "/v1/audio/transcriptions"},
 			DocsURL:            docsURL,

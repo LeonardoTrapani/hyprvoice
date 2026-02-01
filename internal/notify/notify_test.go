@@ -1,6 +1,7 @@
 package notify
 
 import (
+	"os"
 	"testing"
 )
 
@@ -16,6 +17,9 @@ func testMessages() map[MessageType]Message {
 }
 
 func TestDesktop_Send(t *testing.T) {
+	if os.Getenv("CI") == "true" {
+		t.Skip("Skipping Desktop test in CI - calls notify-send")
+	}
 	desktop := NewDesktop(testMessages())
 
 	// Test Send for different message types (won't actually send, just verify no panic)
@@ -25,6 +29,9 @@ func TestDesktop_Send(t *testing.T) {
 }
 
 func TestDesktop_Error(t *testing.T) {
+	if os.Getenv("CI") == "true" {
+		t.Skip("Skipping Desktop test in CI - calls notify-send")
+	}
 	desktop := NewDesktop(testMessages())
 	desktop.Error("Test Error Message")
 }

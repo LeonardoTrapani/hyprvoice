@@ -244,8 +244,37 @@ func editTranscription(cfg *config.Config, configuredProviders []string) ([]stri
 	}
 
 	cfg.Transcription.Model = selectedModel
-	// language is now set in the Language menu (cfg.General.Language)
-	// cfg.Transcription.Language can still be used as override but not set here
+
+	// set streaming mode based on model capabilities
+	model, err := provider.GetModel(registryName, selectedModel)
+	if err == nil {
+		if model.SupportsBothModes() {
+			// model supports both: ask user
+			useStreaming := cfg.Transcription.Streaming
+			streamingForm := huh.NewForm(
+				huh.NewGroup(
+					huh.NewConfirm().
+						Title("Enable streaming mode?").
+						Description("This model supports both batch and streaming modes").
+						Affirmative("Yes, use streaming (real-time)").
+						Negative("No, use batch (after recording)").
+						Value(&useStreaming),
+				),
+			).WithTheme(getTheme())
+
+			if err := streamingForm.Run(); err != nil {
+				return configuredProviders, err
+			}
+			cfg.Transcription.Streaming = useStreaming
+		} else if model.SupportsStreaming {
+			// streaming-only model
+			cfg.Transcription.Streaming = true
+			fmt.Println(StyleSuccess.Render("Streaming mode enabled (this model only supports streaming)"))
+		} else {
+			// batch-only model
+			cfg.Transcription.Streaming = false
+		}
+	}
 
 	return configuredProviders, nil
 }
@@ -292,24 +321,8 @@ func getTranscriptionModelOptions(configProvider string, currentLang string) []h
 
 	models := provider.ModelsOfType(p, provider.Transcription)
 
-	// separate batch and streaming models
-	var batchModels, streamingModels []provider.Model
-	for _, m := range models {
-		if m.Streaming {
-			streamingModels = append(streamingModels, m)
-		} else {
-			batchModels = append(batchModels, m)
-		}
-	}
-
 	var options []huh.Option[string]
-
-	// add batch models first (with header if we have both types)
-	hasBoth := len(batchModels) > 0 && len(streamingModels) > 0
-	if hasBoth && len(batchModels) > 0 {
-		options = append(options, huh.NewOption("─── Batch ───", ""))
-	}
-	for _, m := range batchModels {
+	for _, m := range models {
 		label := buildModelLabel(m, currentLang)
 		if m.Local && registryName == "whisper-cpp" {
 			if whisper.IsInstalled(m.ID) {
@@ -318,15 +331,6 @@ func getTranscriptionModelOptions(configProvider string, currentLang string) []h
 				label = "[ ] " + label
 			}
 		}
-		options = append(options, huh.NewOption(label, m.ID))
-	}
-
-	// add streaming models (with header if we have both types)
-	if hasBoth && len(streamingModels) > 0 {
-		options = append(options, huh.NewOption("─── Streaming ───", ""))
-	}
-	for _, m := range streamingModels {
-		label := buildModelLabel(m, currentLang)
 		options = append(options, huh.NewOption(label, m.ID))
 	}
 
@@ -354,10 +358,13 @@ func buildModelLabel(m provider.Model, currentLang string) string {
 		label += fmt.Sprintf(" [%s]", m.LocalInfo.Size)
 	}
 
-	// append streaming tag
-	if m.Streaming {
+	// append mode capabilities
+	if m.SupportsBothModes() {
+		label += " [batch+streaming]"
+	} else if m.SupportsStreaming {
 		label += " [streaming]"
 	}
+	// batch-only models don't need a tag (it's the default)
 
 	// append language warning if model doesn't support current language
 	if currentLang != "" && !m.SupportsLanguage(currentLang) {

@@ -689,22 +689,22 @@ func TestValidateModelLanguageCompatibility(t *testing.T) {
 	}{
 		{
 			name:     "auto language always passes",
-			provider: "groq",
-			model:    "distil-whisper-large-v3-en",
+			provider: "whisper-cpp",
+			model:    "base.en",
 			langCode: "",
 			wantErr:  false,
 		},
 		{
 			name:     "english model supports english",
-			provider: "groq",
-			model:    "distil-whisper-large-v3-en",
+			provider: "whisper-cpp",
+			model:    "base.en",
 			langCode: "en",
 			wantErr:  false,
 		},
 		{
 			name:        "english model rejects spanish",
-			provider:    "groq",
-			model:       "distil-whisper-large-v3-en",
+			provider:    "whisper-cpp",
+			model:       "base.en",
 			langCode:    "es",
 			wantErr:     true,
 			errContains: "does not support Spanish (es)",
@@ -2079,9 +2079,8 @@ func TestConfig_Validate_GeneralLanguage(t *testing.T) {
 	t.Run("general.language validated against model", func(t *testing.T) {
 		config := baseConfig()
 		config.General.Language = "es"
-		config.Transcription.Provider = "groq-transcription"
-		config.Transcription.Model = "distil-whisper-large-v3-en" // english-only model
-		config.Transcription.APIKey = "gsk-test-key"
+		config.Transcription.Provider = "whisper-cpp"
+		config.Transcription.Model = "base.en" // english-only model
 
 		err := config.Validate()
 		if err == nil {
@@ -2096,9 +2095,8 @@ func TestConfig_Validate_GeneralLanguage(t *testing.T) {
 		config := baseConfig()
 		config.General.Language = "en"       // compatible
 		config.Transcription.Language = "es" // override with incompatible
-		config.Transcription.Provider = "groq-transcription"
-		config.Transcription.Model = "distil-whisper-large-v3-en" // english-only model
-		config.Transcription.APIKey = "gsk-test-key"
+		config.Transcription.Provider = "whisper-cpp"
+		config.Transcription.Model = "base.en" // english-only model
 
 		err := config.Validate()
 		if err == nil {
@@ -2113,9 +2111,8 @@ func TestConfig_Validate_GeneralLanguage(t *testing.T) {
 		config := baseConfig()
 		config.General.Language = "es"       // would be incompatible
 		config.Transcription.Language = "en" // override with compatible
-		config.Transcription.Provider = "groq-transcription"
-		config.Transcription.Model = "distil-whisper-large-v3-en" // english-only model
-		config.Transcription.APIKey = "gsk-test-key"
+		config.Transcription.Provider = "whisper-cpp"
+		config.Transcription.Model = "base.en" // english-only model
 
 		err := config.Validate()
 		if err != nil {
@@ -2126,9 +2123,8 @@ func TestConfig_Validate_GeneralLanguage(t *testing.T) {
 	t.Run("auto language always passes", func(t *testing.T) {
 		config := baseConfig()
 		config.General.Language = "" // auto
-		config.Transcription.Provider = "groq-transcription"
-		config.Transcription.Model = "distil-whisper-large-v3-en" // english-only model
-		config.Transcription.APIKey = "gsk-test-key"
+		config.Transcription.Provider = "whisper-cpp"
+		config.Transcription.Model = "base.en" // english-only model
 
 		err := config.Validate()
 		if err != nil {

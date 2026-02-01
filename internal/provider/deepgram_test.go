@@ -25,14 +25,20 @@ func TestDeepgramProvider_Models(t *testing.T) {
 	p := &DeepgramProvider{}
 	models := p.Models()
 
-	if len(models) != 4 {
-		t.Errorf("Models() returned %d models, want 4", len(models))
+	if len(models) != 2 {
+		t.Errorf("Models() returned %d models, want 2", len(models))
 	}
 
-	// all models should be streaming
+	// all models should support both batch and streaming
 	for _, m := range models {
-		if !m.Streaming {
-			t.Errorf("model %s should be streaming", m.ID)
+		if !m.SupportsBatch {
+			t.Errorf("model %s should support batch", m.ID)
+		}
+		if !m.SupportsStreaming {
+			t.Errorf("model %s should support streaming", m.ID)
+		}
+		if !m.SupportsBothModes() {
+			t.Errorf("model %s should support both modes", m.ID)
 		}
 		if m.AdapterType != "deepgram" {
 			t.Errorf("model %s has AdapterType %q, want 'deepgram'", m.ID, m.AdapterType)
@@ -96,15 +102,28 @@ func TestDeepgramProvider_Endpoint(t *testing.T) {
 	models := p.Models()
 
 	for _, m := range models {
+		// batch endpoint (HTTP)
 		if m.Endpoint == nil {
 			t.Errorf("model %s has nil Endpoint", m.ID)
 			continue
 		}
-		if m.Endpoint.BaseURL != "wss://api.deepgram.com" {
-			t.Errorf("model %s has BaseURL %q, want 'wss://api.deepgram.com'", m.ID, m.Endpoint.BaseURL)
+		if m.Endpoint.BaseURL != "https://api.deepgram.com" {
+			t.Errorf("model %s has Endpoint.BaseURL %q, want 'https://api.deepgram.com'", m.ID, m.Endpoint.BaseURL)
 		}
 		if m.Endpoint.Path != "/v1/listen" {
-			t.Errorf("model %s has Path %q, want '/v1/listen'", m.ID, m.Endpoint.Path)
+			t.Errorf("model %s has Endpoint.Path %q, want '/v1/listen'", m.ID, m.Endpoint.Path)
+		}
+
+		// streaming endpoint (WebSocket)
+		if m.StreamingEndpoint == nil {
+			t.Errorf("model %s has nil StreamingEndpoint", m.ID)
+			continue
+		}
+		if m.StreamingEndpoint.BaseURL != "wss://api.deepgram.com" {
+			t.Errorf("model %s has StreamingEndpoint.BaseURL %q, want 'wss://api.deepgram.com'", m.ID, m.StreamingEndpoint.BaseURL)
+		}
+		if m.StreamingEndpoint.Path != "/v1/listen" {
+			t.Errorf("model %s has StreamingEndpoint.Path %q, want '/v1/listen'", m.ID, m.StreamingEndpoint.Path)
 		}
 	}
 }

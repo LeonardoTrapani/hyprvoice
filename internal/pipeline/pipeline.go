@@ -45,6 +45,43 @@ type Pipeline interface {
 	GetNotifyCh() <-chan notify.MessageType
 }
 
+// Factory types for dependency injection
+type RecorderFactory func(cfg recording.Config) recording.Recorder
+type TranscriberFactory func(cfg transcriber.Config) (transcriber.Transcriber, error)
+type InjectorFactory func(cfg injection.Config) injection.Injector
+type LLMAdapterFactory func(cfg llm.Config) (llm.Adapter, error)
+
+// Option configures the pipeline
+type Option func(*pipeline)
+
+// WithRecorderFactory sets a custom recorder factory
+func WithRecorderFactory(f RecorderFactory) Option {
+	return func(p *pipeline) {
+		p.recorderFactory = f
+	}
+}
+
+// WithTranscriberFactory sets a custom transcriber factory
+func WithTranscriberFactory(f TranscriberFactory) Option {
+	return func(p *pipeline) {
+		p.transcriberFactory = f
+	}
+}
+
+// WithInjectorFactory sets a custom injector factory
+func WithInjectorFactory(f InjectorFactory) Option {
+	return func(p *pipeline) {
+		p.injectorFactory = f
+	}
+}
+
+// WithLLMAdapterFactory sets a custom LLM adapter factory
+func WithLLMAdapterFactory(f LLMAdapterFactory) Option {
+	return func(p *pipeline) {
+		p.llmAdapterFactory = f
+	}
+}
+
 type pipeline struct {
 	status   Status
 	actionCh chan Action
@@ -58,15 +95,32 @@ type pipeline struct {
 	stopOnce sync.Once
 
 	running atomic.Bool
+
+	// dependency factories (for testing)
+	recorderFactory    RecorderFactory
+	transcriberFactory TranscriberFactory
+	injectorFactory    InjectorFactory
+	llmAdapterFactory  LLMAdapterFactory
 }
 
-func New(cfg *config.Config) Pipeline {
-	return &pipeline{
+func New(cfg *config.Config, opts ...Option) Pipeline {
+	p := &pipeline{
 		actionCh: make(chan Action, 1),
 		errorCh:  make(chan PipelineError, 10),
 		notifyCh: make(chan notify.MessageType, 10),
 		config:   cfg,
+		// default factories
+		recorderFactory:    recording.NewRecorder,
+		transcriberFactory: transcriber.NewTranscriber,
+		injectorFactory:    injection.NewInjector,
+		llmAdapterFactory:  llm.NewAdapter,
 	}
+
+	for _, opt := range opts {
+		opt(p)
+	}
+
+	return p
 }
 func (p *pipeline) Run(ctx context.Context) {
 	if !p.running.CompareAndSwap(false, true) {
@@ -91,7 +145,7 @@ func (p *pipeline) run(ctx context.Context) {
 	log.Printf("Pipeline: Starting recording")
 	p.setStatus(Recording)
 
-	recorder := recording.NewRecorder(p.config.ToRecordingConfig())
+	recorder := p.recorderFactory(p.config.ToRecordingConfig())
 	frameCh, rErrCh, err := recorder.Start(ctx)
 
 	if err != nil {
@@ -102,7 +156,7 @@ func (p *pipeline) run(ctx context.Context) {
 
 	defer recorder.Stop()
 
-	t, err := transcriber.NewTranscriber(p.config.ToTranscriberConfig())
+	t, err := p.transcriberFactory(p.config.ToTranscriberConfig())
 	if err != nil {
 		log.Printf("Pipeline: Failed to create transcriber: %v", err)
 		p.sendError("Transcription Error", "Failed to create transcriber", err)
@@ -221,7 +275,7 @@ func (p *pipeline) sendNotify(mt notify.MessageType) {
 	}
 }
 
-func (p *pipeline) handleInjectAction(ctx context.Context, recorder *recording.Recorder, t transcriber.Transcriber) {
+func (p *pipeline) handleInjectAction(ctx context.Context, recorder recording.Recorder, t transcriber.Transcriber) {
 	status := p.Status()
 
 	if status != Transcribing {
@@ -254,7 +308,7 @@ func (p *pipeline) handleInjectAction(ctx context.Context, recorder *recording.R
 		log.Printf("Pipeline: LLM post-processing enabled, processing text")
 
 		llmCfg := p.config.ToLLMConfig()
-		adapter, err := llm.NewAdapter(llm.Config{
+		adapter, err := p.llmAdapterFactory(llm.Config{
 			Provider:          llmCfg.Provider,
 			APIKey:            llmCfg.APIKey,
 			Model:             llmCfg.Model,
@@ -279,7 +333,7 @@ func (p *pipeline) handleInjectAction(ctx context.Context, recorder *recording.R
 		p.setStatus(Injecting)
 	}
 
-	injector := injection.NewInjector(p.config.ToInjectionConfig())
+	injector := p.injectorFactory(p.config.ToInjectionConfig())
 
 	if err := injector.Inject(ctx, textToInject); err != nil {
 		p.sendError("Injection Error", "Failed to inject text", err)

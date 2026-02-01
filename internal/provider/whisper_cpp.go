@@ -9,7 +9,7 @@ import (
 type WhisperCppProvider struct{}
 
 func (p *WhisperCppProvider) Name() string {
-	return "whisper-cpp"
+	return ProviderWhisperCpp
 }
 
 func (p *WhisperCppProvider) RequiresAPIKey() bool {
@@ -45,9 +45,10 @@ func (p *WhisperCppProvider) Models() []Model {
 			Name:               wm.Name,
 			Description:        modelDescription(wm),
 			Type:               Transcription,
-			Streaming:          false,
+			SupportsBatch:      true,
+			SupportsStreaming:  false,
 			Local:              true,
-			AdapterType:        "whisper-cpp",
+			AdapterType:        AdapterWhisperCpp,
 			SupportedLanguages: langs,
 			Endpoint:           nil, // local CLI, no HTTP endpoint
 			LocalInfo: &LocalModelInfo{
