@@ -689,7 +689,7 @@
 				"Selecting language saves the Code to config",
 				"Typecheck passes"
 			],
-			"passes": false
+			"passes": true
 		},
 		{
 			"title": "Add TUI validation for language-model compatibility on save",

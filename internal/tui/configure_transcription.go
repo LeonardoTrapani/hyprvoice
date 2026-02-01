@@ -125,12 +125,16 @@ func editTranscription(cfg *config.Config, configuredProviders []string) ([]stri
 		modelDesc = fmt.Sprintf("Currently: %s", cfg.Transcription.Model)
 	}
 
-	language := cfg.Transcription.Language
+	selectedLanguage := cfg.Transcription.Language
 
-	langDesc := "ISO-639-1 code (e.g., 'en', 'es', 'fr') or empty for auto-detect"
-	if cfg.Transcription.Language != "" {
-		langDesc = fmt.Sprintf("Currently: %s. %s", cfg.Transcription.Language, langDesc)
+	// get current model for language compatibility warnings
+	var currentModel *provider.Model
+	registryName := mapConfigProviderToRegistry(selectedProvider)
+	if m, err := provider.GetModel(registryName, selectedModel); err == nil {
+		currentModel = m
 	}
+
+	languageOptions := getLanguageOptions(currentModel)
 
 	modelForm := huh.NewForm(
 		huh.NewGroup(
@@ -139,11 +143,12 @@ func editTranscription(cfg *config.Config, configuredProviders []string) ([]stri
 				Description(modelDesc).
 				Options(modelOptions...).
 				Value(&selectedModel),
-			huh.NewInput().
+			huh.NewSelect[string]().
 				Title("Language").
-				Description(langDesc).
-				Placeholder("auto-detect").
-				Value(&language),
+				Description("Select language for transcription").
+				Options(languageOptions...).
+				Filtering(true).
+				Value(&selectedLanguage),
 		),
 	).WithTheme(getTheme())
 
@@ -203,7 +208,7 @@ func editTranscription(cfg *config.Config, configuredProviders []string) ([]stri
 	}
 
 	cfg.Transcription.Model = selectedModel
-	cfg.Transcription.Language = language
+	cfg.Transcription.Language = selectedLanguage
 
 	return configuredProviders, nil
 }

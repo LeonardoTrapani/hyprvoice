@@ -286,3 +286,15 @@ Started: Sun Feb  1 12:22:47 AM CET 2026
 - Added download confirmation dialog after selecting uninstalled model
 - Download shows progress percentage (10%, 20%, ...)
 - All tests passing, typecheck passes
+
+### Task 29: Add language picker to TUI using language package
+- Created `internal/tui/languages.go` with `getLanguageOptions()` function
+- Takes optional `*provider.Model` to show compatibility warnings for non-supported languages
+- First option is "Auto-detect (Recommended)" with empty value
+- Languages formatted as "Name - NativeName (code)" when native name differs
+- English-only models (*.en) show "(not supported by current model)" for non-English languages
+- Updated `editTranscription()` to use `huh.NewSelect` with `Filtering(true)` instead of text input
+- Pass current model to `getLanguageOptions()` for compatibility warnings
+- Language code saved to config, not display name
+- All 57 languages + Auto = 58 options total
+- All tests passing, typecheck passes
