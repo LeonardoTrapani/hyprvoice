@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/leonardotrapani/hyprvoice/internal/models/whisper"
 	"github.com/leonardotrapani/hyprvoice/internal/provider"
 	"github.com/leonardotrapani/hyprvoice/internal/recording"
 )
@@ -106,6 +107,12 @@ func NewTranscriber(config Config) (Transcriber, error) {
 		adapter = NewOpenAIAdapter(model.Endpoint, config.APIKey, model.ID, config.Language, config.Keywords, registryProvider)
 	case "elevenlabs":
 		adapter = NewElevenLabsAdapter(model.Endpoint, config.APIKey, model.ID, config.Language)
+	case "whisper-cpp":
+		modelPath := whisper.GetModelPath(config.Model)
+		if modelPath == "" {
+			return nil, fmt.Errorf("unknown whisper model: %s", config.Model)
+		}
+		adapter = NewWhisperCppAdapter(modelPath, config.Language, config.Threads)
 	default:
 		return nil, fmt.Errorf("unsupported adapter type: %s", model.AdapterType)
 	}

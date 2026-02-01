@@ -218,3 +218,11 @@ Started: Sun Feb  1 12:22:47 AM CET 2026
 - Registered in provider.init()
 - Comprehensive test file created: whisper_cpp_test.go
 - All tests passing, typecheck passes
+
+### Task 22: Wire whisper-cpp into transcriber factory
+- Added `case "whisper-cpp"` to NewTranscriber() switch on model.AdapterType
+- Imports whisper package to get model path via `whisper.GetModelPath(config.Model)`
+- Creates `NewWhisperCppAdapter(modelPath, config.Language, config.Threads)`
+- Returns error if whisper model ID is unknown
+- Added tests for whisper-cpp factory cases: valid config, no API key required, unknown model error
+- All tests passing, typecheck passes

@@ -530,7 +530,7 @@
 				"Full flow works: config -> factory -> adapter -> transcription",
 				"Typecheck passes"
 			],
-			"passes": false
+			"passes": true
 		},
 		{
 			"title": "Update config for local transcription",

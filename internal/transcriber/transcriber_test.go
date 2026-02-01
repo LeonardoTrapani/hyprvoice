@@ -174,6 +174,35 @@ func TestNewTranscriber(t *testing.T) {
 			},
 			wantErr: true,
 		},
+		{
+			name: "valid whisper-cpp config creates adapter",
+			config: Config{
+				Provider: "whisper-cpp",
+				Language: "en",
+				Model:    "base.en",
+				Threads:  4,
+			},
+			wantErr: false, // creates adapter even if model file doesn't exist (runtime check)
+		},
+		{
+			name: "whisper-cpp without api key is valid",
+			config: Config{
+				Provider: "whisper-cpp",
+				APIKey:   "", // no api key required
+				Language: "en",
+				Model:    "tiny.en",
+			},
+			wantErr: false,
+		},
+		{
+			name: "whisper-cpp with unknown model returns error",
+			config: Config{
+				Provider: "whisper-cpp",
+				Language: "en",
+				Model:    "nonexistent-whisper-model",
+			},
+			wantErr: true,
+		},
 	}
 
 	for _, tt := range tests {
