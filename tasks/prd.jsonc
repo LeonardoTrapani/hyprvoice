@@ -827,7 +827,7 @@
 				"Context cancellation stops reconnection attempts",
 				"Typecheck passes"
 			],
-			"passes": false
+			"passes": true
 		},
 		{
 			"title": "Add OpenAI Realtime model to OpenAI provider",

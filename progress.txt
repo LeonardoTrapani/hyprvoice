@@ -360,3 +360,12 @@ Started: Sun Feb  1 12:22:47 AM CET 2026
 - Added reconnection logic (maxRetries=3, exponential backoff 1s, 2s, 4s) matching ElevenLabs pattern
 - Comprehensive tests with mock WebSocket server
 - All tests passing with -race flag, typecheck passes
+
+### Task 35: Add reconnection logic to Deepgram StreamingAdapter
+- Verified reconnection logic already in place from Task 34
+- maxRetries=3 with retryDelays [1s, 2s, 4s] (exponential backoff)
+- reconnect() method attempts re-establish with backoff, respects context cancellation
+- readLoop calls reconnect() on read errors, readLoop calls reconnect() after failed reads
+- SendChunk() calls reconnect() on write errors and retries the chunk
+- Sends notification error to resultsCh on successful reconnect
+- All tests passing with -race flag, typecheck passes
