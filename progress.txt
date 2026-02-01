@@ -379,3 +379,19 @@ Started: Sun Feb  1 12:22:47 AM CET 2026
 - Added TestOpenAIRealtimeModel test verifying all properties
 - Updated TestModelsOfType to expect 4 transcription models for OpenAI
 - All tests passing, typecheck passes
+
+### Task 37: Create OpenAI Realtime StreamingAdapter
+- Created `internal/transcriber/adapter_openai_realtime.go`
+- OpenAIRealtimeAdapter struct: endpoint, apiKey, model, language, conn, resultsCh, mu, ctx/cancel, WaitGroup
+- Start(): connects to wss://api.openai.com/v1/realtime?model=X with Bearer auth and OpenAI-Beta header
+- Sends session.update to configure transcription-only mode (modalities=['text'], input_audio_format='pcm16')
+- Enables input_audio_transcription with gpt-4o-transcribe model
+- Uses server_vad turn detection for automatic speech detection
+- SendChunk(): resamples audio from 16kHz to 24kHz, sends input_audio_buffer.append with base64 audio
+- readLoop goroutine: parses conversation.item.input_audio_transcription.delta (partial) and .completed (final)
+- Handles error events, speech_started, speech_stopped, session events
+- Close(): cancels context, sends close frame, waits for reader goroutine
+- Added resample16to24() for 16kHz to 24kHz PCM conversion using linear interpolation
+- Added reconnection logic (maxRetries=3, exponential backoff 1s, 2s, 4s) - same pattern as ElevenLabs/Deepgram
+- Comprehensive tests with mock WebSocket server
+- All tests passing with -race flag, typecheck passes
