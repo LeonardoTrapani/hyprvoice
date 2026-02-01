@@ -911,7 +911,7 @@
 				"Factory creates SimpleTranscriber for whisper-1",
 				"Typecheck passes"
 			],
-			"passes": false
+			"passes": true
 		},
 		{
 			"title": "Write tests for streaming adapters",

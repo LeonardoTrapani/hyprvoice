@@ -406,3 +406,15 @@ Started: Sun Feb  1 12:22:47 AM CET 2026
 - Context cancellation stops reconnection attempts (checked in reconnect loop)
 - TestOpenAIRealtimeAdapter_Reconnection verifies behavior
 - All tests passing with -race flag, typecheck passes
+
+### Task 39: Update factory to create streaming transcribers
+- Updated `NewTranscriber()` in internal/transcriber/transcriber.go
+- Added streaming model check: `if model.Streaming {...}`
+- For streaming models, creates appropriate StreamingAdapter based on AdapterType:
+  - `elevenlabs-streaming` -> `NewElevenLabsStreamingAdapter()`
+  - `deepgram` -> `NewDeepgramAdapter()`
+  - `openai-realtime` -> `NewOpenAIRealtimeAdapter()`
+- Wraps streaming adapter in `NewStreamingTranscriber(adapter, config.Language)`
+- Updated tests: streaming models now succeed (not error)
+- Added tests for deepgram and openai-realtime streaming models
+- All tests passing with -race flag, typecheck passes

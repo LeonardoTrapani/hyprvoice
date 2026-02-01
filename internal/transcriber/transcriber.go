@@ -95,12 +95,23 @@ func NewTranscriber(config Config) (Transcriber, error) {
 		return nil, fmt.Errorf("model %s is not a transcription model", config.Model)
 	}
 
-	// streaming models not supported yet
+	// streaming models use StreamingTranscriber
 	if model.Streaming {
-		return nil, fmt.Errorf("streaming model %s not supported yet (coming soon)", config.Model)
+		var streamingAdapter StreamingAdapter
+		switch model.AdapterType {
+		case "elevenlabs-streaming":
+			streamingAdapter = NewElevenLabsStreamingAdapter(model.Endpoint, config.APIKey, model.ID, config.Language)
+		case "deepgram":
+			streamingAdapter = NewDeepgramAdapter(model.Endpoint, config.APIKey, model.ID, config.Language)
+		case "openai-realtime":
+			streamingAdapter = NewOpenAIRealtimeAdapter(model.Endpoint, config.APIKey, model.ID, config.Language)
+		default:
+			return nil, fmt.Errorf("unsupported streaming adapter type: %s", model.AdapterType)
+		}
+		return NewStreamingTranscriber(streamingAdapter, config.Language), nil
 	}
 
-	// create adapter based on model.AdapterType
+	// batch models use SimpleTranscriber
 	var adapter BatchAdapter
 	switch model.AdapterType {
 	case "openai":

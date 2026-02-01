@@ -155,14 +155,34 @@ func TestNewTranscriber(t *testing.T) {
 			wantErr: false, // uses default model when empty
 		},
 		{
-			name: "streaming model returns error",
+			name: "elevenlabs streaming model creates StreamingTranscriber",
 			config: Config{
 				Provider: "elevenlabs",
 				APIKey:   "test-key",
 				Language: "en",
 				Model:    "scribe_v1-streaming",
 			},
-			wantErr: true, // streaming not yet supported
+			wantErr: false, // streaming is now supported
+		},
+		{
+			name: "deepgram streaming model creates StreamingTranscriber",
+			config: Config{
+				Provider: "deepgram",
+				APIKey:   "test-key",
+				Language: "en",
+				Model:    "nova-3",
+			},
+			wantErr: false,
+		},
+		{
+			name: "openai realtime streaming model creates StreamingTranscriber",
+			config: Config{
+				Provider: "openai",
+				APIKey:   "test-key",
+				Language: "en",
+				Model:    "gpt-4o-realtime-preview",
+			},
+			wantErr: false,
 		},
 		{
 			name: "unknown model returns error",
