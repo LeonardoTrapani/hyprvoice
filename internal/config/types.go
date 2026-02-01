@@ -63,7 +63,6 @@ type RecordingConfig struct {
 
 type TranscriptionConfig struct {
 	Provider  string `toml:"provider"`
-	APIKey    string `toml:"api_key"`
 	Language  string `toml:"language"`
 	Model     string `toml:"model"`
 	Streaming bool   `toml:"streaming"` // use streaming mode if model supports it

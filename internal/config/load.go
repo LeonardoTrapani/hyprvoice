@@ -7,7 +7,6 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
-	"time"
 
 	"github.com/BurntSushi/toml"
 )
@@ -28,21 +27,6 @@ func GetConfigPath() (string, error) {
 	return filepath.Join(hyprvoiceDir, "config.toml"), nil
 }
 
-// legacyInjectionConfig for migration from old mode-based config
-type legacyInjectionConfig struct {
-	Mode string `toml:"mode"`
-}
-
-// legacyTranscriptionConfig for migration from old api_key in transcription
-type legacyTranscriptionConfig struct {
-	APIKey string `toml:"api_key"`
-}
-
-type legacyConfig struct {
-	Injection     legacyInjectionConfig     `toml:"injection"`
-	Transcription legacyTranscriptionConfig `toml:"transcription"`
-}
-
 func Load() (*Config, error) {
 	configPath, err := GetConfigPath()
 	if err != nil {
@@ -57,28 +41,17 @@ func Load() (*Config, error) {
 
 	log.Printf("Config: loading configuration from %s", configPath)
 	var config Config
-	if _, err := toml.DecodeFile(configPath, &config); err != nil {
+	meta, err := toml.DecodeFile(configPath, &config)
+	if err != nil {
 		return nil, fmt.Errorf("failed to parse config file %s: %w", configPath, err)
 	}
-
-	var legacy legacyConfig
-	toml.DecodeFile(configPath, &legacy)
-
-	if len(config.Injection.Backends) == 0 {
-		config.migrateInjectionMode(legacy.Injection.Mode)
-	}
-
-	if legacy.Transcription.APIKey != "" && config.Providers == nil {
-		config.migrateTranscriptionAPIKey(legacy.Transcription.APIKey)
+	if isLegacyConfig(meta, &config) {
+		log.Printf("Config: legacy configuration detected - run hyprvoice onboarding")
+		return nil, fmt.Errorf("%w: run hyprvoice onboarding", ErrConfigNotFound)
 	}
 
 	if config.Providers == nil {
 		config.Providers = make(map[string]ProviderConfig)
-	}
-
-	if config.Transcription.Provider == "groq-translation" {
-		log.Printf("Config: deprecated transcription.provider 'groq-translation' detected - using 'groq-transcription' instead")
-		config.Transcription.Provider = "groq-transcription"
 	}
 
 	config.applyLLMDefaults()
@@ -86,6 +59,22 @@ func Load() (*Config, error) {
 
 	log.Printf("Config: configuration loaded successfully")
 	return &config, nil
+}
+
+func isLegacyConfig(meta toml.MetaData, config *Config) bool {
+	if meta.IsDefined("transcription", "api_key") {
+		return true
+	}
+	if meta.IsDefined("injection", "mode") {
+		return true
+	}
+	if meta.IsDefined("general", "language") {
+		return true
+	}
+	if config.Transcription.Provider == "groq-translation" {
+		return true
+	}
+	return false
 }
 
 // applyThreadsDefault sets default threads for local transcription if not explicitly set
@@ -99,33 +88,6 @@ func (c *Config) applyThreadsDefault() {
 	}
 }
 
-// migrateTranscriptionAPIKey migrates old transcription.api_key to providers map
-func (c *Config) migrateTranscriptionAPIKey(apiKey string) {
-	if c.Providers == nil {
-		c.Providers = make(map[string]ProviderConfig)
-	}
-
-	providerName := c.Transcription.Provider
-	switch providerName {
-	case "openai":
-		c.Providers["openai"] = ProviderConfig{APIKey: apiKey}
-	case "groq-transcription":
-		c.Providers["groq"] = ProviderConfig{APIKey: apiKey}
-	case "mistral-transcription":
-		c.Providers["mistral"] = ProviderConfig{APIKey: apiKey}
-	case "elevenlabs":
-		c.Providers["elevenlabs"] = ProviderConfig{APIKey: apiKey}
-	default:
-		if len(apiKey) > 3 && apiKey[:3] == "sk-" {
-			c.Providers["openai"] = ProviderConfig{APIKey: apiKey}
-		} else if len(apiKey) > 4 && apiKey[:4] == "gsk_" {
-			c.Providers["groq"] = ProviderConfig{APIKey: apiKey}
-		}
-	}
-
-	log.Printf("Config: migrated transcription.api_key to providers map. Run 'hyprvoice configure' to update config format.")
-}
-
 // applyLLMDefaults sets default values for LLM config
 func (c *Config) applyLLMDefaults() {
 	pp := &c.LLM.PostProcessing
@@ -135,30 +97,4 @@ func (c *Config) applyLLMDefaults() {
 		pp.FixGrammar = true
 		pp.RemoveFillerWords = true
 	}
-}
-
-// migrateInjectionMode converts old mode field to new backends array
-func (c *Config) migrateInjectionMode(mode string) {
-	switch mode {
-	case "clipboard":
-		c.Injection.Backends = []string{"clipboard"}
-		log.Printf("Config: migrated injection.mode='clipboard' to backends=['clipboard']")
-	case "type":
-		c.Injection.Backends = []string{"wtype"}
-		log.Printf("Config: migrated injection.mode='type' to backends=['wtype']")
-	case "fallback":
-		c.Injection.Backends = []string{"wtype", "clipboard"}
-		log.Printf("Config: migrated injection.mode='fallback' to backends=['wtype', 'clipboard']")
-	default:
-		c.Injection.Backends = []string{"ydotool", "wtype", "clipboard"}
-		if mode != "" {
-			log.Printf("Config: unknown injection.mode='%s', using default backends", mode)
-		}
-	}
-
-	if c.Injection.YdotoolTimeout == 0 {
-		c.Injection.YdotoolTimeout = 5 * time.Second
-	}
-
-	log.Printf("Config: legacy 'mode' config detected - please update your config.toml to use 'backends' instead")
 }

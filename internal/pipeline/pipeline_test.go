@@ -21,9 +21,11 @@ func TestNew(t *testing.T) {
 		},
 		Transcription: config.TranscriptionConfig{
 			Provider: "openai",
-			APIKey:   "test-key",
 			Language: "en",
 			Model:    "whisper-1",
+		},
+		Providers: map[string]config.ProviderConfig{
+			"openai": {APIKey: "test-key"},
 		},
 		Injection: config.InjectionConfig{
 			Backends: []string{"ydotool", "wtype", "clipboard"}, YdotoolTimeout: 5 * time.Second,
@@ -59,9 +61,11 @@ func TestPipeline_Status(t *testing.T) {
 		},
 		Transcription: config.TranscriptionConfig{
 			Provider: "openai",
-			APIKey:   "test-key",
 			Language: "en",
 			Model:    "whisper-1",
+		},
+		Providers: map[string]config.ProviderConfig{
+			"openai": {APIKey: "test-key"},
 		},
 		Injection: config.InjectionConfig{
 			Backends: []string{"ydotool", "wtype", "clipboard"}, YdotoolTimeout: 5 * time.Second,
@@ -105,9 +109,11 @@ func TestPipeline_GetActionCh(t *testing.T) {
 		},
 		Transcription: config.TranscriptionConfig{
 			Provider: "openai",
-			APIKey:   "test-key",
 			Language: "en",
 			Model:    "whisper-1",
+		},
+		Providers: map[string]config.ProviderConfig{
+			"openai": {APIKey: "test-key"},
 		},
 		Injection: config.InjectionConfig{
 			Backends: []string{"ydotool", "wtype", "clipboard"}, YdotoolTimeout: 5 * time.Second,
@@ -149,9 +155,11 @@ func TestPipeline_GetErrorCh(t *testing.T) {
 		},
 		Transcription: config.TranscriptionConfig{
 			Provider: "openai",
-			APIKey:   "test-key",
 			Language: "en",
 			Model:    "whisper-1",
+		},
+		Providers: map[string]config.ProviderConfig{
+			"openai": {APIKey: "test-key"},
 		},
 		Injection: config.InjectionConfig{
 			Backends: []string{"ydotool", "wtype", "clipboard"}, YdotoolTimeout: 5 * time.Second,
@@ -193,9 +201,11 @@ func TestPipeline_Stop(t *testing.T) {
 		},
 		Transcription: config.TranscriptionConfig{
 			Provider: "openai",
-			APIKey:   "test-key",
 			Language: "en",
 			Model:    "whisper-1",
+		},
+		Providers: map[string]config.ProviderConfig{
+			"openai": {APIKey: "test-key"},
 		},
 		Injection: config.InjectionConfig{
 			Backends: []string{"ydotool", "wtype", "clipboard"}, YdotoolTimeout: 5 * time.Second,
@@ -230,9 +240,11 @@ func TestPipeline_Run(t *testing.T) {
 		},
 		Transcription: config.TranscriptionConfig{
 			Provider: "openai",
-			APIKey:   "test-key",
 			Language: "en",
 			Model:    "whisper-1",
+		},
+		Providers: map[string]config.ProviderConfig{
+			"openai": {APIKey: "test-key"},
 		},
 		Injection: config.InjectionConfig{
 			Backends: []string{"ydotool", "wtype", "clipboard"}, YdotoolTimeout: 5 * time.Second,
@@ -340,9 +352,11 @@ func TestPipeline_ConcurrentAccess(t *testing.T) {
 		},
 		Transcription: config.TranscriptionConfig{
 			Provider: "openai",
-			APIKey:   "test-key",
 			Language: "en",
 			Model:    "whisper-1",
+		},
+		Providers: map[string]config.ProviderConfig{
+			"openai": {APIKey: "test-key"},
 		},
 		Injection: config.InjectionConfig{
 			Backends: []string{"ydotool", "wtype", "clipboard"}, YdotoolTimeout: 5 * time.Second,
@@ -391,9 +405,11 @@ func TestPipeline_WithMocks(t *testing.T) {
 		},
 		Transcription: config.TranscriptionConfig{
 			Provider: "openai",
-			APIKey:   "test-key",
 			Language: "en",
 			Model:    "whisper-1",
+		},
+		Providers: map[string]config.ProviderConfig{
+			"openai": {APIKey: "test-key"},
 		},
 		Injection: config.InjectionConfig{
 			Backends:         []string{"clipboard"},
@@ -452,7 +468,6 @@ func TestPipeline_WithMocks_LLMProcessing(t *testing.T) {
 		},
 		Transcription: config.TranscriptionConfig{
 			Provider: "openai",
-			APIKey:   "test-key",
 			Language: "en",
 			Model:    "whisper-1",
 		},

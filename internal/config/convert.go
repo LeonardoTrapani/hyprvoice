@@ -41,7 +41,7 @@ func (c *Config) resolveEffectiveLanguage() string {
 	return c.Transcription.Language
 }
 
-// resolveAPIKeyForProvider returns the API key for a provider from multiple sources
+// resolveAPIKeyForProvider returns the API key for a provider from config or env
 func (c *Config) resolveAPIKeyForProvider(providerName string) string {
 	baseName := provider.BaseProviderName(providerName)
 	envVar := provider.EnvVarForProvider(providerName)
@@ -50,10 +50,6 @@ func (c *Config) resolveAPIKeyForProvider(providerName string) string {
 		if pc, ok := c.Providers[baseName]; ok && pc.APIKey != "" {
 			return pc.APIKey
 		}
-	}
-
-	if c.Transcription.APIKey != "" {
-		return c.Transcription.APIKey
 	}
 
 	if envVar != "" {

@@ -52,16 +52,21 @@ func TestGetTranscriptionModelOptions_NoHeadersAnymore(t *testing.T) {
 func TestGetTranscriptionModelOptions_OpenAI_ShowsCapabilities(t *testing.T) {
 	options := getTranscriptionModelOptions("openai")
 
-	// OpenAI has 3 transcription models: whisper-1, gpt-4o-transcribe, gpt-4o-mini-transcribe
-	if len(options) != 3 {
-		t.Errorf("expected 3 options for openai, got %d", len(options))
+	// OpenAI has 4 transcription models: whisper-1, gpt-4o-transcribe, gpt-4o-mini-transcribe, gpt-4o-realtime-preview
+	if len(options) != 4 {
+		t.Errorf("expected 4 options for openai, got %d", len(options))
 	}
 
-	// gpt-4o-transcribe and gpt-4o-mini-transcribe should mention batch+streaming
+	// gpt-4o-realtime-preview should mention streaming
 	for _, opt := range options {
-		if strings.Contains(opt.ID, "gpt-4o") {
-			if !strings.Contains(opt.Desc, "batch+streaming") {
-				t.Errorf("gpt-4o model %s should mention batch+streaming: %s", opt.ID, opt.Desc)
+		switch opt.ID {
+		case "gpt-4o-realtime-preview":
+			if !strings.Contains(opt.Desc, "streaming") {
+				t.Errorf("gpt-4o-realtime-preview should mention streaming: %s", opt.Desc)
+			}
+		case "gpt-4o-transcribe", "gpt-4o-mini-transcribe":
+			if strings.Contains(opt.Desc, "streaming") {
+				t.Errorf("batch-only model %s should not mention streaming: %s", opt.ID, opt.Desc)
 			}
 		}
 	}

@@ -48,7 +48,8 @@ func (s *listScreen) Init() tea.Cmd {
 func (s *listScreen) Update(msg tea.Msg) (screen, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
-		s.list.SetSize(msg.Width-4, msg.Height-8)
+		extraFooterLines := strings.Count(s.footer, "\n")
+		s.list.SetSize(msg.Width-4, msg.Height-8-extraFooterLines)
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "enter":

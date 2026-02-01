@@ -34,7 +34,7 @@ Configuration is stored in `~/.config/hyprvoice/config.toml` and changes are app
 - [Text Injection](#text-injection)
 - [Notifications](#notifications)
 - [Example Configurations](#example-configurations)
-- [Migration from Old Config Format](#migration-from-old-config-format)
+- [Legacy Configs](#legacy-configs)
 
 ## Unified Provider System
 
@@ -647,64 +647,16 @@ You can customize notification text via the `[notifications.messages]` section:
   model = "gpt-4o-mini"
 ```
 
-## Migration from Old Config Format
+## Legacy Configs
 
-### Language Configuration Change
+Older config formats are no longer supported. If your config uses any of these fields, rerun onboarding to regenerate a supported config:
 
-Language is now configured per transcription model in `[transcription].language`. If you had `[general].language` set, move it to the transcription section:
+- `transcription.api_key`
+- `injection.mode`
+- `general.language`
+- `transcription.provider = "groq-translation"`
 
-**Old format:**
-
-```toml
-[general]
-  language = "en"
-
-[transcription]
-  provider = "openai"
-  model = "whisper-1"
-```
-
-**New format:**
-
-```toml
-[transcription]
-  provider = "openai"
-  model = "whisper-1"
-  language = "en"
-```
-
-Run `hyprvoice configure` to interactively update your config.
-
-### API Key Migration
-
-If you're upgrading from an older version with `transcription.api_key`:
-
-**Old format (still works):**
-
-```toml
-[transcription]
-  provider = "openai"
-  api_key = "sk-..."  # Legacy location
-  model = "whisper-1"
-```
-
-**New format (recommended):**
-
-```toml
-[providers.openai]
-  api_key = "sk-..."  # Unified location
-
-[transcription]
-  provider = "openai"
-  model = "whisper-1"
-
-[llm]
-  enabled = true
-  provider = "openai"
-  model = "gpt-4o-mini"
-```
-
-Run `hyprvoice configure` to interactively update your config to the new format.
+Run `hyprvoice onboarding` to generate a new config, then `hyprvoice configure` for advanced settings.
 
 ## Configuration Hot-Reloading
 

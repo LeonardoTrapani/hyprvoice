@@ -40,34 +40,6 @@ func TestNewElevenLabsAdapter(t *testing.T) {
 	}
 }
 
-func TestNewElevenLabsAdapterFromConfig(t *testing.T) {
-	config := Config{
-		Provider: "elevenlabs",
-		APIKey:   "test-api-key",
-		Language: "en",
-		Model:    "scribe_v1",
-	}
-
-	adapter := NewElevenLabsAdapterFromConfig(config)
-
-	if adapter == nil {
-		t.Fatalf("NewElevenLabsAdapterFromConfig() returned nil")
-	}
-
-	if adapter.apiKey != "test-api-key" {
-		t.Errorf("APIKey not set correctly, got: %s", adapter.apiKey)
-	}
-
-	if adapter.model != "scribe_v1" {
-		t.Errorf("Model not set correctly, got: %s", adapter.model)
-	}
-
-	// should use default endpoint
-	if adapter.endpoint.BaseURL != "https://api.elevenlabs.io" {
-		t.Errorf("Default endpoint BaseURL not set correctly, got: %s", adapter.endpoint.BaseURL)
-	}
-}
-
 func TestElevenLabsAdapter_Transcribe_EmptyAudio(t *testing.T) {
 	endpoint := &provider.EndpointConfig{
 		BaseURL: "https://api.elevenlabs.io",

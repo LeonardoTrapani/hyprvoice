@@ -13,6 +13,31 @@ import (
 	"github.com/leonardotrapani/hyprvoice/internal/pipeline"
 )
 
+const testConfigContent = `[recording]
+sample_rate = 16000
+channels = 1
+format = "s16"
+buffer_size = 8192
+channel_buffer_size = 30
+timeout = "5m"
+
+[providers.openai]
+api_key = "test-key"
+
+[transcription]
+provider = "openai"
+model = "whisper-1"
+
+[injection]
+backends = ["ydotool", "wtype", "clipboard"]
+ydotool_timeout = "5s"
+wtype_timeout = "5s"
+clipboard_timeout = "3s"
+
+[notifications]
+enabled = true
+type = "log"`
+
 func TestNew(t *testing.T) {
 	// Set up a temporary config directory
 	tempDir := t.TempDir()
@@ -29,27 +54,7 @@ func TestNew(t *testing.T) {
 	// Create a basic config file
 	configPath := filepath.Join(tempDir, "hyprvoice", "config.toml")
 	os.MkdirAll(filepath.Dir(configPath), 0755)
-	configContent := `[recording]
-sample_rate = 16000
-channels = 1
-format = "s16"
-buffer_size = 8192
-channel_buffer_size = 30
-timeout = "5m"
-
-[transcription]
-provider = "openai"
-api_key = "test-key"
-model = "whisper-1"
-
-[injection]
-mode = "fallback"
-wtype_timeout = "5s"
-clipboard_timeout = "3s"
-
-[notifications]
-enabled = true
-type = "log"`
+	configContent := testConfigContent
 	os.WriteFile(configPath, []byte(configContent), 0644)
 
 	daemon, err := New()
@@ -89,27 +94,7 @@ func TestDaemon_Status(t *testing.T) {
 	// Create a basic config file
 	configPath := filepath.Join(tempDir, "hyprvoice", "config.toml")
 	os.MkdirAll(filepath.Dir(configPath), 0755)
-	configContent := `[recording]
-sample_rate = 16000
-channels = 1
-format = "s16"
-buffer_size = 8192
-channel_buffer_size = 30
-timeout = "5m"
-
-[transcription]
-provider = "openai"
-api_key = "test-key"
-model = "whisper-1"
-
-[injection]
-mode = "fallback"
-wtype_timeout = "5s"
-clipboard_timeout = "3s"
-
-[notifications]
-enabled = true
-type = "log"`
+	configContent := testConfigContent
 	os.WriteFile(configPath, []byte(configContent), 0644)
 
 	daemon, err := New()
@@ -140,27 +125,7 @@ func TestDaemon_Toggle(t *testing.T) {
 	// Create a basic config file
 	configPath := filepath.Join(tempDir, "hyprvoice", "config.toml")
 	os.MkdirAll(filepath.Dir(configPath), 0755)
-	configContent := `[recording]
-sample_rate = 16000
-channels = 1
-format = "s16"
-buffer_size = 8192
-channel_buffer_size = 30
-timeout = "5m"
-
-[transcription]
-provider = "openai"
-api_key = "test-key"
-model = "whisper-1"
-
-[injection]
-mode = "fallback"
-wtype_timeout = "5s"
-clipboard_timeout = "3s"
-
-[notifications]
-enabled = true
-type = "log"`
+	configContent := testConfigContent
 	os.WriteFile(configPath, []byte(configContent), 0644)
 
 	daemon, err := New()
@@ -195,27 +160,7 @@ func TestDaemon_Handle(t *testing.T) {
 	// Create a basic config file
 	configPath := filepath.Join(tempDir, "hyprvoice", "config.toml")
 	os.MkdirAll(filepath.Dir(configPath), 0755)
-	configContent := `[recording]
-sample_rate = 16000
-channels = 1
-format = "s16"
-buffer_size = 8192
-channel_buffer_size = 30
-timeout = "5m"
-
-[transcription]
-provider = "openai"
-api_key = "test-key"
-model = "whisper-1"
-
-[injection]
-mode = "fallback"
-wtype_timeout = "5s"
-clipboard_timeout = "3s"
-
-[notifications]
-enabled = true
-type = "log"`
+	configContent := testConfigContent
 	os.WriteFile(configPath, []byte(configContent), 0644)
 
 	daemon, err := New()
@@ -288,27 +233,7 @@ func TestDaemon_OnConfigReload(t *testing.T) {
 	// Create a basic config file
 	configPath := filepath.Join(tempDir, "hyprvoice", "config.toml")
 	os.MkdirAll(filepath.Dir(configPath), 0755)
-	configContent := `[recording]
-sample_rate = 16000
-channels = 1
-format = "s16"
-buffer_size = 8192
-channel_buffer_size = 30
-timeout = "5m"
-
-[transcription]
-provider = "openai"
-api_key = "test-key"
-model = "whisper-1"
-
-[injection]
-mode = "fallback"
-wtype_timeout = "5s"
-clipboard_timeout = "3s"
-
-[notifications]
-enabled = true
-type = "log"`
+	configContent := testConfigContent
 	os.WriteFile(configPath, []byte(configContent), 0644)
 
 	daemon, err := New()
@@ -339,27 +264,7 @@ func TestDaemon_StopPipeline(t *testing.T) {
 	// Create a basic config file
 	configPath := filepath.Join(tempDir, "hyprvoice", "config.toml")
 	os.MkdirAll(filepath.Dir(configPath), 0755)
-	configContent := `[recording]
-sample_rate = 16000
-channels = 1
-format = "s16"
-buffer_size = 8192
-channel_buffer_size = 30
-timeout = "5m"
-
-[transcription]
-provider = "openai"
-api_key = "test-key"
-model = "whisper-1"
-
-[injection]
-mode = "fallback"
-wtype_timeout = "5s"
-clipboard_timeout = "3s"
-
-[notifications]
-enabled = true
-type = "log"`
+	configContent := testConfigContent
 	os.WriteFile(configPath, []byte(configContent), 0644)
 
 	daemon, err := New()
@@ -402,27 +307,7 @@ func TestDaemon_Handle_Commands(t *testing.T) {
 	// Create a basic config file
 	configPath := filepath.Join(tempDir, "hyprvoice", "config.toml")
 	os.MkdirAll(filepath.Dir(configPath), 0755)
-	configContent := `[recording]
-sample_rate = 16000
-channels = 1
-format = "s16"
-buffer_size = 8192
-channel_buffer_size = 30
-timeout = "5m"
-
-[transcription]
-provider = "openai"
-api_key = "test-key"
-model = "whisper-1"
-
-[injection]
-mode = "fallback"
-wtype_timeout = "5s"
-clipboard_timeout = "3s"
-
-[notifications]
-enabled = true
-type = "log"`
+	configContent := testConfigContent
 	os.WriteFile(configPath, []byte(configContent), 0644)
 
 	daemon, err := New()

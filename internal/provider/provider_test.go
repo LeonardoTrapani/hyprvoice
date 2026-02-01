@@ -177,9 +177,9 @@ func TestModelsOfType(t *testing.T) {
 	trans := ModelsOfType(p, Transcription)
 	llm := ModelsOfType(p, LLM)
 
-	// OpenAI has 3 transcription models: whisper-1, gpt-4o-transcribe, gpt-4o-mini-transcribe
-	if len(trans) != 3 {
-		t.Errorf("ModelsOfType(Transcription) = %d, want 3", len(trans))
+	// OpenAI has 4 transcription models: whisper-1, gpt-4o-transcribe, gpt-4o-mini-transcribe, gpt-4o-realtime-preview
+	if len(trans) != 4 {
+		t.Errorf("ModelsOfType(Transcription) = %d, want 4", len(trans))
 	}
 	// OpenAI has 2 LLM models: gpt-4o-mini, gpt-4o
 	if len(llm) != 2 {
@@ -295,32 +295,32 @@ func TestValidateModelLanguage_ErrorFormat(t *testing.T) {
 }
 
 func TestOpenAIStreamingModels(t *testing.T) {
-	// gpt-4o-transcribe supports both batch and streaming
-	m, err := GetModel("openai", "gpt-4o-transcribe")
+	// gpt-4o-realtime-preview is streaming-only
+	m, err := GetModel("openai", "gpt-4o-realtime-preview")
 	if err != nil {
-		t.Fatalf("GetModel('openai', 'gpt-4o-transcribe') error: %v", err)
+		t.Fatalf("GetModel('openai', 'gpt-4o-realtime-preview') error: %v", err)
 	}
 
-	if !m.SupportsBatch {
-		t.Error("gpt-4o-transcribe should have SupportsBatch=true")
+	if m.SupportsBatch {
+		t.Error("gpt-4o-realtime-preview should have SupportsBatch=false")
 	}
 	if !m.SupportsStreaming {
-		t.Error("gpt-4o-transcribe should have SupportsStreaming=true")
+		t.Error("gpt-4o-realtime-preview should have SupportsStreaming=true")
 	}
-	if !m.SupportsBothModes() {
-		t.Error("gpt-4o-transcribe should support both modes")
-	}
-
-	if m.StreamingAdapter != "openai-realtime" {
-		t.Errorf("gpt-4o-transcribe StreamingAdapter=%q, want 'openai-realtime'", m.StreamingAdapter)
+	if m.SupportsBothModes() {
+		t.Error("gpt-4o-realtime-preview should not support both modes")
 	}
 
-	if m.StreamingEndpoint == nil {
-		t.Fatal("gpt-4o-transcribe should have StreamingEndpoint set")
+	if m.AdapterType != "openai-realtime" {
+		t.Errorf("gpt-4o-realtime-preview AdapterType=%q, want 'openai-realtime'", m.AdapterType)
 	}
 
-	if m.StreamingEndpoint.BaseURL != "wss://api.openai.com" {
-		t.Errorf("gpt-4o-transcribe StreamingEndpoint.BaseURL=%q, want 'wss://api.openai.com'", m.StreamingEndpoint.BaseURL)
+	if m.Endpoint == nil {
+		t.Fatal("gpt-4o-realtime-preview should have Endpoint set")
+	}
+
+	if m.Endpoint.BaseURL != "wss://api.openai.com" {
+		t.Errorf("gpt-4o-realtime-preview Endpoint.BaseURL=%q, want 'wss://api.openai.com'", m.Endpoint.BaseURL)
 	}
 
 	// default model should still be whisper-1

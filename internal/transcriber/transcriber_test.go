@@ -162,7 +162,7 @@ func TestNewTranscriber(t *testing.T) {
 				Provider:  "openai",
 				APIKey:    "test-key",
 				Language:  "en",
-				Model:     "gpt-4o-transcribe",
+				Model:     "gpt-4o-realtime-preview",
 				Streaming: true,
 			},
 			wantErr: false,
@@ -632,34 +632,6 @@ func TestOpenAIAdapter_Creation(t *testing.T) {
 				t.Errorf("keywords len = %d, want %d", len(adapter.keywords), len(tt.keywords))
 			}
 		})
-	}
-}
-
-func TestOpenAIAdapterFromConfig(t *testing.T) {
-	config := Config{
-		Provider: "openai",
-		APIKey:   "sk-test-key",
-		Model:    "whisper-1",
-		Language: "en",
-		Keywords: []string{"test"},
-	}
-
-	adapter := NewOpenAIAdapterFromConfig(config)
-	if adapter == nil {
-		t.Errorf("NewOpenAIAdapterFromConfig() returned nil")
-		return
-	}
-
-	if adapter.model != config.Model {
-		t.Errorf("model = %q, want %q", adapter.model, config.Model)
-	}
-
-	if adapter.language != config.Language {
-		t.Errorf("language = %q, want %q", adapter.language, config.Language)
-	}
-
-	if adapter.providerName != "openai" {
-		t.Errorf("providerName = %q, want %q", adapter.providerName, "openai")
 	}
 }
 

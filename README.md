@@ -228,7 +228,7 @@ sudo apt install libnotify-bin  # Ubuntu/Debian
   ```
 
 - Verify Wayland compositor supports text input protocols
-- Check injection mode in configuration (fallback mode is most robust)
+- Check injection backends in configuration (fallback chain is most robust)
 
 **Clipboard issues:**
 

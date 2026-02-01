@@ -45,18 +45,6 @@ func NewElevenLabsAdapter(endpoint *provider.EndpointConfig, apiKey, model, lang
 	}
 }
 
-// NewElevenLabsAdapterFromConfig creates an adapter using the legacy Config struct
-// for backwards compatibility during migration
-func NewElevenLabsAdapterFromConfig(config Config) *ElevenLabsAdapter {
-	return NewElevenLabsAdapter(
-		&provider.EndpointConfig{BaseURL: "https://api.elevenlabs.io", Path: "/v1/speech-to-text"},
-		config.APIKey,
-		config.Model,
-		config.Language,
-		config.Keywords,
-	)
-}
-
 // Transcribe sends audio to ElevenLabs API for transcription
 func (a *ElevenLabsAdapter) Transcribe(ctx context.Context, audioData []byte) (string, error) {
 	if len(audioData) == 0 {

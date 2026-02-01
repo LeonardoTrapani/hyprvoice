@@ -26,9 +26,11 @@ func createTestConfig() *Config {
 		},
 		Transcription: TranscriptionConfig{
 			Provider: "openai",
-			APIKey:   "test-api-key",
 			Language: "",
 			Model:    "whisper-1",
+		},
+		Providers: map[string]ProviderConfig{
+			"openai": {APIKey: "test-api-key"},
 		},
 		Injection: InjectionConfig{
 			Backends: []string{"ydotool", "wtype", "clipboard"}, YdotoolTimeout: 5 * time.Second,
@@ -55,7 +57,6 @@ func createTestConfigWithInvalidValues() *Config {
 		},
 		Transcription: TranscriptionConfig{
 			Provider: "", // Invalid
-			APIKey:   "", // Invalid
 			Model:    "", // Invalid
 		},
 		Injection: InjectionConfig{
@@ -98,8 +99,10 @@ func TestConfig_Validate(t *testing.T) {
 				},
 				Transcription: TranscriptionConfig{
 					Provider: "openai",
-					APIKey:   "test-key",
 					Model:    "whisper-1",
+				},
+				Providers: map[string]ProviderConfig{
+					"openai": {APIKey: "test-key"},
 				},
 				Injection: InjectionConfig{
 					Backends: []string{"ydotool", "wtype", "clipboard"}, YdotoolTimeout: 5 * time.Second,
@@ -125,8 +128,10 @@ func TestConfig_Validate(t *testing.T) {
 				},
 				Transcription: TranscriptionConfig{
 					Provider: "",
-					APIKey:   "test-key",
 					Model:    "whisper-1",
+				},
+				Providers: map[string]ProviderConfig{
+					"openai": {APIKey: "test-key"},
 				},
 				Injection: InjectionConfig{
 					Backends: []string{"ydotool", "wtype", "clipboard"}, YdotoolTimeout: 5 * time.Second,
@@ -152,8 +157,10 @@ func TestConfig_Validate(t *testing.T) {
 				},
 				Transcription: TranscriptionConfig{
 					Provider: "openai",
-					APIKey:   "test-key",
 					Model:    "whisper-1",
+				},
+				Providers: map[string]ProviderConfig{
+					"openai": {APIKey: "test-key"},
 				},
 				Injection: InjectionConfig{
 					Backends: []string{"invalid"}, YdotoolTimeout: 5 * time.Second,
@@ -179,8 +186,10 @@ func TestConfig_Validate(t *testing.T) {
 				},
 				Transcription: TranscriptionConfig{
 					Provider: "openai",
-					APIKey:   "test-key",
 					Model:    "whisper-1",
+				},
+				Providers: map[string]ProviderConfig{
+					"openai": {APIKey: "test-key"},
 				},
 				Injection: InjectionConfig{
 					Backends: []string{"ydotool", "wtype", "clipboard"}, YdotoolTimeout: 5 * time.Second,
@@ -206,9 +215,11 @@ func TestConfig_Validate(t *testing.T) {
 				},
 				Transcription: TranscriptionConfig{
 					Provider: "openai",
-					APIKey:   "test-key",
 					Language: "en",
 					Model:    "whisper-1",
+				},
+				Providers: map[string]ProviderConfig{
+					"openai": {APIKey: "test-key"},
 				},
 				Injection: InjectionConfig{
 					Backends: []string{"ydotool", "wtype", "clipboard"}, YdotoolTimeout: 5 * time.Second,
@@ -234,9 +245,11 @@ func TestConfig_Validate(t *testing.T) {
 				},
 				Transcription: TranscriptionConfig{
 					Provider: "openai",
-					APIKey:   "test-key",
 					Language: "invalid",
 					Model:    "whisper-1",
+				},
+				Providers: map[string]ProviderConfig{
+					"openai": {APIKey: "test-key"},
 				},
 				Injection: InjectionConfig{
 					Backends: []string{"ydotool", "wtype", "clipboard"}, YdotoolTimeout: 5 * time.Second,
@@ -312,9 +325,11 @@ buffer_size = 8192
 channel_buffer_size = 30
 timeout = "5m"
 
+[providers.openai]
+api_key = "test-key"
+
 [transcription]
 provider = "openai"
-api_key = "test-key"
 model = "whisper-1"
 
 [injection]
@@ -362,8 +377,8 @@ type = "log"`
 		}
 	})
 
-	// Test migration from legacy mode config
-	t.Run("migrates legacy mode=fallback to backends", func(t *testing.T) {
+	// Legacy configs should fail like missing config
+	t.Run("rejects legacy injection.mode", func(t *testing.T) {
 		tempDir := t.TempDir()
 		configPath := filepath.Join(tempDir, "hyprvoice", "config.toml")
 
@@ -382,17 +397,12 @@ timeout = "5m"
 
 [transcription]
 provider = "openai"
-api_key = "test-key"
 model = "whisper-1"
 
 [injection]
 mode = "fallback"
 wtype_timeout = "5s"
-clipboard_timeout = "3s"
-
-[notifications]
-enabled = true
-type = "log"`
+clipboard_timeout = "3s"`
 
 		err = os.WriteFile(configPath, []byte(legacyConfig), 0644)
 		if err != nil {
@@ -409,35 +419,70 @@ type = "log"`
 			}
 		}()
 
-		config, err := Load()
-		if err != nil {
-			t.Errorf("Load() error = %v", err)
-			return
+		_, err = Load()
+		if err == nil {
+			t.Fatalf("Load() should have failed for legacy injection.mode")
 		}
-
-		// Should have migrated to backends
-		expectedBackends := []string{"wtype", "clipboard"}
-		if len(config.Injection.Backends) != len(expectedBackends) {
-			t.Errorf("Expected %d backends, got %d", len(expectedBackends), len(config.Injection.Backends))
-		}
-		for i, b := range expectedBackends {
-			if i < len(config.Injection.Backends) && config.Injection.Backends[i] != b {
-				t.Errorf("Expected backend[%d]=%s, got %s", i, b, config.Injection.Backends[i])
-			}
-		}
-
-		// Should have set default ydotool timeout
-		if config.Injection.YdotoolTimeout != 5*time.Second {
-			t.Errorf("Expected YdotoolTimeout=5s, got %v", config.Injection.YdotoolTimeout)
-		}
-
-		// Verify it passes validation
-		if err := config.Validate(); err != nil {
-			t.Errorf("Migrated config is invalid: %v", err)
+		if !errors.Is(err, ErrConfigNotFound) {
+			t.Errorf("Load() error = %v, expected ErrConfigNotFound", err)
 		}
 	})
 
-	t.Run("migrates legacy mode=clipboard to backends", func(t *testing.T) {
+	t.Run("rejects legacy general.language", func(t *testing.T) {
+		tempDir := t.TempDir()
+		configPath := filepath.Join(tempDir, "hyprvoice", "config.toml")
+
+		err := os.MkdirAll(filepath.Dir(configPath), 0755)
+		if err != nil {
+			t.Fatalf("Failed to create config directory: %v", err)
+		}
+
+		legacyConfig := `[general]
+language = "en"
+
+[recording]
+sample_rate = 16000
+channels = 1
+format = "s16"
+buffer_size = 8192
+channel_buffer_size = 30
+timeout = "5m"
+
+[transcription]
+provider = "openai"
+model = "whisper-1"
+
+[injection]
+backends = ["clipboard"]
+ydotool_timeout = "5s"
+wtype_timeout = "5s"
+clipboard_timeout = "3s"`
+
+		err = os.WriteFile(configPath, []byte(legacyConfig), 0644)
+		if err != nil {
+			t.Fatalf("Failed to create config file: %v", err)
+		}
+
+		originalConfigDir := os.Getenv("XDG_CONFIG_HOME")
+		os.Setenv("XDG_CONFIG_HOME", tempDir)
+		defer func() {
+			if originalConfigDir == "" {
+				os.Unsetenv("XDG_CONFIG_HOME")
+			} else {
+				os.Setenv("XDG_CONFIG_HOME", originalConfigDir)
+			}
+		}()
+
+		_, err = Load()
+		if err == nil {
+			t.Fatalf("Load() should have failed for legacy general.language")
+		}
+		if !errors.Is(err, ErrConfigNotFound) {
+			t.Errorf("Load() error = %v, expected ErrConfigNotFound", err)
+		}
+	})
+
+	t.Run("rejects legacy transcription.api_key", func(t *testing.T) {
 		tempDir := t.TempDir()
 		configPath := filepath.Join(tempDir, "hyprvoice", "config.toml")
 
@@ -456,17 +501,14 @@ timeout = "5m"
 
 [transcription]
 provider = "openai"
-api_key = "test-key"
+api_key = "sk-old-style-key"
 model = "whisper-1"
 
 [injection]
-mode = "clipboard"
+backends = ["clipboard"]
+ydotool_timeout = "5s"
 wtype_timeout = "5s"
-clipboard_timeout = "3s"
-
-[notifications]
-enabled = true
-type = "log"`
+clipboard_timeout = "3s"`
 
 		err = os.WriteFile(configPath, []byte(legacyConfig), 0644)
 		if err != nil {
@@ -483,23 +525,16 @@ type = "log"`
 			}
 		}()
 
-		config, err := Load()
-		if err != nil {
-			t.Errorf("Load() error = %v", err)
-			return
+		_, err = Load()
+		if err == nil {
+			t.Fatalf("Load() should have failed for legacy transcription.api_key")
 		}
-
-		expectedBackends := []string{"clipboard"}
-		if len(config.Injection.Backends) != len(expectedBackends) {
-			t.Errorf("Expected %d backends, got %d", len(expectedBackends), len(config.Injection.Backends))
-		}
-
-		if err := config.Validate(); err != nil {
-			t.Errorf("Migrated config is invalid: %v", err)
+		if !errors.Is(err, ErrConfigNotFound) {
+			t.Errorf("Load() error = %v, expected ErrConfigNotFound", err)
 		}
 	})
 
-	t.Run("migrates legacy mode=type to backends", func(t *testing.T) {
+	t.Run("rejects legacy groq-translation provider", func(t *testing.T) {
 		tempDir := t.TempDir()
 		configPath := filepath.Join(tempDir, "hyprvoice", "config.toml")
 
@@ -517,18 +552,14 @@ channel_buffer_size = 30
 timeout = "5m"
 
 [transcription]
-provider = "openai"
-api_key = "test-key"
-model = "whisper-1"
+provider = "groq-translation"
+model = "whisper-large-v3"
 
 [injection]
-mode = "type"
+backends = ["clipboard"]
+ydotool_timeout = "5s"
 wtype_timeout = "5s"
-clipboard_timeout = "3s"
-
-[notifications]
-enabled = true
-type = "log"`
+clipboard_timeout = "3s"`
 
 		err = os.WriteFile(configPath, []byte(legacyConfig), 0644)
 		if err != nil {
@@ -545,19 +576,12 @@ type = "log"`
 			}
 		}()
 
-		config, err := Load()
-		if err != nil {
-			t.Errorf("Load() error = %v", err)
-			return
+		_, err = Load()
+		if err == nil {
+			t.Fatalf("Load() should have failed for legacy groq-translation provider")
 		}
-
-		expectedBackends := []string{"wtype"}
-		if len(config.Injection.Backends) != len(expectedBackends) {
-			t.Errorf("Expected %d backends, got %d", len(expectedBackends), len(config.Injection.Backends))
-		}
-
-		if err := config.Validate(); err != nil {
-			t.Errorf("Migrated config is invalid: %v", err)
+		if !errors.Is(err, ErrConfigNotFound) {
+			t.Errorf("Load() error = %v, expected ErrConfigNotFound", err)
 		}
 	})
 }
@@ -643,8 +667,8 @@ func TestConfig_ConversionMethods(t *testing.T) {
 		if transcriberConfig.Provider != config.Transcription.Provider {
 			t.Errorf("Provider mismatch: got %s, want %s", transcriberConfig.Provider, config.Transcription.Provider)
 		}
-		if transcriberConfig.APIKey != config.Transcription.APIKey {
-			t.Errorf("APIKey mismatch: got %s, want %s", transcriberConfig.APIKey, config.Transcription.APIKey)
+		if transcriberConfig.APIKey != config.Providers["openai"].APIKey {
+			t.Errorf("APIKey mismatch: got %s, want %s", transcriberConfig.APIKey, config.Providers["openai"].APIKey)
 		}
 		if transcriberConfig.Language != config.Transcription.Language {
 			t.Errorf("Language mismatch: got %s, want %s", transcriberConfig.Language, config.Transcription.Language)
@@ -777,7 +801,6 @@ func TestConfig_ToTranscriberConfig_WithEnvVar(t *testing.T) {
 	config := &Config{
 		Transcription: TranscriptionConfig{
 			Provider: "openai",
-			APIKey:   "", // Empty API key to test env var fallback
 			Language: "en",
 			Model:    "whisper-1",
 		},
@@ -805,9 +828,11 @@ func TestConfig_ToTranscriberConfig_WithoutEnvVar(t *testing.T) {
 	config := &Config{
 		Transcription: TranscriptionConfig{
 			Provider: "openai",
-			APIKey:   "config-api-key", // Config has API key
 			Language: "en",
 			Model:    "whisper-1",
+		},
+		Providers: map[string]ProviderConfig{
+			"openai": {APIKey: "config-api-key"},
 		},
 	}
 
@@ -873,7 +898,6 @@ func TestConfig_Validate_OpenAI_WithoutAPIKey(t *testing.T) {
 		},
 		Transcription: TranscriptionConfig{
 			Provider: "openai",
-			APIKey:   "", // No API key
 			Model:    "whisper-1",
 		},
 		Injection: InjectionConfig{
@@ -913,7 +937,6 @@ func TestConfig_Validate_OpenAI_WithEnvVarAPIKey(t *testing.T) {
 		},
 		Transcription: TranscriptionConfig{
 			Provider: "openai",
-			APIKey:   "", // No API key in config
 			Model:    "whisper-1",
 		},
 		Injection: InjectionConfig{
@@ -955,8 +978,10 @@ func TestConfig_Validate_RecordingTimeout(t *testing.T) {
 		},
 		Transcription: TranscriptionConfig{
 			Provider: "openai",
-			APIKey:   "test-key",
 			Model:    "whisper-1",
+		},
+		Providers: map[string]ProviderConfig{
+			"openai": {APIKey: "test-key"},
 		},
 		Injection: InjectionConfig{
 			Backends: []string{"ydotool", "wtype", "clipboard"}, YdotoolTimeout: 5 * time.Second,
@@ -986,8 +1011,10 @@ func TestConfig_Validate_InjectionTimeouts(t *testing.T) {
 		},
 		Transcription: TranscriptionConfig{
 			Provider: "openai",
-			APIKey:   "test-key",
 			Model:    "whisper-1",
+		},
+		Providers: map[string]ProviderConfig{
+			"openai": {APIKey: "test-key"},
 		},
 		Injection: InjectionConfig{
 			Backends: []string{"ydotool", "wtype", "clipboard"}, YdotoolTimeout: 5 * time.Second,
@@ -1017,8 +1044,10 @@ func TestConfig_Validate_RecordingBufferSizes(t *testing.T) {
 		},
 		Transcription: TranscriptionConfig{
 			Provider: "openai",
-			APIKey:   "test-key",
 			Model:    "whisper-1",
+		},
+		Providers: map[string]ProviderConfig{
+			"openai": {APIKey: "test-key"},
 		},
 		Injection: InjectionConfig{
 			Backends: []string{"ydotool", "wtype", "clipboard"}, YdotoolTimeout: 5 * time.Second,
@@ -1048,9 +1077,11 @@ func TestConfig_Validate_GroqTranscription(t *testing.T) {
 		},
 		Transcription: TranscriptionConfig{
 			Provider: "groq-transcription",
-			APIKey:   "gsk-test-key",
 			Language: "en",
 			Model:    "whisper-large-v3",
+		},
+		Providers: map[string]ProviderConfig{
+			"groq": {APIKey: "gsk-test-key"},
 		},
 		Injection: InjectionConfig{
 			Backends: []string{"ydotool", "wtype", "clipboard"}, YdotoolTimeout: 5 * time.Second,
@@ -1080,9 +1111,11 @@ func TestConfig_Validate_GroqInvalidModel(t *testing.T) {
 		},
 		Transcription: TranscriptionConfig{
 			Provider: "groq-transcription",
-			APIKey:   "gsk-test-key",
 			Language: "en",
 			Model:    "invalid-model",
+		},
+		Providers: map[string]ProviderConfig{
+			"groq": {APIKey: "gsk-test-key"},
 		},
 		Injection: InjectionConfig{
 			Backends: []string{"ydotool", "wtype", "clipboard"}, YdotoolTimeout: 5 * time.Second,
@@ -1112,7 +1145,6 @@ func TestConfig_Validate_GroqWithoutAPIKey(t *testing.T) {
 		},
 		Transcription: TranscriptionConfig{
 			Provider: "groq-transcription",
-			APIKey:   "", // No API key
 			Model:    "whisper-large-v3",
 		},
 		Injection: InjectionConfig{
@@ -1152,7 +1184,6 @@ func TestConfig_Validate_GroqWithEnvVarAPIKey(t *testing.T) {
 		},
 		Transcription: TranscriptionConfig{
 			Provider: "groq-transcription",
-			APIKey:   "", // No API key in config
 			Model:    "whisper-large-v3",
 		},
 		Injection: InjectionConfig{
@@ -1186,7 +1217,6 @@ func TestConfig_ToTranscriberConfig_GroqWithEnvVar(t *testing.T) {
 	config := &Config{
 		Transcription: TranscriptionConfig{
 			Provider: "groq-transcription",
-			APIKey:   "", // Empty API key to test env var fallback
 			Language: "en",
 			Model:    "whisper-large-v3",
 		},
@@ -1297,38 +1327,6 @@ func TestConfig_ProvidersMap(t *testing.T) {
 	// Validation should pass
 	if err := config.Validate(); err != nil {
 		t.Errorf("Validate() error = %v", err)
-	}
-}
-
-func TestConfig_ProvidersMapFallbackToLegacy(t *testing.T) {
-	config := &Config{
-		Recording: RecordingConfig{
-			SampleRate:        16000,
-			Channels:          1,
-			Format:            "s16",
-			BufferSize:        8192,
-			ChannelBufferSize: 30,
-			Timeout:           time.Minute,
-		},
-		Transcription: TranscriptionConfig{
-			Provider: "openai",
-			APIKey:   "sk-legacy-key", // Legacy field
-			Model:    "whisper-1",
-		},
-		Providers: map[string]ProviderConfig{}, // Empty providers map
-		Injection: InjectionConfig{
-			Backends:         []string{"clipboard"},
-			YdotoolTimeout:   5 * time.Second,
-			WtypeTimeout:     5 * time.Second,
-			ClipboardTimeout: 3 * time.Second,
-		},
-		Notifications: NotificationsConfig{Type: "log"},
-	}
-
-	// Should fall back to legacy transcription.api_key
-	transcriberConfig := config.ToTranscriberConfig()
-	if transcriberConfig.APIKey != "sk-legacy-key" {
-		t.Errorf("Expected APIKey from legacy field, got %s", transcriberConfig.APIKey)
 	}
 }
 
@@ -1505,79 +1503,6 @@ func TestConfig_LLMValidation(t *testing.T) {
 			t.Error("Validate() should fail when LLM enabled without API key for provider")
 		}
 	})
-}
-
-func TestConfig_MigrateTranscriptionAPIKey(t *testing.T) {
-	tempDir := t.TempDir()
-	configPath := filepath.Join(tempDir, "hyprvoice", "config.toml")
-
-	err := os.MkdirAll(filepath.Dir(configPath), 0755)
-	if err != nil {
-		t.Fatalf("Failed to create config directory: %v", err)
-	}
-
-	// Old-style config with api_key in transcription
-	oldConfig := `[recording]
-sample_rate = 16000
-channels = 1
-format = "s16"
-buffer_size = 8192
-channel_buffer_size = 30
-timeout = "5m"
-
-[transcription]
-provider = "openai"
-api_key = "sk-old-style-key"
-model = "whisper-1"
-
-[injection]
-backends = ["clipboard"]
-ydotool_timeout = "5s"
-wtype_timeout = "5s"
-clipboard_timeout = "3s"
-
-[notifications]
-type = "log"`
-
-	err = os.WriteFile(configPath, []byte(oldConfig), 0644)
-	if err != nil {
-		t.Fatalf("Failed to create config file: %v", err)
-	}
-
-	originalConfigDir := os.Getenv("XDG_CONFIG_HOME")
-	os.Setenv("XDG_CONFIG_HOME", tempDir)
-	defer func() {
-		if originalConfigDir == "" {
-			os.Unsetenv("XDG_CONFIG_HOME")
-		} else {
-			os.Setenv("XDG_CONFIG_HOME", originalConfigDir)
-		}
-	}()
-
-	config, err := Load()
-	if err != nil {
-		t.Errorf("Load() error = %v", err)
-		return
-	}
-
-	// Should have migrated to providers map
-	if config.Providers == nil {
-		t.Fatal("Providers map should not be nil after migration")
-	}
-	if config.Providers["openai"].APIKey != "sk-old-style-key" {
-		t.Errorf("Expected migrated API key in providers.openai, got %s", config.Providers["openai"].APIKey)
-	}
-
-	// Validation should pass
-	if err := config.Validate(); err != nil {
-		t.Errorf("Validate() should pass after migration: %v", err)
-	}
-
-	// ToTranscriberConfig should resolve correctly
-	transcriberConfig := config.ToTranscriberConfig()
-	if transcriberConfig.APIKey != "sk-old-style-key" {
-		t.Errorf("Expected APIKey 'sk-old-style-key', got %s", transcriberConfig.APIKey)
-	}
 }
 
 func TestConfig_NewStyleConfig(t *testing.T) {
@@ -1956,8 +1881,10 @@ func TestConfig_Validate_TranscriptionLanguage(t *testing.T) {
 			},
 			Transcription: TranscriptionConfig{
 				Provider: "openai",
-				APIKey:   "test-key",
 				Model:    "whisper-1",
+			},
+			Providers: map[string]ProviderConfig{
+				"openai": {APIKey: "test-key"},
 			},
 			Injection: InjectionConfig{
 				Backends:         []string{"clipboard"},

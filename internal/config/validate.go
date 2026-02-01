@@ -78,7 +78,7 @@ func (c *Config) Validate() error {
 		apiKey := c.resolveAPIKeyForProvider(c.Transcription.Provider)
 		if apiKey == "" {
 			envVar := envVarForProvider(registryName)
-			return fmt.Errorf("%s API key required: not found in config (providers.%s.api_key, transcription.api_key) or environment variable (%s)",
+			return fmt.Errorf("%s API key required: not found in config (providers.%s.api_key) or environment variable (%s)",
 				strings.Title(registryName), registryName, envVar)
 		}
 	}

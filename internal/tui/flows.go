@@ -25,11 +25,14 @@ const (
 	menuAdvanced      = "advanced"
 	menuSave          = "save"
 	menuDiscard       = "discard"
+	repoURL           = "https://github.com/leonardotrapani/hyprvoice"
 )
 
 func newWelcomeScreen(state *wizardState) screen {
 	desc := append([]string{}, LogoLines()...)
 	desc = append(desc, "", "Voice-powered typing for Wayland/Hyprland.", "Let's set up your configuration.")
+	desc = append(desc, "Consider starring the project on GitHub ⭐")
+	desc = append(desc, repoURL)
 	s := newInfoScreen(state, "Hyprvoice Onboarding", desc, func() screen {
 		return onboardingVoiceProviderScreen(state)
 	}, func() screen {
@@ -103,7 +106,7 @@ func newMenuScreen(state *wizardState) screen {
 		state.result = &ConfigureResult{Cancelled: true}
 		return nil
 	})
-	screen.footer = "enter select • esc cancel • / filter"
+	screen.footer = fmt.Sprintf("enter select • esc cancel • / filter\nconsider starring the project on github ⭐\n%s", repoURL)
 	return screen
 }
 

@@ -51,12 +51,6 @@ func NewOpenAIAdapter(endpoint *provider.EndpointConfig, apiKey, model, lang str
 	}
 }
 
-// NewOpenAIAdapterFromConfig creates an adapter using the legacy Config struct
-// This is for backwards compatibility during migration
-func NewOpenAIAdapterFromConfig(config Config) *OpenAIAdapter {
-	return NewOpenAIAdapter(nil, config.APIKey, config.Model, config.Language, config.Keywords, "openai")
-}
-
 func (a *OpenAIAdapter) Transcribe(ctx context.Context, audioData []byte) (string, error) {
 	if len(audioData) == 0 {
 		return "", nil

@@ -31,9 +31,11 @@ func TestConfig() *config.Config {
 		},
 		Transcription: config.TranscriptionConfig{
 			Provider: "openai",
-			APIKey:   "test-api-key",
 			Language: "",
 			Model:    "whisper-1",
+		},
+		Providers: map[string]config.ProviderConfig{
+			"openai": {APIKey: "test-api-key"},
 		},
 		Injection: config.InjectionConfig{
 			Backends:         []string{"ydotool", "wtype", "clipboard"},
@@ -61,7 +63,6 @@ func TestConfigWithInvalidValues() *config.Config {
 		},
 		Transcription: config.TranscriptionConfig{
 			Provider: "", // Invalid
-			APIKey:   "", // Invalid
 			Model:    "", // Invalid
 		},
 		Injection: config.InjectionConfig{
