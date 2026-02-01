@@ -616,7 +616,7 @@
 				"Shows success message after removal",
 				"Typecheck passes"
 			],
-			"passes": false
+			"passes": true
 		},
 		// ============================================================================
 		// PHASE 6: TUI IMPROVEMENTS

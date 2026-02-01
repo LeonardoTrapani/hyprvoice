@@ -405,6 +405,7 @@ func modelCmd() *cobra.Command {
 
 	cmd.AddCommand(modelListCmd())
 	cmd.AddCommand(modelDownloadCmd())
+	cmd.AddCommand(modelRemoveCmd())
 
 	return cmd
 }
@@ -584,5 +585,43 @@ func runModelDownload(ctx context.Context, modelName string) error {
 
 	path := whisper.GetModelPath(modelName)
 	fmt.Printf("\ndownload complete: %s\n", path)
+	return nil
+}
+
+func modelRemoveCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "remove <model-name>",
+		Short: "Remove a downloaded local model",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runModelRemove(args[0])
+		},
+	}
+}
+
+func runModelRemove(modelName string) error {
+	// find the model across all providers
+	model, _, err := provider.FindModelByID(modelName)
+	if err != nil {
+		return fmt.Errorf("unknown model: %s", modelName)
+	}
+
+	// check if it's a cloud model (nothing to remove)
+	if !model.NeedsDownload() {
+		fmt.Printf("model '%s' is a cloud model, nothing to remove\n", modelName)
+		return nil
+	}
+
+	// check if installed
+	if !whisper.IsInstalled(modelName) {
+		return fmt.Errorf("model '%s' is not installed", modelName)
+	}
+
+	// remove the model
+	if err := whisper.Remove(modelName); err != nil {
+		return fmt.Errorf("failed to remove model: %w", err)
+	}
+
+	fmt.Printf("model '%s' removed successfully\n", modelName)
 	return nil
 }

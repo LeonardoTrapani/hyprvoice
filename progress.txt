@@ -256,3 +256,11 @@ Started: Sun Feb  1 12:22:47 AM CET 2026
 - Prints success message with full model path
 - Tested: cloud model rejection, unknown model error, download with progress, already installed
 - All tests passing, typecheck passes
+
+### Task 26: Add model remove CLI command
+- Created `modelRemoveCmd()` subcommand with Use: 'remove <model-name>'
+- Uses `provider.FindModelByID()` to find model across all providers
+- Cloud models: prints 'nothing to remove'
+- Not installed: returns error 'model is not installed'
+- Installed: calls `whisper.Remove()`, prints success message
+- All verification scenarios tested, typecheck passes
