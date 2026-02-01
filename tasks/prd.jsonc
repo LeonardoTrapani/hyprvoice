@@ -62,7 +62,7 @@
 				"Selecting Language enters language edit flow",
 				"Typecheck passes"
 			],
-			"passes": false
+			"passes": true
 		},
 		{
 			"title": "Create editLanguage function in TUI",

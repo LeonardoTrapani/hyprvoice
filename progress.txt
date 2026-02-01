@@ -528,3 +528,12 @@ Started: Sun Feb  1 12:22:47 AM CET 2026
 - Removed `language = ""` from `[transcription]` section
 - Added commented `# language = ""` in transcription section with note about override
 - All tests passing, typecheck passes
+
+### Task 4: Add SectionLanguage to TUI configure menu
+- Added `SectionLanguage ConfigSection = "language"` constant in configure.go
+- Added Language option to selectSection() options list after Providers
+- Created `formatLanguageMenuLabel(cfg)` helper in configure_helpers.go (renamed from formatLanguageLabel to avoid collision with languages.go)
+- Shows "Language (Auto-detect)" when empty, "Language ({name})" when set
+- Added case SectionLanguage in runEditExisting switch calling editLanguage()
+- Created stub configure_language.go with editLanguage() function (implementation in Task 5)
+- All tests passing, typecheck passes
