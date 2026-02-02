@@ -64,7 +64,7 @@ func TestTranscriptionModels(t *testing.T) {
 			}
 
 			modes := getModesForModel(model)
-			languages := []string{"en", ""}
+			languages := getLanguagesForModel(model)
 			keywordOptions := []bool{true, false}
 
 			for _, mode := range modes {
@@ -524,6 +524,14 @@ func getModesForModel(model provider.Model) []string {
 		return []string{"streaming"}
 	}
 	return []string{"batch"}
+}
+
+func getLanguagesForModel(model provider.Model) []string {
+	// always test auto-detect, plus the first supported language if available
+	if len(model.SupportedLanguages) > 0 {
+		return []string{model.SupportedLanguages[0], ""}
+	}
+	return []string{""}
 }
 
 func langDisplay(lang string) string {
