@@ -144,6 +144,7 @@ Configuration lives in `~/.config/hyprvoice/config.toml` and hot-reloads automat
 - `docs/providers.md` - provider and model details
 - `docs/architecture.md` - architecture and adapter overview
 - `docs/structure.md` - code map and entry points
+- `docs/testing.md` - integration testing with test-models
 
 ## Troubleshooting
 

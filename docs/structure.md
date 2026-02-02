@@ -5,7 +5,7 @@ This doc explains how the CLI, daemon, and pipeline fit together and where to st
 ## Top-level layout
 - cmd/hyprvoice: CLI entrypoint and commands
 - internal/: core packages
-- docs/: user and developer docs
+- docs/: user and developer docs (config, providers, architecture, structure, testing)
 - packaging/: AUR and systemd packaging
 - .github/workflows/: CI and release workflows
 

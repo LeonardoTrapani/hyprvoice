@@ -100,6 +100,7 @@ Common extension points:
   - Implement a `BatchAdapter` or `StreamingAdapter` in `internal/transcriber/`.
   - Add adapter constants in `internal/provider/names.go`.
   - Update provider docs in `docs/providers.md`.
+  - Run `hyprvoice test-models` to verify the integration (see `docs/testing.md`).
 
 - Add a new injection backend:
   - Implement `Backend` in `internal/injection/`.
