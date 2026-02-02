@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/leonardotrapani/hyprvoice/internal/config"
+	"github.com/leonardotrapani/hyprvoice/internal/testutil"
 )
 
 func TestNew(t *testing.T) {
@@ -20,9 +21,11 @@ func TestNew(t *testing.T) {
 		},
 		Transcription: config.TranscriptionConfig{
 			Provider: "openai",
-			APIKey:   "test-key",
 			Language: "en",
 			Model:    "whisper-1",
+		},
+		Providers: map[string]config.ProviderConfig{
+			"openai": {APIKey: "test-key"},
 		},
 		Injection: config.InjectionConfig{
 			Backends: []string{"ydotool", "wtype", "clipboard"}, YdotoolTimeout: 5 * time.Second,
@@ -58,9 +61,11 @@ func TestPipeline_Status(t *testing.T) {
 		},
 		Transcription: config.TranscriptionConfig{
 			Provider: "openai",
-			APIKey:   "test-key",
 			Language: "en",
 			Model:    "whisper-1",
+		},
+		Providers: map[string]config.ProviderConfig{
+			"openai": {APIKey: "test-key"},
 		},
 		Injection: config.InjectionConfig{
 			Backends: []string{"ydotool", "wtype", "clipboard"}, YdotoolTimeout: 5 * time.Second,
@@ -104,9 +109,11 @@ func TestPipeline_GetActionCh(t *testing.T) {
 		},
 		Transcription: config.TranscriptionConfig{
 			Provider: "openai",
-			APIKey:   "test-key",
 			Language: "en",
 			Model:    "whisper-1",
+		},
+		Providers: map[string]config.ProviderConfig{
+			"openai": {APIKey: "test-key"},
 		},
 		Injection: config.InjectionConfig{
 			Backends: []string{"ydotool", "wtype", "clipboard"}, YdotoolTimeout: 5 * time.Second,
@@ -148,9 +155,11 @@ func TestPipeline_GetErrorCh(t *testing.T) {
 		},
 		Transcription: config.TranscriptionConfig{
 			Provider: "openai",
-			APIKey:   "test-key",
 			Language: "en",
 			Model:    "whisper-1",
+		},
+		Providers: map[string]config.ProviderConfig{
+			"openai": {APIKey: "test-key"},
 		},
 		Injection: config.InjectionConfig{
 			Backends: []string{"ydotool", "wtype", "clipboard"}, YdotoolTimeout: 5 * time.Second,
@@ -192,9 +201,11 @@ func TestPipeline_Stop(t *testing.T) {
 		},
 		Transcription: config.TranscriptionConfig{
 			Provider: "openai",
-			APIKey:   "test-key",
 			Language: "en",
 			Model:    "whisper-1",
+		},
+		Providers: map[string]config.ProviderConfig{
+			"openai": {APIKey: "test-key"},
 		},
 		Injection: config.InjectionConfig{
 			Backends: []string{"ydotool", "wtype", "clipboard"}, YdotoolTimeout: 5 * time.Second,
@@ -229,9 +240,11 @@ func TestPipeline_Run(t *testing.T) {
 		},
 		Transcription: config.TranscriptionConfig{
 			Provider: "openai",
-			APIKey:   "test-key",
 			Language: "en",
 			Model:    "whisper-1",
+		},
+		Providers: map[string]config.ProviderConfig{
+			"openai": {APIKey: "test-key"},
 		},
 		Injection: config.InjectionConfig{
 			Backends: []string{"ydotool", "wtype", "clipboard"}, YdotoolTimeout: 5 * time.Second,
@@ -339,9 +352,11 @@ func TestPipeline_ConcurrentAccess(t *testing.T) {
 		},
 		Transcription: config.TranscriptionConfig{
 			Provider: "openai",
-			APIKey:   "test-key",
 			Language: "en",
 			Model:    "whisper-1",
+		},
+		Providers: map[string]config.ProviderConfig{
+			"openai": {APIKey: "test-key"},
 		},
 		Injection: config.InjectionConfig{
 			Backends: []string{"ydotool", "wtype", "clipboard"}, YdotoolTimeout: 5 * time.Second,
@@ -376,4 +391,140 @@ func TestPipeline_ConcurrentAccess(t *testing.T) {
 	// Wait for both goroutines to complete
 	<-done
 	<-done
+}
+
+func TestPipeline_WithMocks(t *testing.T) {
+	cfg := &config.Config{
+		Recording: config.RecordingConfig{
+			SampleRate:        16000,
+			Channels:          1,
+			Format:            "s16",
+			BufferSize:        8192,
+			ChannelBufferSize: 30,
+			Timeout:           5 * time.Minute,
+		},
+		Transcription: config.TranscriptionConfig{
+			Provider: "openai",
+			Language: "en",
+			Model:    "whisper-1",
+		},
+		Providers: map[string]config.ProviderConfig{
+			"openai": {APIKey: "test-key"},
+		},
+		Injection: config.InjectionConfig{
+			Backends:         []string{"clipboard"},
+			ClipboardTimeout: 3 * time.Second,
+		},
+		Notifications: config.NotificationsConfig{
+			Enabled: true,
+			Type:    "log",
+		},
+	}
+
+	mockRecorder := testutil.NewMockRecorder()
+	mockTranscriber := testutil.NewMockTranscriber("hello world")
+	mockInjector := testutil.NewMockInjector()
+
+	p := New(cfg,
+		WithRecorderFactory(testutil.MockRecorderFactory(mockRecorder)),
+		WithTranscriberFactory(testutil.MockTranscriberFactory(mockTranscriber)),
+		WithInjectorFactory(testutil.MockInjectorFactory(mockInjector)),
+	)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	p.Run(ctx)
+
+	// wait for pipeline to start recording/transcribing
+	time.Sleep(50 * time.Millisecond)
+
+	// send inject action
+	p.GetActionCh() <- Inject
+
+	// wait for injection to complete
+	time.Sleep(100 * time.Millisecond)
+
+	// verify injection happened
+	injected := mockInjector.GetInjectedTexts()
+	if len(injected) != 1 {
+		t.Errorf("expected 1 injected text, got %d", len(injected))
+	} else if injected[0] != "hello world" {
+		t.Errorf("expected injected text 'hello world', got %q", injected[0])
+	}
+
+	p.Stop()
+}
+
+func TestPipeline_WithMocks_LLMProcessing(t *testing.T) {
+	cfg := &config.Config{
+		Recording: config.RecordingConfig{
+			SampleRate:        16000,
+			Channels:          1,
+			Format:            "s16",
+			BufferSize:        8192,
+			ChannelBufferSize: 30,
+			Timeout:           5 * time.Minute,
+		},
+		Transcription: config.TranscriptionConfig{
+			Provider: "openai",
+			Language: "en",
+			Model:    "whisper-1",
+		},
+		Injection: config.InjectionConfig{
+			Backends:         []string{"clipboard"},
+			ClipboardTimeout: 3 * time.Second,
+		},
+		Notifications: config.NotificationsConfig{
+			Enabled: true,
+			Type:    "log",
+		},
+		LLM: config.LLMConfig{
+			Enabled:  true,
+			Provider: "openai",
+			Model:    "gpt-4",
+		},
+		Providers: map[string]config.ProviderConfig{
+			"openai": {APIKey: "test-key"},
+		},
+	}
+
+	mockRecorder := testutil.NewMockRecorder()
+	mockTranscriber := testutil.NewMockTranscriber("um hello um world")
+	mockInjector := testutil.NewMockInjector()
+	mockLLM := testutil.NewMockLLMAdapter("Hello, World!")
+
+	p := New(cfg,
+		WithRecorderFactory(testutil.MockRecorderFactory(mockRecorder)),
+		WithTranscriberFactory(testutil.MockTranscriberFactory(mockTranscriber)),
+		WithInjectorFactory(testutil.MockInjectorFactory(mockInjector)),
+		WithLLMAdapterFactory(testutil.MockLLMAdapterFactory(mockLLM)),
+	)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	p.Run(ctx)
+	time.Sleep(50 * time.Millisecond)
+
+	p.GetActionCh() <- Inject
+	time.Sleep(100 * time.Millisecond)
+
+	// verify LLM was called with transcription
+	if !mockLLM.ProcessCalled {
+		t.Error("expected LLM.Process to be called")
+	}
+	if mockLLM.InputText != "um hello um world" {
+		t.Errorf("expected LLM input 'um hello um world', got %q", mockLLM.InputText)
+	}
+
+	// verify injection used LLM output
+	injected := mockInjector.GetInjectedTexts()
+	if len(injected) != 1 {
+		t.Errorf("expected 1 injected text, got %d", len(injected))
+	} else if injected[0] != "Hello, World!" {
+		t.Errorf("expected injected text 'Hello, World!', got %q", injected[0])
+	}
+
+	p.Stop()
 }

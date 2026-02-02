@@ -4,6 +4,11 @@ import (
 	"context"
 	"fmt"
 
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
+
+	"github.com/leonardotrapani/hyprvoice/internal/models/whisper"
+	"github.com/leonardotrapani/hyprvoice/internal/provider"
 	"github.com/leonardotrapani/hyprvoice/internal/recording"
 )
 
@@ -14,61 +19,122 @@ type Transcriber interface {
 	GetFinalTranscription() (string, error)
 }
 
-// Adapter interface for different transcription backends
-type TranscriptionAdapter interface {
+// BatchAdapter interface for batch transcription backends (collect all audio, transcribe at end)
+type BatchAdapter interface {
 	Transcribe(ctx context.Context, audioData []byte) (string, error)
 }
 
 // Configuration for the transcriber
 type Config struct {
-	Provider string
-	APIKey   string
-	Language string
-	Model    string
+	Provider  string
+	APIKey    string
+	Language  string
+	Model     string
+	Keywords  []string
+	Threads   int  // CPU threads for local transcription (0 = auto)
+	Streaming bool // use streaming mode if model supports it
 }
 
-// NewTranscriber creates a new simple transcriber
+// NewTranscriber creates a new transcriber based on model metadata
 func NewTranscriber(config Config) (Transcriber, error) {
-	// Create the appropriate adapter
-	var adapter TranscriptionAdapter
-
-	switch config.Provider {
-	case "openai":
-		if config.APIKey == "" {
-			return nil, fmt.Errorf("OpenAI API key required")
-		}
-		adapter = NewOpenAIAdapter(config)
-
-	case "groq-transcription":
-		if config.APIKey == "" {
-			return nil, fmt.Errorf("Groq API key required")
-		}
-		adapter = NewGroqTranscriptionAdapter(config)
-
-	case "groq-translation":
-		if config.APIKey == "" {
-			return nil, fmt.Errorf("Groq API key required")
-		}
-		adapter = NewGroqTranslationAdapter(config)
-
-	case "mistral-transcription":
-		if config.APIKey == "" {
-			return nil, fmt.Errorf("Mistral API key required")
-		}
-		adapter = NewMistralAdapter(config)
-
-	case "elevenlabs":
-		if config.APIKey == "" {
-			return nil, fmt.Errorf("ElevenLabs API key required")
-		}
-		adapter = NewElevenLabsAdapter(config)
-
-	default:
-		return nil, fmt.Errorf("unsupported provider: %s", config.Provider)
+	if config.Provider == "" {
+		return nil, fmt.Errorf("provider is required")
 	}
 
-	// Create simple transcriber that collects all audio
-	transcriber := NewSimpleTranscriber(config, adapter)
+	// map config provider name to registry provider name
+	registryProvider := provider.BaseProviderName(config.Provider)
 
-	return transcriber, nil
+	// lookup provider
+	p := provider.GetProvider(registryProvider)
+	if p == nil {
+		return nil, fmt.Errorf("unknown provider: %s", config.Provider)
+	}
+
+	// check API key requirement
+	if p.RequiresAPIKey() && config.APIKey == "" {
+		return nil, fmt.Errorf("%s API key required", cases.Title(language.English).String(registryProvider))
+	}
+
+	// lookup model from provider
+	model, err := provider.GetModel(registryProvider, config.Model)
+	if err != nil {
+		// if model not found, try to use default model
+		if config.Model == "" {
+			defaultModel := p.DefaultModel(provider.Transcription)
+			if defaultModel != "" {
+				model, err = provider.GetModel(registryProvider, defaultModel)
+			}
+		}
+		if err != nil || model == nil {
+			return nil, fmt.Errorf("model not found: %s (provider: %s)", config.Model, config.Provider)
+		}
+	}
+
+	// check model type
+	if model.Type != provider.Transcription {
+		return nil, fmt.Errorf("model %s is not a transcription model", config.Model)
+	}
+
+	if config.Language != "" && !model.SupportsLanguage(config.Language) {
+		return nil, fmt.Errorf("model %s does not support language %s", model.ID, config.Language)
+	}
+
+	// validate streaming/batch mode compatibility
+	if config.Streaming && !model.SupportsStreaming {
+		return nil, fmt.Errorf("model %s does not support streaming mode", model.ID)
+	}
+	if !config.Streaming && !model.SupportsBatch {
+		return nil, fmt.Errorf("model %s requires streaming mode (set streaming = true in config)", model.ID)
+	}
+
+	useStreaming := config.Streaming
+
+	// streaming mode: use StreamingTranscriber
+	if useStreaming {
+		// pick the right adapter type for streaming
+		adapterType := model.AdapterType
+		if model.StreamingAdapter != "" {
+			adapterType = model.StreamingAdapter
+		}
+
+		// pick the right endpoint for streaming
+		endpoint := model.Endpoint
+		if model.StreamingEndpoint != nil {
+			endpoint = model.StreamingEndpoint
+		}
+
+		var streamingAdapter StreamingAdapter
+		switch adapterType {
+		case provider.AdapterElevenLabsStream:
+			streamingAdapter = NewElevenLabsStreamingAdapter(endpoint, config.APIKey, model.ID, config.Language, config.Keywords)
+		case provider.AdapterDeepgram:
+			streamingAdapter = NewDeepgramAdapter(endpoint, config.APIKey, model.ID, config.Language, config.Keywords)
+		case provider.AdapterOpenAIRealtime:
+			streamingAdapter = NewOpenAIRealtimeAdapter(endpoint, config.APIKey, model.ID, config.Language, config.Keywords)
+		default:
+			return nil, fmt.Errorf("unsupported streaming adapter type: %s", adapterType)
+		}
+		return NewStreamingTranscriber(streamingAdapter, config.Language), nil
+	}
+
+	// batch mode: use SimpleTranscriber
+	var adapter BatchAdapter
+	switch model.AdapterType {
+	case provider.AdapterOpenAI:
+		adapter = NewOpenAIAdapter(model.Endpoint, config.APIKey, model.ID, config.Language, config.Keywords, registryProvider)
+	case provider.AdapterElevenLabs:
+		adapter = NewElevenLabsAdapter(model.Endpoint, config.APIKey, model.ID, config.Language, config.Keywords)
+	case provider.AdapterDeepgram:
+		adapter = NewDeepgramBatchAdapter(model.Endpoint, config.APIKey, model.ID, config.Language, config.Keywords)
+	case provider.AdapterWhisperCpp:
+		modelPath := whisper.GetModelPath(config.Model)
+		if modelPath == "" {
+			return nil, fmt.Errorf("unknown whisper model: %s", config.Model)
+		}
+		adapter = NewWhisperCppAdapter(modelPath, config.Language, config.Threads)
+	default:
+		return nil, fmt.Errorf("unsupported adapter type: %s", model.AdapterType)
+	}
+
+	return NewSimpleTranscriber(config, adapter), nil
 }

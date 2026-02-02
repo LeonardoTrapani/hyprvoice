@@ -11,7 +11,7 @@ import (
 
 // SimpleTranscriber collects all audio and transcribes when stopped
 type SimpleTranscriber struct {
-	adapter TranscriptionAdapter
+	adapter BatchAdapter
 	config  Config
 
 	// Audio collection
@@ -27,7 +27,7 @@ type SimpleTranscriber struct {
 	transcriptionText string
 }
 
-func NewSimpleTranscriber(config Config, adapter TranscriptionAdapter) *SimpleTranscriber {
+func NewSimpleTranscriber(config Config, adapter BatchAdapter) *SimpleTranscriber {
 	return &SimpleTranscriber{
 		adapter: adapter,
 		config:  config,

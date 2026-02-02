@@ -22,25 +22,33 @@ type Manager struct {
 	debounceTimer *time.Timer
 	debounceMutex sync.Mutex
 	debounceDelay time.Duration
+
+	// legacy tracks if config is in legacy format (needs onboarding)
+	legacy bool
 }
 
 func NewManager() (*Manager, error) {
 	log.Printf("Config manager: initializing configuration system...")
 
-	config, err := Load()
+	config, legacy, err := LoadOrLegacy()
 	if err != nil {
 		log.Printf("Config manager: failed to load initial configuration: %v", err)
 		return nil, err
 	}
 
-	log.Printf("Config manager: validating initial configuration...")
-	if err := config.Validate(); err != nil {
-		log.Printf("Config manager: validation warning: %v", err)
+	if legacy {
+		log.Printf("Config manager: legacy config detected, daemon will prompt for onboarding")
+	} else {
+		log.Printf("Config manager: validating initial configuration...")
+		if err := config.Validate(); err != nil {
+			log.Printf("Config manager: validation warning: %v", err)
+		}
 	}
 
 	m := &Manager{
 		config:        config,
 		debounceDelay: 500 * time.Millisecond, // 500ms debounce delay
+		legacy:        legacy,
 	}
 
 	log.Printf("Config manager: initialization completed successfully")
@@ -54,6 +62,13 @@ func (m *Manager) GetConfig() *Config {
 	// Return a copy to prevent external modification
 	configCopy := *m.config
 	return &configCopy
+}
+
+// IsLegacy returns true if the config is in legacy format and needs onboarding
+func (m *Manager) IsLegacy() bool {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	return m.legacy
 }
 
 func (m *Manager) StartWatching(ctx context.Context) error {
@@ -136,9 +151,14 @@ func (m *Manager) watchLoop(ctx context.Context, configPath string) {
 func (m *Manager) reloadConfig() {
 	log.Printf("Config manager: starting configuration reload...")
 
-	newConfig, err := Load()
+	newConfig, legacy, err := LoadOrLegacy()
 	if err != nil {
 		log.Printf("Config manager: failed to reload config: %v", err)
+		return
+	}
+
+	if legacy {
+		log.Printf("Config manager: config still in legacy format, skipping reload")
 		return
 	}
 
@@ -150,6 +170,7 @@ func (m *Manager) reloadConfig() {
 
 	m.mu.Lock()
 	m.config = newConfig
+	m.legacy = false // clear legacy flag on successful reload
 	onConfigReload := m.onConfigReload
 	m.mu.Unlock()
 

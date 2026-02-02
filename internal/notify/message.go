@@ -6,6 +6,7 @@ type MessageType int
 const (
 	MsgRecordingStarted MessageType = iota
 	MsgTranscribing
+	MsgLLMProcessing
 	MsgConfigReloaded
 	MsgOperationCancelled
 	MsgRecordingAborted
@@ -25,6 +26,7 @@ type MessageDef struct {
 var MessageDefs = []MessageDef{
 	{MsgRecordingStarted, "recording_started", "Hyprvoice", "Recording Started", false},
 	{MsgTranscribing, "transcribing", "Hyprvoice", "Recording Ended... Transcribing", false},
+	{MsgLLMProcessing, "llm_processing", "Hyprvoice", "Processing...", false},
 	{MsgConfigReloaded, "config_reloaded", "Hyprvoice", "Config Reloaded", false},
 	{MsgOperationCancelled, "operation_cancelled", "Hyprvoice", "Operation Cancelled", false},
 	{MsgRecordingAborted, "recording_aborted", "", "Recording Aborted", true},

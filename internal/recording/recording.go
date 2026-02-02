@@ -29,7 +29,14 @@ type Config struct {
 	Timeout           time.Duration
 }
 
-type Recorder struct {
+// Recorder interface for audio recording
+type Recorder interface {
+	Start(ctx context.Context) (<-chan AudioFrame, <-chan error, error)
+	Stop()
+	IsRecording() bool
+}
+
+type recorder struct {
 	config    Config
 	recording atomic.Bool
 
@@ -40,15 +47,15 @@ type Recorder struct {
 	wg sync.WaitGroup
 }
 
-func NewRecorder(config Config) *Recorder {
-	return &Recorder{config: config}
+func NewRecorder(config Config) Recorder {
+	return &recorder{config: config}
 }
 
-func (r *Recorder) IsRecording() bool {
+func (r *recorder) IsRecording() bool {
 	return r.recording.Load()
 }
 
-func (r *Recorder) Start(ctx context.Context) (<-chan AudioFrame, <-chan error, error) {
+func (r *recorder) Start(ctx context.Context) (<-chan AudioFrame, <-chan error, error) {
 	if r.recording.Load() {
 		return nil, nil, fmt.Errorf("already recording")
 	}
@@ -77,7 +84,7 @@ func (r *Recorder) Start(ctx context.Context) (<-chan AudioFrame, <-chan error, 
 	return frameCh, errCh, nil
 }
 
-func (r *Recorder) Stop() {
+func (r *recorder) Stop() {
 	if !r.recording.Load() {
 		return
 	}
@@ -87,7 +94,7 @@ func (r *Recorder) Stop() {
 	r.wg.Wait()
 }
 
-func (r *Recorder) captureLoop(ctx context.Context, frameCh chan<- AudioFrame, errCh chan<- error) {
+func (r *recorder) captureLoop(ctx context.Context, frameCh chan<- AudioFrame, errCh chan<- error) {
 	defer func() {
 		close(frameCh)
 		close(errCh)
@@ -178,7 +185,7 @@ func (r *Recorder) captureLoop(ctx context.Context, frameCh chan<- AudioFrame, e
 	}
 }
 
-func (r *Recorder) requestCancel() {
+func (r *recorder) requestCancel() {
 	r.mu.Lock()
 	cancel := r.cancel
 	r.mu.Unlock()
@@ -187,7 +194,7 @@ func (r *Recorder) requestCancel() {
 	}
 }
 
-func (r *Recorder) emitErr(errCh chan<- error, err error) {
+func (r *recorder) emitErr(errCh chan<- error, err error) {
 	select {
 	case errCh <- err:
 	default:
@@ -195,7 +202,7 @@ func (r *Recorder) emitErr(errCh chan<- error, err error) {
 	log.Printf("Recording error: %v", err)
 }
 
-func (r *Recorder) buildPwRecordArgs() []string {
+func (r *recorder) buildPwRecordArgs() []string {
 	args := []string{
 		"--format", r.config.Format,
 		"--rate", strconv.Itoa(r.config.SampleRate),
@@ -222,7 +229,7 @@ func CheckPipeWireAvailable(ctx context.Context) error {
 	return nil
 }
 
-func (r *Recorder) validateConfig() error {
+func (r *recorder) validateConfig() error {
 	if r.config.SampleRate <= 0 {
 		return fmt.Errorf("invalid SampleRate: %d", r.config.SampleRate)
 	}
