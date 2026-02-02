@@ -613,7 +613,7 @@ func newNotificationTypeScreen(state *wizardState, onBack func() screen) screen 
 		state.cfg.Notifications.Type = "desktop"
 	}
 	items := []optionItem{
-		{title: "Reccomended: Desktop notifications", desc: "Uses notify-send to show popups.", value: "desktop"},
+		{title: "Recommended: Desktop notifications", desc: "Uses notify-send to show popups.", value: "desktop"},
 		{title: "Log to console", desc: "Only use for development, or if you want to plug it to something else. Write status changes to logs only.", value: "log"},
 		{title: "None", desc: "Disable notifications entirely.", value: "none"},
 	}
