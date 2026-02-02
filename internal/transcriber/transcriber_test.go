@@ -3,6 +3,7 @@ package transcriber
 import (
 	"context"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -81,7 +82,7 @@ func TestNewTranscriber(t *testing.T) {
 			config: Config{
 				Provider: "elevenlabs",
 				APIKey:   "test-key",
-				Language: "en",
+				Language: "eng", // ElevenLabs uses ISO 639-3
 				Model:    "scribe_v1",
 			},
 			wantErr: false,
@@ -91,7 +92,7 @@ func TestNewTranscriber(t *testing.T) {
 			config: Config{
 				Provider: "elevenlabs",
 				APIKey:   "test-key",
-				Language: "pt",
+				Language: "por", // ElevenLabs uses ISO 639-3
 				Model:    "scribe_v2",
 			},
 			wantErr: false,
@@ -101,7 +102,7 @@ func TestNewTranscriber(t *testing.T) {
 			config: Config{
 				Provider: "elevenlabs",
 				APIKey:   "",
-				Language: "en",
+				Language: "eng",
 				Model:    "scribe_v1",
 			},
 			wantErr: true,
@@ -139,7 +140,7 @@ func TestNewTranscriber(t *testing.T) {
 			config: Config{
 				Provider:  "elevenlabs",
 				APIKey:    "test-key",
-				Language:  "en",
+				Language:  "eng", // ElevenLabs uses ISO 639-3
 				Model:     "scribe_v2_realtime",
 				Streaming: true,
 			},
@@ -150,7 +151,7 @@ func TestNewTranscriber(t *testing.T) {
 			config: Config{
 				Provider:  "elevenlabs",
 				APIKey:    "test-key",
-				Language:  "en",
+				Language:  "eng", // ElevenLabs uses ISO 639-3
 				Model:     "scribe_v2",
 				Streaming: true,
 			},
@@ -969,8 +970,8 @@ func TestStreamingTranscriber_GetFinalTranscriptionSafe(t *testing.T) {
 	}
 }
 
-func TestNewTranscriber_LanguageFallback(t *testing.T) {
-	// test that incompatible language falls back to auto-detect (no error)
+func TestNewTranscriber_UnsupportedLanguageErrors(t *testing.T) {
+	// test that incompatible language returns an error
 	// base.en only supports English
 	config := Config{
 		Provider: "whisper-cpp",
@@ -978,15 +979,15 @@ func TestNewTranscriber_LanguageFallback(t *testing.T) {
 		Model:    "base.en",
 	}
 
-	// should succeed (fallback to auto), not error
-	transcriber, err := NewTranscriber(config)
-	if err != nil {
-		t.Errorf("NewTranscriber() should fall back to auto, got error: %v", err)
+	// should error, not silently fall back
+	_, err := NewTranscriber(config)
+	if err == nil {
+		t.Errorf("NewTranscriber() should error on unsupported language")
 		return
 	}
 
-	if transcriber == nil {
-		t.Errorf("NewTranscriber() returned nil transcriber")
+	if !strings.Contains(err.Error(), "does not support language") {
+		t.Errorf("expected 'does not support language' error, got: %v", err)
 	}
 }
 
