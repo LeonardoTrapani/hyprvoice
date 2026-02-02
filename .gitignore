@@ -29,7 +29,8 @@ go.work.sum
 # .vscode/
 
 # Output binaries
-hyprvoice
-hyprvoice-*
+/hyprvoice
+/hyprvoice-*
+packaging/hyprvoice-v*
 tmp/*
 CLAUDE.md
