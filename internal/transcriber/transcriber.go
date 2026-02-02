@@ -3,7 +3,6 @@ package transcriber
 import (
 	"context"
 	"fmt"
-	"log"
 
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
@@ -76,11 +75,8 @@ func NewTranscriber(config Config) (Transcriber, error) {
 		return nil, fmt.Errorf("model %s is not a transcription model", config.Model)
 	}
 
-	// runtime language-model compatibility check with fallback
-	// primary validation happens at config time (hard error), this is a safety net
 	if config.Language != "" && !model.SupportsLanguage(config.Language) {
-		log.Printf("warning: model %s does not support language %s, falling back to auto-detect", model.ID, config.Language)
-		config.Language = ""
+		return nil, fmt.Errorf("model %s does not support language %s", model.ID, config.Language)
 	}
 
 	// validate streaming/batch mode compatibility
