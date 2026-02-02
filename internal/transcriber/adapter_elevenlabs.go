@@ -82,13 +82,12 @@ func (a *ElevenLabsAdapter) Transcribe(ctx context.Context, audioData []byte) (s
 		}
 	}
 
-	if len(a.keywords) > 0 {
-		keytermsJSON, err := json.Marshal(a.keywords)
-		if err != nil {
-			return "", fmt.Errorf("marshal keyterms: %w", err)
-		}
-		if err := writer.WriteField("keyterms", string(keytermsJSON)); err != nil {
-			return "", fmt.Errorf("write keyterms: %w", err)
+	// keyterms only supported on scribe_v2, not scribe_v1
+	if a.model != "scribe_v1" {
+		for _, keyword := range a.keywords {
+			if err := writer.WriteField("keyterms", keyword); err != nil {
+				return "", fmt.Errorf("write keyterms: %w", err)
+			}
 		}
 	}
 

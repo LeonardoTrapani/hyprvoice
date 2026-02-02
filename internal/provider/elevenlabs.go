@@ -16,6 +16,10 @@ func (p *ElevenLabsProvider) ValidateAPIKey(key string) bool {
 	return len(key) > 0
 }
 
+func (p *ElevenLabsProvider) APIKeyURL() string {
+	return "https://elevenlabs.io/app/settings/api-keys"
+}
+
 func (p *ElevenLabsProvider) IsLocal() bool {
 	return false
 }
@@ -29,40 +33,46 @@ func (p *ElevenLabsProvider) Models() []Model {
 		{
 			ID:                 "scribe_v1",
 			Name:               "Scribe v1",
-			Description:        "90+ languages, best accuracy",
+			Description:        "Most accurate; best for precision-critical work",
 			Type:               Transcription,
 			SupportsBatch:      true,
 			SupportsStreaming:  false,
 			Local:              false,
 			AdapterType:        AdapterElevenLabs,
+			StreamingAdapter:   AdapterElevenLabsStream,
 			SupportedLanguages: allLangs,
 			Endpoint:           &EndpointConfig{BaseURL: "https://api.elevenlabs.io", Path: "/v1/speech-to-text"},
+			StreamingEndpoint:  &EndpointConfig{BaseURL: "wss://api.elevenlabs.io", Path: "/v1/speech-to-text/realtime"},
 			DocsURL:            docsURL,
 		},
 		{
 			ID:                 "scribe_v2",
 			Name:               "Scribe v2",
-			Description:        "Lower latency batch transcription",
+			Description:        "Faster processing with good accuracy",
 			Type:               Transcription,
 			SupportsBatch:      true,
 			SupportsStreaming:  false,
 			Local:              false,
 			AdapterType:        AdapterElevenLabs,
+			StreamingAdapter:   AdapterElevenLabsStream,
 			SupportedLanguages: allLangs,
 			Endpoint:           &EndpointConfig{BaseURL: "https://api.elevenlabs.io", Path: "/v1/speech-to-text"},
+			StreamingEndpoint:  &EndpointConfig{BaseURL: "wss://api.elevenlabs.io", Path: "/v1/speech-to-text/realtime"},
 			DocsURL:            docsURL,
 		},
 		{
 			ID:                 "scribe_v2_realtime",
 			Name:               "Scribe v2 Realtime",
-			Description:        "Real-time streaming, <150ms latency",
+			Description:        "Instant words as you speak; faster but costs more",
 			Type:               Transcription,
 			SupportsBatch:      false,
 			SupportsStreaming:  true,
 			Local:              false,
-			AdapterType:        AdapterElevenLabsStream,
+			AdapterType:        AdapterElevenLabs,
+			StreamingAdapter:   AdapterElevenLabsStream,
 			SupportedLanguages: allLangs,
-			Endpoint:           &EndpointConfig{BaseURL: "wss://api.elevenlabs.io", Path: "/v1/speech-to-text/realtime"},
+			Endpoint:           &EndpointConfig{BaseURL: "https://api.elevenlabs.io", Path: "/v1/speech-to-text"},
+			StreamingEndpoint:  &EndpointConfig{BaseURL: "wss://api.elevenlabs.io", Path: "/v1/speech-to-text/realtime"},
 			DocsURL:            docsURL,
 		},
 	}

@@ -36,6 +36,7 @@ type DeepgramAdapter struct {
 
 	// finalization signaling
 	finalizeDone chan struct{}
+	finalizing   bool // true when Finalize() has been called
 }
 
 // deepgramCloseStream message to signal end of audio
@@ -235,7 +236,8 @@ func (a *DeepgramAdapter) buildURL() (string, error) {
 		q.Set("language", lang)
 	}
 
-	if len(a.keywords) > 0 {
+	// nova-3 uses "keyterm" (singular), others use "keywords" (plural)
+	if len(a.keywords) > 0 && !strings.HasPrefix(a.model, "nova-3") && !strings.HasPrefix(a.model, "flux") {
 		q.Set("keywords", strings.Join(a.keywords, ","))
 	}
 
@@ -275,6 +277,20 @@ func (a *DeepgramAdapter) readLoop() {
 			case <-a.ctx.Done():
 				return
 			default:
+			}
+
+			// check if we're finalizing - normal close after finalize is expected
+			a.mu.Lock()
+			finalizing := a.finalizing
+			a.mu.Unlock()
+
+			if finalizing {
+				// expected close after finalization, signal done and exit gracefully
+				select {
+				case a.finalizeDone <- struct{}{}:
+				default:
+				}
+				return
 			}
 
 			// attempt reconnection
@@ -411,6 +427,11 @@ func (a *DeepgramAdapter) Finalize(ctx context.Context) error {
 	default:
 	}
 
+	// mark as finalizing to prevent reconnection attempts on normal close
+	a.mu.Lock()
+	a.finalizing = true
+	a.mu.Unlock()
+
 	// send CloseStream message
 	msg := deepgramCloseStream{Type: "CloseStream"}
 
@@ -446,6 +467,9 @@ func (a *DeepgramAdapter) Close() error {
 		a.mu.Unlock()
 		return nil
 	}
+
+	// mark as finalizing to prevent reconnection attempts
+	a.finalizing = true
 
 	// cancel context first to signal reader to stop
 	if a.cancel != nil {

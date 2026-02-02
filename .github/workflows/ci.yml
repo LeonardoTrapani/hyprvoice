@@ -6,7 +6,8 @@ on:
     branches: [main, develop]
   pull_request:
     branches: [main, develop]
-  workflow_call: {} # <-- makes this workflow reusable
+  workflow_dispatch: {} # manual trigger
+  workflow_call: {} # reusable workflow
 
 jobs:
   test:

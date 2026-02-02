@@ -57,7 +57,7 @@ func TestModel_IsStreaming(t *testing.T) {
 	}{
 		{
 			name:     "streaming-only model",
-			model:    Model{ID: "scribe_v2_realtime", SupportsBatch: false, SupportsStreaming: true},
+			model:    Model{ID: "flux-general-en", SupportsBatch: false, SupportsStreaming: true},
 			expected: true,
 		},
 		{
@@ -89,7 +89,7 @@ func TestModel_SupportsBothModes(t *testing.T) {
 	}{
 		{
 			name:     "streaming-only model",
-			model:    Model{ID: "scribe_v2_realtime", SupportsBatch: false, SupportsStreaming: true},
+			model:    Model{ID: "flux-general-en", SupportsBatch: false, SupportsStreaming: true},
 			expected: false,
 		},
 		{
@@ -325,7 +325,7 @@ func TestAllTranscriptionModels_HaveDocsURL(t *testing.T) {
 		"mistral":     "https://docs.mistral.ai/capabilities/audio/",
 		"elevenlabs":  "https://elevenlabs.io/speech-to-text",
 		"deepgram":    "https://developers.deepgram.com/docs/language",
-		"whisper-cpp": "https://github.com/openai/whisper#available-models-and-languages",
+		"whisper-cpp": "https://github.com/ggml-org/whisper.cpp#models",
 	}
 
 	for _, pName := range providers {

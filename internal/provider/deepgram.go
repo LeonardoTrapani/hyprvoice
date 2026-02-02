@@ -16,6 +16,10 @@ func (p *DeepgramProvider) ValidateAPIKey(key string) bool {
 	return len(key) > 0
 }
 
+func (p *DeepgramProvider) APIKeyURL() string {
+	return "https://console.deepgram.com/project/keys"
+}
+
 func (p *DeepgramProvider) IsLocal() bool {
 	return false
 }
@@ -23,7 +27,6 @@ func (p *DeepgramProvider) IsLocal() bool {
 func (p *DeepgramProvider) Models() []Model {
 	// https://developers.deepgram.com/docs/models-languages-overview
 	nova3Langs := deepgramNova3Languages
-	// https://developers.deepgram.com/docs/models-languages-overview
 	nova2Langs := deepgramNova2Languages
 
 	docsURL := "https://developers.deepgram.com/docs/language"
@@ -32,7 +35,7 @@ func (p *DeepgramProvider) Models() []Model {
 		{
 			ID:                 "nova-3",
 			Name:               "Nova-3",
-			Description:        "Best accuracy, 40+ languages",
+			Description:        "Best accuracy; streaming available for faster response",
 			Type:               Transcription,
 			SupportsBatch:      true,
 			SupportsStreaming:  true,
@@ -46,7 +49,7 @@ func (p *DeepgramProvider) Models() []Model {
 		{
 			ID:                 "nova-2",
 			Name:               "Nova-2",
-			Description:        "Fast, 30+ languages, filler words",
+			Description:        "Cheaper legacy model; still solid accuracy",
 			Type:               Transcription,
 			SupportsBatch:      true,
 			SupportsStreaming:  true,

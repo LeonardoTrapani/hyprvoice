@@ -279,7 +279,7 @@ func TestValidateModelLanguage_ErrorFormat(t *testing.T) {
 	}
 
 	// should contain docs URL
-	if !strings.Contains(errMsg, "https://github.com/openai/whisper") {
+	if !strings.Contains(errMsg, "https://github.com/ggml-org/whisper.cpp") {
 		t.Errorf("error should contain docs URL, got: %s", errMsg)
 	}
 
@@ -343,7 +343,7 @@ func TestElevenLabsProvider(t *testing.T) {
 		t.Errorf("ElevenLabsProvider.Models() = %d models, want 3", len(models))
 	}
 
-	// Check batch-only models
+	// Check batch + streaming models
 	scribeV1, err := GetModel("elevenlabs", "scribe_v1")
 	if err != nil {
 		t.Fatalf("GetModel('elevenlabs', 'scribe_v1') error: %v", err)
@@ -356,6 +356,9 @@ func TestElevenLabsProvider(t *testing.T) {
 	}
 	if scribeV1.AdapterType != "elevenlabs" {
 		t.Errorf("scribe_v1 AdapterType=%q, want 'elevenlabs'", scribeV1.AdapterType)
+	}
+	if scribeV1.StreamingAdapter != "elevenlabs-streaming" {
+		t.Errorf("scribe_v1 StreamingAdapter=%q, want 'elevenlabs-streaming'", scribeV1.StreamingAdapter)
 	}
 
 	scribeV2, err := GetModel("elevenlabs", "scribe_v2")
@@ -371,8 +374,10 @@ func TestElevenLabsProvider(t *testing.T) {
 	if scribeV2.AdapterType != "elevenlabs" {
 		t.Errorf("scribe_v2 AdapterType=%q, want 'elevenlabs'", scribeV2.AdapterType)
 	}
+	if scribeV2.StreamingAdapter != "elevenlabs-streaming" {
+		t.Errorf("scribe_v2 StreamingAdapter=%q, want 'elevenlabs-streaming'", scribeV2.StreamingAdapter)
+	}
 
-	// Check streaming-only model
 	scribeV2Realtime, err := GetModel("elevenlabs", "scribe_v2_realtime")
 	if err != nil {
 		t.Fatalf("GetModel('elevenlabs', 'scribe_v2_realtime') error: %v", err)
@@ -383,8 +388,11 @@ func TestElevenLabsProvider(t *testing.T) {
 	if !scribeV2Realtime.SupportsStreaming {
 		t.Error("scribe_v2_realtime should have SupportsStreaming=true")
 	}
-	if scribeV2Realtime.AdapterType != "elevenlabs-streaming" {
-		t.Errorf("scribe_v2_realtime AdapterType=%q, want 'elevenlabs-streaming'", scribeV2Realtime.AdapterType)
+	if scribeV2Realtime.AdapterType != "elevenlabs" {
+		t.Errorf("scribe_v2_realtime AdapterType=%q, want 'elevenlabs'", scribeV2Realtime.AdapterType)
+	}
+	if scribeV2Realtime.StreamingAdapter != "elevenlabs-streaming" {
+		t.Errorf("scribe_v2_realtime StreamingAdapter=%q, want 'elevenlabs-streaming'", scribeV2Realtime.StreamingAdapter)
 	}
 
 	// All models should share the same supported language list

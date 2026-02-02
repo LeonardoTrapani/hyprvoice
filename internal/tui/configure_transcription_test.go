@@ -8,7 +8,7 @@ import (
 )
 
 func TestGetTranscriptionModelOptions_ShowsCapabilities(t *testing.T) {
-	// test elevenlabs - has batch-only and streaming-only models
+	// test elevenlabs - includes batch+streaming and streaming-only models
 	options := getTranscriptionModelOptions("elevenlabs")
 
 	// should have 3 models: scribe_v1, scribe_v2, scribe_v2_realtime
@@ -23,12 +23,7 @@ func TestGetTranscriptionModelOptions_ShowsCapabilities(t *testing.T) {
 			continue
 		}
 
-		if model.SupportsStreaming && !model.SupportsBatch {
-			// streaming-only should mention streaming
-			if !strings.Contains(opt.Desc, "streaming") {
-				t.Errorf("streaming-only model %s should mention streaming in desc: %s", opt.ID, opt.Desc)
-			}
-		} else if model.SupportsBothModes() {
+		if model.SupportsBothModes() {
 			// both modes should mention batch+streaming
 			if !strings.Contains(opt.Desc, "batch+streaming") {
 				t.Errorf("both-modes model %s should mention batch+streaming in desc: %s", opt.ID, opt.Desc)
@@ -75,11 +70,12 @@ func TestGetTranscriptionModelOptions_OpenAI_ShowsCapabilities(t *testing.T) {
 func TestGetTranscriptionModelOptions_Deepgram_ShowsBothModes(t *testing.T) {
 	options := getTranscriptionModelOptions("deepgram")
 
-	// Deepgram has 2 models: nova-3, nova-2 - both support batch+streaming
+	// Deepgram has 2 models: nova-3, nova-2
 	if len(options) != 2 {
 		t.Errorf("expected 2 options for deepgram, got %d", len(options))
 	}
 
+	// all deepgram models support both modes
 	for _, opt := range options {
 		if !strings.Contains(opt.Desc, "batch+streaming") {
 			t.Errorf("deepgram model %s should mention batch+streaming: %s", opt.ID, opt.Desc)

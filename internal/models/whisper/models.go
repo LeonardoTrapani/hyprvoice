@@ -28,7 +28,10 @@ var models = []ModelInfo{
 	{ID: "base", Name: "Base", Filename: "ggml-base.bin", Size: "142MB", SizeBytes: 142_000_000, Multilingual: true},
 	{ID: "small", Name: "Small", Filename: "ggml-small.bin", Size: "466MB", SizeBytes: 466_000_000, Multilingual: true},
 	{ID: "medium", Name: "Medium", Filename: "ggml-medium.bin", Size: "1.5GB", SizeBytes: 1_500_000_000, Multilingual: true},
+	{ID: "large-v1", Name: "Large V1", Filename: "ggml-large-v1.bin", Size: "2.9GB", SizeBytes: 2_900_000_000, Multilingual: true},
+	{ID: "large-v2", Name: "Large V2", Filename: "ggml-large-v2.bin", Size: "2.9GB", SizeBytes: 2_900_000_000, Multilingual: true},
 	{ID: "large-v3", Name: "Large V3", Filename: "ggml-large-v3.bin", Size: "3GB", SizeBytes: 3_000_000_000, Multilingual: true},
+	{ID: "large-v3-turbo", Name: "Large V3 Turbo", Filename: "ggml-large-v3-turbo.bin", Size: "1.6GB", SizeBytes: 1_600_000_000, Multilingual: true},
 }
 
 // modelByID maps model ID to ModelInfo for quick lookup

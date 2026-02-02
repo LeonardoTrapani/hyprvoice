@@ -34,6 +34,8 @@ var deepgramNova2Languages = []string{
 	"ru", "sk", "es", "es-419", "sv", "sv-SE", "th", "th-TH", "tr", "uk", "vi",
 }
 
+var deepgramFluxLanguages = []string{"en"}
+
 var elevenLabsTranscriptionLanguages = []string{
 	"bel", "bos", "bul", "cat", "hrv", "ces", "dan", "nld", "eng", "est", "fin", "fra",
 	"glg", "deu", "ell", "hun", "isl", "ind", "ita", "jpn", "kan", "lav", "mkd", "msa",

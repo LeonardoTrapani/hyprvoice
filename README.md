@@ -29,31 +29,27 @@ All supported speech-to-text providers and models:
 
 - `whisper-large-v3`
 - `whisper-large-v3-turbo`
-- `distil-whisper-large-v3-en` (English only)
 
 ### Mistral (cloud)
 
 - `voxtral-mini-latest`
-- `voxtral-mini-2507`
 
 ### ElevenLabs (cloud)
 
 - `scribe_v1` (batch)
 - `scribe_v2` (batch)
-- `scribe_v1-streaming`
-- `scribe_v2-streaming`
+- `scribe_v2_realtime` (streaming)
 
 ### whisper-cpp (local)
 
 - English-only: `tiny.en`, `base.en`, `small.en`, `medium.en`
-- Multilingual: `tiny`, `base`, `small`, `medium`, `large-v3`
+- Multilingual: `tiny`, `base`, `small`, `medium`, `large-v1`, `large-v2`, `large-v3`, `large-v3-turbo`
 
 ### Deepgram (cloud)
 
+- `flux-general-en`
 - `nova-3`
-- `nova-3-general`
 - `nova-2`
-- `nova-2-general`
 
 Language coverage: 57 languages overall; Deepgram models cover a subset; English-only models are labeled above.
 
@@ -118,6 +114,13 @@ hyprvoice model list
 hyprvoice model list --provider whisper-cpp
 hyprvoice model download base.en
 hyprvoice model remove base.en
+```
+
+### Model testing (E2E)
+
+```bash
+hyprvoice test-models
+hyprvoice test-models --audio /path/to/sample.wav --output test-models.json
 ```
 
 ### Service management

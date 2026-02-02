@@ -15,6 +15,10 @@ func TestWizardMenuTransitionAppliesSize(t *testing.T) {
 	updated, _ := model.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
 	model = updated.(wizardModel)
 
+	// move down to "Voice Model" item (index 1) which leads to a listScreen
+	updated, _ = model.Update(tea.KeyMsg{Type: tea.KeyDown})
+	model = updated.(wizardModel)
+
 	updated, _ = model.Update(tea.KeyMsg{Type: tea.KeyEnter})
 	model = updated.(wizardModel)
 

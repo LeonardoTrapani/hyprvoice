@@ -66,13 +66,13 @@ func onboardingSummaryScreen(state *wizardState, onBack func() screen) screen {
 
 func newMenuScreen(state *wizardState) screen {
 	items := []optionItem{
-		{title: formatProvidersLabel(state.cfg), desc: "Manage API keys for cloud providers.", value: menuProviders},
+		{title: "Save & Exit", desc: "Write config changes to disk.", value: menuSave},
 		{title: formatVoiceModelLabel(state.cfg), desc: "Pick the transcription provider, model, and language.", value: menuVoiceModel},
 		{title: formatLLMLabel(state.cfg), desc: "Configure post-processing and custom prompts.", value: menuLLM},
 		{title: formatKeywordsLabel(state.cfg), desc: "Words to preserve spelling and phrasing.", value: menuKeywords},
+		{title: formatProvidersLabel(state.cfg), desc: "Manage API keys for cloud providers.", value: menuProviders},
 		{title: formatNotificationsLabel(state.cfg), desc: "Notification type and message text.", value: menuNotifications},
 		{title: "Advanced Settings", desc: "Recording, injection, and timeout settings.", value: menuAdvanced},
-		{title: "Save & Exit", desc: "Write config changes to disk.", value: menuSave},
 		{title: "Discard & Exit", desc: "Exit without saving changes.", value: menuDiscard},
 	}
 
@@ -178,6 +178,9 @@ func newAPIKeyInputScreen(state *wizardState, providerName string, onContinue fu
 		}
 	}
 	desc := []string{fmt.Sprintf("Enter your %s API key", displayName)}
+	if url := getProviderKeyURL(providerName); url != "" {
+		desc = append(desc, fmt.Sprintf("Get key: %s", url))
+	}
 	validate := func(s string) error {
 		if s == "" {
 			return fmt.Errorf("API key is required")
@@ -354,8 +357,11 @@ func newLanguageScreen(state *wizardState, model *provider.Model, onBack func() 
 
 func applyStreamingSelection(state *wizardState, model *provider.Model, onBack func() screen, next func() screen) screen {
 	if model.SupportsBothModes() {
-		desc := []string{"This model supports both batch and streaming modes."}
-		return newConfirmScreen(state, "Enable Streaming Mode?", desc, "Yes, streaming", "Lower latency, higher resource use.", "No, batch", "Wait for full transcription.", func() screen {
+		desc := []string{
+			"This model supports both batch and streaming modes.",
+			"Streaming is quicker but more expensive.",
+		}
+		return newConfirmScreen(state, "Enable Streaming Mode?", desc, "Yes, streaming", "Quicker response, higher cost.", "No, batch", "Wait for full transcription (cheaper).", func() screen {
 			state.cfg.Transcription.Streaming = true
 			return next()
 		}, func() screen {

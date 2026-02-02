@@ -321,7 +321,7 @@ keywords = []
 # - "openai": OpenAI Whisper API (cloud-based, excellent accuracy)
 # - "groq-transcription": Groq Whisper API (very fast, models: whisper-large-v3, whisper-large-v3-turbo)
 # - "mistral-transcription": Mistral Voxtral API (excellent for European languages, model: voxtral-mini-latest)
-# - "elevenlabs": ElevenLabs Scribe API (99 languages, models: scribe_v1, scribe_v2)
+# - "elevenlabs": ElevenLabs Scribe API (99 languages, models: scribe_v1, scribe_v2, scribe_v2_realtime)
 #
 # LLM providers (for post-processing):
 # - "openai": GPT models (gpt-4o-mini recommended for cost/quality balance)

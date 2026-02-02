@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
+	"log"
 	"os/exec"
 	"path/filepath"
 	"sort"
@@ -38,6 +40,7 @@ func init() {
 		onboardingCmd(),
 		configureCmd(),
 		modelCmd(),
+		testModelsCmd(),
 	)
 }
 
@@ -166,7 +169,7 @@ func runConfigure(onboarding bool) error {
 	var cfg *config.Config
 	var err error
 	if onboarding {
-		cfg, err = config.Load()
+		cfg, err = loadConfigQuiet()
 		if err != nil {
 			if errors.Is(err, config.ErrConfigNotFound) {
 				cfg = config.DefaultConfig()
@@ -175,7 +178,7 @@ func runConfigure(onboarding bool) error {
 			}
 		}
 	} else {
-		cfg, err = config.Load()
+		cfg, err = loadConfigQuiet()
 		if err != nil {
 			return fmt.Errorf("failed to load config: %w", err)
 		}
@@ -211,6 +214,13 @@ func runConfigure(onboarding bool) error {
 	showNextSteps(result.Config, onboarding)
 
 	return nil
+}
+
+func loadConfigQuiet() (*config.Config, error) {
+	prev := log.Writer()
+	log.SetOutput(io.Discard)
+	defer log.SetOutput(prev)
+	return config.Load()
 }
 
 func showNextSteps(cfg *config.Config, onboarding bool) {

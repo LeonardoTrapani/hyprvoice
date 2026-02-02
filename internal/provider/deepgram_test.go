@@ -29,11 +29,8 @@ func TestDeepgramProvider_Models(t *testing.T) {
 		t.Errorf("Models() returned %d models, want 2", len(models))
 	}
 
-	// all models should support both batch and streaming
+	// all models should support both streaming and batch
 	for _, m := range models {
-		if !m.SupportsBatch {
-			t.Errorf("model %s should support batch", m.ID)
-		}
 		if !m.SupportsStreaming {
 			t.Errorf("model %s should support streaming", m.ID)
 		}

@@ -49,21 +49,31 @@ func NewDeepgramBatchAdapter(endpoint *provider.EndpointConfig, apiKey, model, l
 
 // Transcribe sends audio data to Deepgram's pre-recorded API
 func (a *DeepgramBatchAdapter) Transcribe(ctx context.Context, audioData []byte) (string, error) {
+	if len(audioData) == 0 {
+		return "", nil
+	}
+
+	// convert raw PCM to WAV format
+	wavData, err := convertToWAV(audioData)
+	if err != nil {
+		return "", fmt.Errorf("convert to WAV: %w", err)
+	}
+
 	// build URL with query parameters
 	apiURL, err := a.buildURL()
 	if err != nil {
 		return "", fmt.Errorf("build url: %w", err)
 	}
 
-	// create request with audio data as body
-	req, err := http.NewRequestWithContext(ctx, "POST", apiURL, bytes.NewReader(audioData))
+	// create request with WAV data as body
+	req, err := http.NewRequestWithContext(ctx, "POST", apiURL, bytes.NewReader(wavData))
 	if err != nil {
 		return "", fmt.Errorf("create request: %w", err)
 	}
 
 	// set headers
 	req.Header.Set("Authorization", "Token "+a.apiKey)
-	req.Header.Set("Content-Type", "audio/wav") // we send raw PCM wrapped as WAV
+	req.Header.Set("Content-Type", "audio/wav")
 
 	// send request
 	resp, err := http.DefaultClient.Do(req)
@@ -123,7 +133,8 @@ func (a *DeepgramBatchAdapter) buildURL() (string, error) {
 		q.Set("language", lang)
 	}
 
-	if len(a.keywords) > 0 {
+	// nova-3 uses "keyterm" (singular), others use "keywords" (plural)
+	if len(a.keywords) > 0 && !strings.HasPrefix(a.model, "nova-3") && !strings.HasPrefix(a.model, "flux") {
 		q.Set("keywords", strings.Join(a.keywords, ","))
 	}
 

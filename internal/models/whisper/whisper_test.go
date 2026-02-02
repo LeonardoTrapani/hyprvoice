@@ -108,8 +108,8 @@ func TestGetModel(t *testing.T) {
 
 func TestListModels(t *testing.T) {
 	models := ListModels()
-	if len(models) != 9 {
-		t.Errorf("ListModels() returned %d models, want 9", len(models))
+	if len(models) != 12 {
+		t.Errorf("ListModels() returned %d models, want 12", len(models))
 	}
 
 	// verify known models exist
@@ -118,7 +118,7 @@ func TestListModels(t *testing.T) {
 		ids[m.ID] = true
 	}
 
-	expected := []string{"tiny.en", "base.en", "small.en", "medium.en", "tiny", "base", "small", "medium", "large-v3"}
+	expected := []string{"tiny.en", "base.en", "small.en", "medium.en", "tiny", "base", "small", "medium", "large-v1", "large-v2", "large-v3", "large-v3-turbo"}
 	for _, id := range expected {
 		if !ids[id] {
 			t.Errorf("ListModels() missing model %s", id)
@@ -128,8 +128,8 @@ func TestListModels(t *testing.T) {
 
 func TestListMultilingualModels(t *testing.T) {
 	models := ListMultilingualModels()
-	if len(models) != 5 {
-		t.Errorf("ListMultilingualModels() returned %d models, want 5", len(models))
+	if len(models) != 8 {
+		t.Errorf("ListMultilingualModels() returned %d models, want 8", len(models))
 	}
 
 	for _, m := range models {

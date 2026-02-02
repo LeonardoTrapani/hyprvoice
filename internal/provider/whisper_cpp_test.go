@@ -16,9 +16,9 @@ func TestWhisperCppProvider_Models(t *testing.T) {
 	p := &WhisperCppProvider{}
 	models := p.Models()
 
-	// verify we have 9 models
-	if len(models) != 9 {
-		t.Errorf("expected 9 models, got %d", len(models))
+	// verify we have 12 models
+	if len(models) != 12 {
+		t.Errorf("expected 12 models, got %d", len(models))
 	}
 
 	// verify all models have required fields
@@ -77,11 +77,14 @@ func TestWhisperCppProvider_MultilingualModels(t *testing.T) {
 	models := p.Models()
 
 	multilingualIDs := map[string]bool{
-		"tiny":     true,
-		"base":     true,
-		"small":    true,
-		"medium":   true,
-		"large-v3": true,
+		"tiny":           true,
+		"base":           true,
+		"small":          true,
+		"medium":         true,
+		"large-v1":       true,
+		"large-v2":       true,
+		"large-v3":       true,
+		"large-v3-turbo": true,
 	}
 
 	for _, m := range models {

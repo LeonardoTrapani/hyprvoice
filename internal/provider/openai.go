@@ -17,6 +17,10 @@ func (p *OpenAIProvider) ValidateAPIKey(key string) bool {
 	return strings.HasPrefix(key, "sk-")
 }
 
+func (p *OpenAIProvider) APIKeyURL() string {
+	return "https://platform.openai.com/api-keys"
+}
+
 func (p *OpenAIProvider) IsLocal() bool {
 	return false
 }
@@ -32,7 +36,7 @@ func (p *OpenAIProvider) Models() []Model {
 		{
 			ID:                 "whisper-1",
 			Name:               "Whisper 1",
-			Description:        "OpenAI's production speech-to-text model",
+			Description:        "Reliable and cost-effective; good default for most use cases",
 			Type:               Transcription,
 			SupportsBatch:      true,
 			SupportsStreaming:  false,
@@ -45,7 +49,7 @@ func (p *OpenAIProvider) Models() []Model {
 		{
 			ID:                 "gpt-4o-transcribe",
 			Name:               "GPT-4o Transcribe",
-			Description:        "High quality transcription with GPT-4o",
+			Description:        "Top accuracy; slower and pricier but best quality",
 			Type:               Transcription,
 			SupportsBatch:      true,
 			SupportsStreaming:  false,
@@ -58,7 +62,7 @@ func (p *OpenAIProvider) Models() []Model {
 		{
 			ID:                 "gpt-4o-mini-transcribe",
 			Name:               "GPT-4o Mini Transcribe",
-			Description:        "Fast transcription with GPT-4o Mini",
+			Description:        "Good balance of speed, cost, and quality",
 			Type:               Transcription,
 			SupportsBatch:      true,
 			SupportsStreaming:  false,
@@ -71,7 +75,7 @@ func (p *OpenAIProvider) Models() []Model {
 		{
 			ID:                 "gpt-4o-realtime-preview",
 			Name:               "GPT-4o Realtime Preview",
-			Description:        "Real-time streaming transcription with GPT-4o",
+			Description:        "Instant words as you speak; fastest but most expensive",
 			Type:               Transcription,
 			SupportsBatch:      false,
 			SupportsStreaming:  true,
@@ -85,7 +89,7 @@ func (p *OpenAIProvider) Models() []Model {
 		{
 			ID:                "gpt-4o-mini",
 			Name:              "GPT-4o Mini",
-			Description:       "Fast and affordable GPT-4 variant",
+			Description:       "Fast and cheap; good default for text cleanup",
 			Type:              LLM,
 			SupportsBatch:     true,
 			SupportsStreaming: false,
@@ -96,7 +100,7 @@ func (p *OpenAIProvider) Models() []Model {
 		{
 			ID:                "gpt-4o",
 			Name:              "GPT-4o",
-			Description:       "Most capable GPT-4 model",
+			Description:       "Best quality cleanup; pricier but smarter rewrites",
 			Type:              LLM,
 			SupportsBatch:     true,
 			SupportsStreaming: false,

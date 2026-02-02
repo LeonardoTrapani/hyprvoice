@@ -17,6 +17,10 @@ func (p *GroqProvider) ValidateAPIKey(key string) bool {
 	return strings.HasPrefix(key, "gsk_")
 }
 
+func (p *GroqProvider) APIKeyURL() string {
+	return "https://console.groq.com/keys"
+}
+
 func (p *GroqProvider) IsLocal() bool {
 	return false
 }
@@ -31,7 +35,7 @@ func (p *GroqProvider) Models() []Model {
 		{
 			ID:                 "whisper-large-v3",
 			Name:               "Whisper Large v3",
-			Description:        "Full Whisper v3 model, best accuracy",
+			Description:        "Best accuracy; generous free tier makes this great default",
 			Type:               Transcription,
 			SupportsBatch:      true,
 			SupportsStreaming:  false,
@@ -44,7 +48,7 @@ func (p *GroqProvider) Models() []Model {
 		{
 			ID:                 "whisper-large-v3-turbo",
 			Name:               "Whisper Large v3 Turbo",
-			Description:        "Faster Whisper v3 with slightly lower accuracy",
+			Description:        "Faster with slight accuracy tradeoff; still very good",
 			Type:               Transcription,
 			SupportsBatch:      true,
 			SupportsStreaming:  false,
@@ -58,7 +62,7 @@ func (p *GroqProvider) Models() []Model {
 		{
 			ID:                "llama-3.3-70b-versatile",
 			Name:              "Llama 3.3 70B Versatile",
-			Description:       "Most capable Llama model",
+			Description:       "Best quality cleanup; smart rewrites, free tier available",
 			Type:              LLM,
 			SupportsBatch:     true,
 			SupportsStreaming: false,
@@ -69,18 +73,7 @@ func (p *GroqProvider) Models() []Model {
 		{
 			ID:                "llama-3.1-8b-instant",
 			Name:              "Llama 3.1 8B Instant",
-			Description:       "Fast and efficient",
-			Type:              LLM,
-			SupportsBatch:     true,
-			SupportsStreaming: false,
-			Local:             false,
-			AdapterType:       AdapterOpenAI,
-			Endpoint:          &EndpointConfig{BaseURL: "https://api.groq.com/openai", Path: "/v1/chat/completions"},
-		},
-		{
-			ID:                "mixtral-8x7b-32768",
-			Name:              "Mixtral 8x7B",
-			Description:       "Mixture of experts model",
+			Description:       "Very fast; good for simple cleanup tasks",
 			Type:              LLM,
 			SupportsBatch:     true,
 			SupportsStreaming: false,

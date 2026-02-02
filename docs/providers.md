@@ -11,7 +11,7 @@ This guide helps you choose the right transcription provider for your use case.
 | **Mistral** | Cloud | 2 | 57 | No | Fast | Good | Pay per use |
 | **ElevenLabs** | Cloud | 4 | 57+ | Yes | Fast | Excellent | Pay per use |
 | **Deepgram** | Cloud | 4 | 33-42 | Yes | Very Fast | Excellent | Pay per use |
-| **whisper-cpp** | Local | 9 | 57 (4 EN-only) | No | Varies | Excellent | Free |
+| **whisper-cpp** | Local | 12 | 57 (4 EN-only) | No | Varies | Excellent | Free |
 
 ### OpenAI
 
@@ -32,7 +32,6 @@ Extremely fast inference using specialized hardware. OpenAI-compatible API.
 **Models:**
 - `whisper-large-v3` - Full Whisper v3, best accuracy
 - `whisper-large-v3-turbo` - Faster with slightly lower accuracy
-- `distil-whisper-large-v3-en` - **English only**, fastest option
 
 **Best for:** Speed-critical applications, English-only use cases, budget-conscious users
 
@@ -42,7 +41,8 @@ European provider with Voxtral transcription models.
 
 **Models:**
 - `voxtral-mini-latest` - Latest Voxtral, recommended
-- `voxtral-mini-2507` - Stable version from July 2025
+
+**Notes:** Mistral's streaming responses are not real-time audio streaming; hyprvoice treats Voxtral as batch-only.
 
 **Best for:** European data residency requirements, Mistral ecosystem users
 
@@ -52,9 +52,8 @@ Known for voice synthesis, also offers excellent transcription via Scribe.
 
 **Models:**
 - `scribe_v1` - 90+ languages, best accuracy (batch)
-- `scribe_v2` - Lower latency, real-time optimized (batch)
-- `scribe_v1-streaming` - Real-time transcription
-- `scribe_v2-streaming` - Real-time with <150ms latency
+- `scribe_v2` - Lower latency (batch)
+- `scribe_v2_realtime` - Streaming-only realtime endpoint
 
 **Best for:** Applications needing both TTS and STT, ultra-low latency streaming
 
@@ -63,10 +62,11 @@ Known for voice synthesis, also offers excellent transcription via Scribe.
 Streaming-first provider with Nova models. Excellent for real-time applications.
 
 **Models:**
+- `flux-general-en` - Streaming with turn detection (English)
 - `nova-3` - Best accuracy, 42 languages
-- `nova-3-general` - Same as nova-3
 - `nova-2` - Fast, 33 languages, filler word detection
-- `nova-2-general` - Same as nova-2
+
+**Notes:** Flux is English-only.
 
 **Language Support:** Nova-3 supports 42 languages, Nova-2 supports 33 languages. Not all 57 languages from the master list are available.
 
@@ -93,7 +93,10 @@ Run Whisper models locally on your machine. No API keys, no network latency, com
 | `base` | 142MB | Fast | Good |
 | `small` | 466MB | Medium | Better |
 | `medium` | 1.5GB | Slow | Great |
+| `large-v1` | 2.9GB | Slowest | Best |
+| `large-v2` | 2.9GB | Slowest | Best |
 | `large-v3` | 3GB | Slowest | Best |
+| `large-v3-turbo` | 1.6GB | Slower | Great |
 
 **Best for:** Privacy-sensitive applications, offline use, avoiding API costs
 
@@ -121,14 +124,11 @@ Need complete privacy?
    └─ Need real-time streaming?
       ├─ Yes
       │  └─ Latency critical (<150ms)?
-      │     ├─ Yes → ElevenLabs scribe_v2-streaming
+      │     ├─ Yes → ElevenLabs scribe_v2_realtime (streaming)
       │     └─ No → Deepgram nova-3 or OpenAI realtime
       └─ No (batch)
          └─ Need fastest response?
-            ├─ Yes
-            │  └─ English only?
-            │     ├─ Yes → Groq distil-whisper-large-v3-en
-            │     └─ No → Groq whisper-large-v3-turbo
+            ├─ Yes → Groq whisper-large-v3-turbo
             └─ No
                └─ Need highest accuracy?
                   ├─ Yes → OpenAI gpt-4o-transcribe or Groq whisper-large-v3
@@ -140,10 +140,9 @@ Need complete privacy?
 | Use Case | Recommended Provider | Model |
 |----------|---------------------|-------|
 | General dictation | OpenAI | whisper-1 |
-| Fast English | Groq | distil-whisper-large-v3-en |
 | Fast multilingual | Groq | whisper-large-v3-turbo |
 | Live captions | Deepgram | nova-3 |
-| Ultra-low latency | ElevenLabs | scribe_v2-streaming |
+| Ultra-low latency | ElevenLabs | scribe_v2_realtime (streaming) |
 | Offline/privacy | whisper-cpp | base.en or base |
 | High accuracy | OpenAI | gpt-4o-transcribe |
 
@@ -155,7 +154,7 @@ All providers support **auto-detect mode** (recommended for most users) which au
 
 ### Full Language Support (57 languages)
 
-OpenAI, Groq (except distil model), Mistral, ElevenLabs, and whisper-cpp multilingual models support all 57 languages:
+OpenAI, Groq, Mistral, ElevenLabs, and whisper-cpp multilingual models support all 57 languages:
 
 Afrikaans, Arabic, Armenian, Azerbaijani, Belarusian, Bosnian, Bulgarian, Catalan, Chinese, Croatian, Czech, Danish, Dutch, English, Estonian, Finnish, French, Galician, German, Greek, Hebrew, Hindi, Hungarian, Icelandic, Indonesian, Italian, Japanese, Kannada, Kazakh, Korean, Latvian, Lithuanian, Macedonian, Malay, Marathi, Maori, Nepali, Norwegian, Persian, Polish, Portuguese, Romanian, Russian, Serbian, Slovak, Slovenian, Spanish, Swahili, Swedish, Tagalog, Tamil, Thai, Turkish, Ukrainian, Urdu, Vietnamese, Welsh
 
@@ -165,7 +164,6 @@ These models only support English but are faster:
 
 | Provider | Model |
 |----------|-------|
-| Groq | `distil-whisper-large-v3-en` |
 | whisper-cpp | `tiny.en`, `base.en`, `small.en`, `medium.en` |
 
 If you select an English-only model with a non-English language, hyprvoice will:

@@ -108,10 +108,12 @@ language = ""                   # Empty for auto-detect, or "en", "es", "fr", et
 
 Transcription using Mistral's Voxtral API, excellent for European languages:
 
+Note: Mistral's API supports streaming responses, but it is not real-time audio streaming. Hyprvoice treats Voxtral as batch-only.
+
 ```toml
 [transcription]
 provider = "mistral-transcription"
-model = "voxtral-mini-latest"   # Or "voxtral-mini-2507"
+model = "voxtral-mini-latest"
 language = ""                   # Empty for auto-detect
 ```
 
@@ -122,7 +124,7 @@ Transcription using ElevenLabs' Scribe API with 57+ language support:
 ```toml
 [transcription]
 provider = "elevenlabs"
-model = "scribe_v1"             # Or "scribe_v2" for lower latency
+model = "scribe_v1"             # Or "scribe_v2" for lower latency (batch)
 language = ""                   # Empty for auto-detect
 ```
 
@@ -148,9 +150,9 @@ language = ""                   # Empty for auto-detect
 
 **Features:**
 
-- All models are streaming-only
-- Nova-3: 42 languages, best accuracy
-- Nova-2: 33 languages, faster with filler word detection
+- Flux: streaming-only, English with turn detection
+- Nova-3: 42 languages, best accuracy (batch+streaming)
+- Nova-2: 33 languages, faster with filler word detection (batch+streaming)
 - Excellent for real-time transcription and live captions
 
 ### Local Transcription (whisper-cpp)
@@ -182,7 +184,10 @@ threads = 0                     # 0 = auto (uses NumCPU - 1)
 | `base` | 142MB | 57 languages | Daily multilingual use |
 | `small` | 466MB | 57 languages | Better multilingual |
 | `medium` | 1.5GB | 57 languages | Great accuracy |
+| `large-v1` | 2.9GB | 57 languages | Best accuracy |
+| `large-v2` | 2.9GB | 57 languages | Best accuracy |
 | `large-v3` | 3GB | 57 languages | Best accuracy |
+| `large-v3-turbo` | 1.6GB | 57 languages | Faster large-v3 |
 
 **Threads configuration:**
 
@@ -195,12 +200,13 @@ threads = 0                     # 0 = auto (uses NumCPU - 1)
 For real-time transcription, use streaming models:
 
 ```toml
-# ElevenLabs streaming
+# ElevenLabs streaming (realtime only)
 [transcription]
 provider = "elevenlabs"
-model = "scribe_v1-streaming"   # Or "scribe_v2-streaming" for <150ms latency
+model = "scribe_v2_realtime"
+streaming = true
 
-# Deepgram streaming (all models are streaming)
+# Deepgram streaming (all models support streaming)
 [transcription]
 provider = "deepgram"
 model = "nova-3"
@@ -215,8 +221,8 @@ model = "gpt-4o-realtime-preview"
 
 | Provider | Model | Latency | Languages |
 |----------|-------|---------|-----------|
-| ElevenLabs | `scribe_v1-streaming` | Low | 57+ |
-| ElevenLabs | `scribe_v2-streaming` | <150ms | 57+ |
+| ElevenLabs | `scribe_v2_realtime` | <150ms | 57+ |
+| Deepgram | `flux-general-en` | Very Low | en |
 | Deepgram | `nova-3` | Low | 42 |
 | Deepgram | `nova-2` | Very Low | 33 |
 | OpenAI | `gpt-4o-realtime-preview` | Low | 57 |
@@ -257,7 +263,6 @@ Some models only support English. When configuring via `hyprvoice configure`, on
 
 | Provider | Model |
 |----------|-------|
-| Groq | `distil-whisper-large-v3-en` |
 | whisper-cpp | `tiny.en`, `base.en`, `small.en`, `medium.en` |
 
 **Deepgram models** support fewer languages than the full 57 - see [providers.md](./providers.md#deepgram-language-support).
@@ -270,8 +275,8 @@ Some models only support English. When configuring via `hyprvoice configure`, on
 ```toml
 # This combination will be rejected at validation:
 [transcription]
-provider = "groq-transcription"
-model = "distil-whisper-large-v3-en"   # English only!
+provider = "whisper-cpp"
+model = "base.en"                 # English only!
 language = "es"                         # Error: model does not support Spanish
 ```
 
@@ -622,8 +627,9 @@ You can customize notification text via the `[notifications.messages]` section:
   api_key = "..."
 
 [transcription]
-  provider = "elevenlabs"
-  model = "scribe_v2-streaming" # <150ms latency
+provider = "elevenlabs"
+model = "scribe_v2_realtime"   # <150ms latency
+streaming = true
   language = ""                 # Auto-detect
 
 [llm]

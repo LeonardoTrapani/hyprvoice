@@ -1966,9 +1966,11 @@ timeout = "5m"
 
 [transcription]
 provider = "openai"
-api_key = "test-key"
 model = "whisper-1"
 language = "es"
+
+[providers.openai]
+api_key = "test-key"
 
 [injection]
 backends = ["clipboard"]

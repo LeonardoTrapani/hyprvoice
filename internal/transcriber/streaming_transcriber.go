@@ -2,6 +2,7 @@ package transcriber
 
 import (
 	"context"
+	"errors"
 	"log"
 	"strings"
 	"sync"
@@ -19,6 +20,7 @@ type StreamingTranscriber struct {
 	// accumulated final text
 	finalText strings.Builder
 	mu        sync.Mutex
+	fatalErr  error
 
 	// coordination
 	ctx    context.Context
@@ -66,6 +68,24 @@ func (t *StreamingTranscriber) sendAudio(frameCh <-chan recording.AudioFrame, er
 				return
 			}
 			if err := t.adapter.SendChunk(frame.Data); err != nil {
+				if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+					if t.ctx.Err() == nil && t.cancel != nil {
+						t.cancel()
+					}
+					return
+				}
+				if IsFatalTranscriptionError(err) {
+					if t.setFatalErr(err) {
+						select {
+						case errCh <- err:
+						default:
+						}
+					}
+					if t.cancel != nil {
+						t.cancel()
+					}
+					return
+				}
 				select {
 				case errCh <- err:
 				default:
@@ -98,6 +118,19 @@ func (t *StreamingTranscriber) receiveResults(errCh chan<- error) {
 
 func (t *StreamingTranscriber) processResult(result TranscriptionResult, errCh chan<- error) {
 	if result.Error != nil {
+		if IsFatalTranscriptionError(result.Error) {
+			if t.setFatalErr(result.Error) {
+				select {
+				case errCh <- result.Error:
+				default:
+				}
+			}
+			log.Printf("streaming transcriber: result error: %v", result.Error)
+			if t.cancel != nil {
+				t.cancel()
+			}
+			return
+		}
 		select {
 		case errCh <- result.Error:
 		default:
@@ -154,11 +187,37 @@ func (t *StreamingTranscriber) Stop(ctx context.Context) error {
 	t.wg.Wait()
 
 	// close the adapter
-	return t.adapter.Close()
+	closeErr := t.adapter.Close()
+	if fatalErr := t.getFatalErr(); fatalErr != nil {
+		return fatalErr
+	}
+	return closeErr
 }
 
 func (t *StreamingTranscriber) GetFinalTranscription() (string, error) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
+	if t.fatalErr != nil {
+		return "", t.fatalErr
+	}
 	return t.finalText.String(), nil
+}
+
+func (t *StreamingTranscriber) setFatalErr(err error) bool {
+	if err == nil {
+		return false
+	}
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	if t.fatalErr != nil {
+		return false
+	}
+	t.fatalErr = err
+	return true
+}
+
+func (t *StreamingTranscriber) getFatalErr() error {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	return t.fatalErr
 }

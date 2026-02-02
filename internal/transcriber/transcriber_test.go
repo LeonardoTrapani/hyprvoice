@@ -146,6 +146,17 @@ func TestNewTranscriber(t *testing.T) {
 			wantErr: false,
 		},
 		{
+			name: "elevenlabs batch model with streaming enabled fails",
+			config: Config{
+				Provider:  "elevenlabs",
+				APIKey:    "test-key",
+				Language:  "en",
+				Model:     "scribe_v2",
+				Streaming: true,
+			},
+			wantErr: true,
+		},
+		{
 			name: "deepgram streaming model creates StreamingTranscriber",
 			config: Config{
 				Provider:  "deepgram",

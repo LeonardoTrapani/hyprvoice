@@ -33,6 +33,14 @@ func getProviderDisplayName(providerName string) string {
 	return providerName
 }
 
+func getProviderKeyURL(providerName string) string {
+	p := provider.GetProvider(providerName)
+	if p == nil {
+		return ""
+	}
+	return p.APIKeyURL()
+}
+
 func maskAPIKey(key string) string {
 	if len(key) <= 8 {
 		return "***"

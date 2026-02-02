@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
@@ -242,6 +243,9 @@ func (a *ElevenLabsStreamingAdapter) readLoop() {
 
 		_, message, err := conn.ReadMessage()
 		if err != nil {
+			if a.handleFatalClose(err) {
+				return
+			}
 			// check if context was cancelled (normal shutdown)
 			select {
 			case <-a.ctx.Done():
@@ -291,18 +295,89 @@ func (a *ElevenLabsStreamingAdapter) readLoop() {
 		case "error", "auth_error", "quota_exceeded", "rate_limited",
 			"queue_overflow", "resource_exhausted", "session_time_limit_exceeded",
 			"input_error", "chunk_size_exceeded", "insufficient_audio_activity",
-			"transcriber_error", "commit_throttled", "unaccepted_terms":
+			"transcriber_error", "commit_throttled", "unaccepted_terms", "invalid_request":
 			// error message
 			errMsg := msg.Error
 			if errMsg == "" {
 				errMsg = msg.MessageType
 			}
 			log.Printf("elevenlabs-streaming: error: %s", errMsg)
-			a.resultsCh <- TranscriptionResult{Error: fmt.Errorf("elevenlabs: %s", errMsg)}
+			err := fmt.Errorf("elevenlabs: %s", errMsg)
+			if isElevenLabsFatalMessageType(msg.MessageType) {
+				a.handleFatalError(err)
+				return
+			}
+			a.emitResultError(err)
 
 		default:
-			log.Printf("elevenlabs-streaming: unknown message type: %s", msg.MessageType)
+			log.Printf("elevenlabs-streaming: unknown message type: %s payload=%s", msg.MessageType, strings.TrimSpace(string(message)))
 		}
+	}
+}
+
+func (a *ElevenLabsStreamingAdapter) emitResultError(err error) {
+	select {
+	case a.resultsCh <- TranscriptionResult{Error: err}:
+	default:
+	}
+}
+
+func (a *ElevenLabsStreamingAdapter) handleFatalError(err error) {
+	fatalErr := NewFatalTranscriptionError(err)
+	log.Printf("elevenlabs-streaming: fatal error: %v", err)
+	a.emitResultError(fatalErr)
+	a.closeConn()
+	if a.cancel != nil {
+		a.cancel()
+	}
+}
+
+func (a *ElevenLabsStreamingAdapter) handleFatalClose(err error) bool {
+	var closeErr *websocket.CloseError
+	if !errors.As(err, &closeErr) {
+		return false
+	}
+	if !isElevenLabsFatalCloseCode(closeErr.Code) {
+		return false
+	}
+	reason := strings.TrimSpace(closeErr.Text)
+	if reason == "" {
+		reason = "no reason provided"
+	}
+	a.handleFatalError(fmt.Errorf("elevenlabs websocket closed (%d): %s", closeErr.Code, reason))
+	return true
+}
+
+func (a *ElevenLabsStreamingAdapter) closeConn() {
+	a.mu.Lock()
+	conn := a.conn
+	a.conn = nil
+	a.mu.Unlock()
+	if conn != nil {
+		_ = conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
+		_ = conn.Close()
+	}
+}
+
+func isElevenLabsFatalCloseCode(code int) bool {
+	switch code {
+	case websocket.ClosePolicyViolation,
+		websocket.CloseUnsupportedData,
+		websocket.CloseInvalidFramePayloadData,
+		websocket.CloseMessageTooBig,
+		websocket.CloseProtocolError:
+		return true
+	default:
+		return false
+	}
+}
+
+func isElevenLabsFatalMessageType(messageType string) bool {
+	switch messageType {
+	case "auth_error", "unaccepted_terms", "invalid_request", "input_error", "chunk_size_exceeded":
+		return true
+	default:
+		return false
 	}
 }
 

@@ -11,6 +11,7 @@ type Provider interface {
 	Name() string
 	RequiresAPIKey() bool
 	ValidateAPIKey(key string) bool
+	APIKeyURL() string
 	IsLocal() bool
 	Models() []Model
 	DefaultModel(t ModelType) string

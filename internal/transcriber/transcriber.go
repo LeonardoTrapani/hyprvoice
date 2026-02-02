@@ -83,13 +83,15 @@ func NewTranscriber(config Config) (Transcriber, error) {
 		config.Language = ""
 	}
 
-	// determine if we should use streaming mode
-	useStreaming := config.Streaming && model.SupportsStreaming
-
-	// fail if streaming-only model is used without streaming enabled
-	if !useStreaming && !model.SupportsBatch {
+	// validate streaming/batch mode compatibility
+	if config.Streaming && !model.SupportsStreaming {
+		return nil, fmt.Errorf("model %s does not support streaming mode", model.ID)
+	}
+	if !config.Streaming && !model.SupportsBatch {
 		return nil, fmt.Errorf("model %s requires streaming mode (set streaming = true in config)", model.ID)
 	}
+
+	useStreaming := config.Streaming
 
 	// streaming mode: use StreamingTranscriber
 	if useStreaming {
