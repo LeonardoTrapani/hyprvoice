@@ -870,17 +870,17 @@ func buildVoiceProviderOptions(cfg *config.Config) []optionItem {
 		if p != nil && len(provider.ModelsOfType(p, provider.Transcription)) > 0 {
 			switch name {
 			case "openai":
-				options = append(options, optionItem{title: "OpenAI Whisper", desc: "Configured. Balanced quality and cost.", value: "openai"})
+				options = append(options, optionItem{title: "OpenAI Whisper", desc: "Balanced quality and cost.", value: "openai"})
 			case "groq":
 				options = append(options,
-					optionItem{title: "Groq Whisper", desc: "Configured. Fast transcription.", value: "groq-transcription"},
+					optionItem{title: "Groq Whisper", desc: "Fast transcription.", value: "groq-transcription"},
 				)
 			case "mistral":
-				options = append(options, optionItem{title: "Mistral Voxtral", desc: "Configured. Strong European language support.", value: "mistral-transcription"})
+				options = append(options, optionItem{title: "Mistral Voxtral", desc: "Strong European language support.", value: "mistral-transcription"})
 			case "elevenlabs":
-				options = append(options, optionItem{title: "ElevenLabs Scribe", desc: "Configured. Best cloud quality.", value: "elevenlabs"})
+				options = append(options, optionItem{title: "ElevenLabs Scribe", desc: "Best cloud quality.", value: "elevenlabs"})
 			case "deepgram":
-				options = append(options, optionItem{title: "Deepgram Nova", desc: "Configured. Great streaming performance.", value: "deepgram"})
+				options = append(options, optionItem{title: "Deepgram Nova", desc: "Great streaming performance.", value: "deepgram"})
 			}
 		}
 	}
@@ -891,21 +891,21 @@ func buildVoiceProviderOptions(cfg *config.Config) []optionItem {
 	}
 
 	if !configuredSet["openai"] {
-		options = append(options, optionItem{title: "OpenAI Whisper", desc: "Requires API key. You'll be prompted.", value: "openai"})
+		options = append(options, optionItem{title: "OpenAI Whisper", desc: "Balanced quality and cost.", value: "openai"})
 	}
 	if !configuredSet["groq"] {
 		options = append(options,
-			optionItem{title: "Groq Whisper", desc: "Requires API key. You'll be prompted.", value: "groq-transcription"},
+			optionItem{title: "Groq Whisper", desc: "Fast transcription.", value: "groq-transcription"},
 		)
 	}
 	if !configuredSet["mistral"] {
-		options = append(options, optionItem{title: "Mistral Voxtral", desc: "Requires API key. You'll be prompted.", value: "mistral-transcription"})
+		options = append(options, optionItem{title: "Mistral Voxtral", desc: "Strong European language support.", value: "mistral-transcription"})
 	}
 	if !configuredSet["elevenlabs"] {
-		options = append(options, optionItem{title: "ElevenLabs Scribe", desc: "Requires API key. You'll be prompted.", value: "elevenlabs"})
+		options = append(options, optionItem{title: "ElevenLabs Scribe", desc: "Best cloud quality.", value: "elevenlabs"})
 	}
 	if !configuredSet["deepgram"] {
-		options = append(options, optionItem{title: "Deepgram Nova", desc: "Requires API key. You'll be prompted.", value: "deepgram"})
+		options = append(options, optionItem{title: "Deepgram Nova", desc: "Great streaming performance.", value: "deepgram"})
 	}
 
 	return options
