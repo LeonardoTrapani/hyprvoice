@@ -591,8 +591,11 @@ func newNotificationsScreen(state *wizardState, onBack func() screen) screen {
 	}
 	return newConfirmScreen(state, "Enable Desktop Notifications?", desc, "Yes", "Show status notifications.", "No", "Disable notifications.", func() screen {
 		state.cfg.Notifications.Enabled = true
-		if state.cfg.Notifications.Type == "none" {
-			state.cfg.Notifications.Type = ""
+		if state.cfg.Notifications.Type == "none" || state.cfg.Notifications.Type == "" {
+			state.cfg.Notifications.Type = "desktop"
+		}
+		if state.onboarding {
+			return onboardingSummaryScreen(state, onBack)
 		}
 		return newNotificationTypeScreen(state, onBack)
 	}, func() screen {
@@ -652,7 +655,7 @@ func newNotificationMessagesScreen(state *wizardState, onBack func() screen) scr
 		desc := fmt.Sprintf("Current: \"%s\"", display)
 		items = append(items, optionItem{title: label, desc: desc, value: def.ConfigKey})
 	}
-	items = append(items, optionItem{title: "Back", desc: "Return without editing.", value: "back"})
+	items = append(items, optionItem{title: "Done", desc: "Return to menu.", value: "back"})
 	desc := []string{"Select a message to edit."}
 	backFn := onBack
 	if state.onboarding {
