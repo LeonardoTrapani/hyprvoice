@@ -7,13 +7,13 @@ Press a toggle key, speak, and get instant text input. Built natively for Waylan
 ## Highlights
 
 - 26 speech-to-text models across cloud and local providers, including whisper.cpp.
-- Streaming and batch transcription with 57-language support and model-language validation.
 - Optional LLM post-processing for grammar, punctuation, and more.
 - Toggle workflow with optional status notifications and cancel support.
 - Text injection via ydotool, wtype, and clipboard fallback with clipboard restore.
 - Guided onboarding and a full configure menu with hot-reload.
 - Personalization through custom prompt and keywords sent both to LLM and to voice model.
 - Whisprflow quality but for linux and open source.
+- Support for streaming models for blazing fast transcription.
 
 ## Voice Providers and Models
 
