@@ -1,6 +1,6 @@
 # Hyprvoice - Voice-Powered Typing for Wayland/Hyprland
 
-26 voice models, cloud and local, built for Wayland dictation.
+26 voice models, cloud and local, built for hyprland dictation.
 
 Press a toggle key, speak, and get instant text input. Built natively for Wayland/Hyprland with clean PipeWire capture and robust text injection.
 
@@ -8,11 +8,12 @@ Press a toggle key, speak, and get instant text input. Built natively for Waylan
 
 - 26 speech-to-text models across cloud and local providers, including whisper.cpp.
 - Streaming and batch transcription with 57-language support and model-language validation.
-- Optional LLM post-processing plus keywords to preserve names and technical terms.
+- Optional LLM post-processing for grammar, punctuation, and more.
 - Toggle workflow with optional status notifications and cancel support.
 - Text injection via ydotool, wtype, and clipboard fallback with clipboard restore.
 - Guided onboarding and a full configure menu with hot-reload.
 - Personalization through custom prompt and keywords sent both to LLM and to voice model.
+- Whisprflow quality but for linux and open source.
 
 ## Voice Providers and Models
 
@@ -50,8 +51,6 @@ All supported speech-to-text providers and models:
 - `flux-general-en`
 - `nova-3`
 - `nova-2`
-
-Language coverage: 57 languages overall; Deepgram models cover a subset; English-only models are labeled above.
 
 ## Installation (AUR)
 
