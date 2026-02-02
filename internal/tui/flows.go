@@ -384,7 +384,7 @@ func newLLMEnableScreen(state *wizardState, onBack func() screen, onNext func() 
 	} else {
 		desc = []string{"Currently disabled.", desc[0]}
 	}
-	return newConfirmScreen(state, "Enable LLM Post-Processing?", desc, "Yes (recommended)", "Clean up grammar and punctuation.", "No", "Keep raw transcription text.", func() screen {
+	return newConfirmScreen(state, "Enable LLM Post-Processing?", desc, "Yes", "Higher quality output, takes longer to process.", "No", "Faster results, may need minor touch-ups.", func() screen {
 		return newLLMProviderScreen(state, onBack, onNext)
 	}, func() screen {
 		state.cfg.LLM.Enabled = false
