@@ -40,7 +40,6 @@ func init() {
 		onboardingCmd(),
 		configureCmd(),
 		modelCmd(),
-		testModelsCmd(),
 	)
 }
 

@@ -3,15 +3,10 @@ name: E2E Tests
 
 on:
   workflow_dispatch:
-    inputs:
-      timeout:
-        description: 'Per-model timeout (e.g. 60s)'
-        required: false
-        default: '60s'
 
 jobs:
-  test-models:
-    name: Test All Models
+  integration:
+    name: Integration Tests
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -20,7 +15,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: "1.24"
+          go-version-file: go.mod
 
       - name: Install dependencies
         run: |
@@ -35,27 +30,11 @@ jobs:
       - name: Download dependencies
         run: go mod download
 
-      - name: Build binary
-        env:
-          CGO_ENABLED: 1
-        run: go build -o hyprvoice ./cmd/hyprvoice
-
-      - name: Run test-models
+      - name: Run integration tests
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           DEEPGRAM_API_KEY: ${{ secrets.DEEPGRAM_API_KEY }}
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
           ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
           MISTRAL_API_KEY: ${{ secrets.MISTRAL_API_KEY }}
-        run: |
-          ./hyprvoice test-models \
-            --timeout=${{ inputs.timeout }} \
-            --output=test-models-report.json
-
-      - name: Upload report
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: test-models-report
-          path: test-models-report.json
-          retention-days: 30
+        run: go test -tags=integration -v ./cmd/hyprvoice -timeout 15m
