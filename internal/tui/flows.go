@@ -289,7 +289,7 @@ func newVoiceModelScreen(state *wizardState, providerName string, onBack func() 
 				return newDownloadScreen(state, "Downloading Model", []string{modelInfo.Name}, item.value, func() screen {
 					return applyVoiceModelSelection(state, providerName, item.value, onBack, onNext)
 				}, func() screen { return newVoiceModelScreen(state, providerName, onBack, onNext) })
-			}, func() screen { return newVoiceModelScreen(state, providerName, onBack, onNext) }, nil)
+			}, func() screen { return newVoiceModelScreen(state, providerName, onBack, onNext) }, func() screen { return newVoiceModelScreen(state, providerName, onBack, onNext) })
 		}
 		return applyVoiceModelSelection(state, providerName, item.value, onBack, onNext)
 	}, func() screen { return onBack() })

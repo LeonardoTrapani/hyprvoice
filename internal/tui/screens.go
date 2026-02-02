@@ -136,9 +136,6 @@ func (s *confirmScreen) Update(msg tea.Msg) (screen, tea.Cmd) {
 			if s.onBack != nil {
 				return s.onBack(), nil
 			}
-			if s.onNo != nil {
-				return s.onNo(), nil
-			}
 		}
 	}
 

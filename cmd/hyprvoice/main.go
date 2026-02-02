@@ -248,7 +248,7 @@ func showNextSteps(cfg *config.Config, onboarding bool) {
 		fmt.Printf("%d. Restart the service to apply changes: systemctl --user restart hyprvoice.service\n", step)
 		step++
 	} else if onboarding {
-		fmt.Printf("%d. Start the service: systemctl --user start hyprvoice.service\n", step)
+		fmt.Printf("%d. Enable the service: systemctl --user enable --now hyprvoice.service\n", step)
 		step++
 	} else {
 		fmt.Printf("%d. Start the service if it is not running\n", step)
