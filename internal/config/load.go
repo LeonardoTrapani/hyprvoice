@@ -28,26 +28,40 @@ func GetConfigPath() (string, error) {
 }
 
 func Load() (*Config, error) {
-	configPath, err := GetConfigPath()
+	config, legacy, err := LoadOrLegacy()
 	if err != nil {
 		return nil, err
 	}
+	if legacy {
+		log.Printf("Config: legacy configuration detected - run hyprvoice onboarding")
+		return nil, fmt.Errorf("%w: run hyprvoice onboarding", ErrConfigNotFound)
+	}
+	return config, nil
+}
+
+// LoadOrLegacy loads config and returns (config, isLegacy, error).
+// If config is legacy, returns default config with isLegacy=true instead of error.
+func LoadOrLegacy() (*Config, bool, error) {
+	configPath, err := GetConfigPath()
+	if err != nil {
+		return nil, false, err
+	}
 
 	if _, err := os.Stat(configPath); os.IsNotExist(err) {
-		return nil, fmt.Errorf("%w: run hyprvoice onboarding", ErrConfigNotFound)
+		return nil, false, fmt.Errorf("%w: run hyprvoice onboarding", ErrConfigNotFound)
 	} else if err != nil {
-		return nil, fmt.Errorf("failed to stat config file %s: %w", configPath, err)
+		return nil, false, fmt.Errorf("failed to stat config file %s: %w", configPath, err)
 	}
 
 	log.Printf("Config: loading configuration from %s", configPath)
 	var config Config
 	meta, err := toml.DecodeFile(configPath, &config)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse config file %s: %w", configPath, err)
+		return nil, false, fmt.Errorf("failed to parse config file %s: %w", configPath, err)
 	}
 	if isLegacyConfig(meta, &config) {
 		log.Printf("Config: legacy configuration detected - run hyprvoice onboarding")
-		return nil, fmt.Errorf("%w: run hyprvoice onboarding", ErrConfigNotFound)
+		return DefaultConfig(), true, nil
 	}
 
 	if config.Providers == nil {
@@ -58,7 +72,7 @@ func Load() (*Config, error) {
 	config.applyThreadsDefault()
 
 	log.Printf("Config: configuration loaded successfully")
-	return &config, nil
+	return &config, false, nil
 }
 
 func isLegacyConfig(meta toml.MetaData, config *Config) bool {

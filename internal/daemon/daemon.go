@@ -39,8 +39,14 @@ func New() (*Daemon, error) {
 	conf := configMgr.GetConfig()
 	ctx, cancel := context.WithCancel(context.Background())
 
+	// force desktop notifications when legacy config so user sees the onboarding prompt
+	notifType := conf.Notifications.Type
+	if configMgr.IsLegacy() {
+		notifType = "desktop"
+	}
+
 	d := &Daemon{
-		notifier:  notify.NewNotifier(conf.Notifications.Type, conf.Notifications.Messages.Resolve()),
+		notifier:  notify.NewNotifier(notifType, conf.Notifications.Messages.Resolve()),
 		configMgr: configMgr,
 		ctx:       ctx,
 		cancel:    cancel,
@@ -178,6 +184,10 @@ func (d *Daemon) handle(c net.Conn) {
 }
 
 func (d *Daemon) toggle() {
+	if d.configMgr.IsLegacy() {
+		d.notifier.Error("Legacy config detected. Run: hyprvoice onboarding")
+		return
+	}
 	conf := d.configMgr.GetConfig()
 	switch d.status() {
 	case pipeline.Idle:
