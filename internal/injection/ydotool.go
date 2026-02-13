@@ -34,7 +34,10 @@ func (y *ydotoolBackend) Available() error {
 
 		// ydotoold v1.0.4+ uses SOCK_DGRAM (unixgram) sockets.
 		// Try unixgram first, then fall back to stream for older versions.
-		conn, err := net.Dial("unixgram", socketPath)
+		// Note: unixgram dials are effectively instant (no handshake), but we
+		// use a dialer with a deadline to stay consistent and guard against edge cases.
+		dialer := net.Dialer{Timeout: 500 * time.Millisecond}
+		conn, err := dialer.Dial("unixgram", socketPath)
 		if err != nil {
 			conn, err = net.DialTimeout("unix", socketPath, 500*time.Millisecond)
 		}
