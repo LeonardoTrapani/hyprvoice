@@ -196,8 +196,6 @@ func (p *pipeline) run(ctx context.Context) {
 
 	for {
 		select {
-		case <-frameCh:
-
 		case action := <-p.actionCh:
 			switch action {
 			case Inject:
