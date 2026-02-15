@@ -32,7 +32,15 @@ func (y *ydotoolBackend) Available() error {
 			return fmt.Errorf("ydotoold socket not found - ensure ydotoold is running")
 		}
 
-		conn, err := net.DialTimeout("unix", socketPath, 500*time.Millisecond)
+		// ydotoold v1.0.4+ uses SOCK_DGRAM (unixgram) sockets.
+		// Try unixgram first, then fall back to stream for older versions.
+		// Note: unixgram dials are effectively instant (no handshake), but we
+		// use a dialer with a deadline to stay consistent and guard against edge cases.
+		dialer := net.Dialer{Timeout: 500 * time.Millisecond}
+		conn, err := dialer.Dial("unixgram", socketPath)
+		if err != nil {
+			conn, err = net.DialTimeout("unix", socketPath, 500*time.Millisecond)
+		}
 		if err != nil {
 			return fmt.Errorf("ydotoold not responding at %s: %w", socketPath, err)
 		}
