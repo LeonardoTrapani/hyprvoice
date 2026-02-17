@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"syscall"
 )
 
@@ -96,6 +97,19 @@ func (pm *pidManager) isProcessAlive(pid int) bool {
 	err = proc.Signal(syscall.Signal(0))
 	if err != nil {
 		log.Printf("Process %d not alive (signal failed: %v)", pid, err)
+		return false
+	}
+
+	// Verify the process is actually hyprvoice and not a recycled PID
+	cmdline, err := os.ReadFile(fmt.Sprintf("/proc/%d/cmdline", pid))
+	if err != nil {
+		log.Printf("Process %d alive but cannot read cmdline, assuming stale: %v", pid, err)
+		return false
+	}
+
+	exe := string(cmdline)
+	if len(exe) == 0 || !strings.Contains(exe, "hyprvoice") {
+		log.Printf("Process %d is alive but is not hyprvoice (cmdline: %q), stale PID file", pid, exe)
 		return false
 	}
 
