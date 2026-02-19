@@ -11,6 +11,7 @@ const (
 	MsgOperationCancelled
 	MsgRecordingAborted
 	MsgInjectionAborted
+	MsgInjectionComplete
 )
 
 // MessageDef defines a message type with its config key and defaults
@@ -31,6 +32,7 @@ var MessageDefs = []MessageDef{
 	{MsgOperationCancelled, "operation_cancelled", "Hyprvoice", "Operation Cancelled", false},
 	{MsgRecordingAborted, "recording_aborted", "", "Recording Aborted", true},
 	{MsgInjectionAborted, "injection_aborted", "", "Injection Aborted", true},
+	{MsgInjectionComplete, "injection_complete", "Hyprvoice", "Text Injected", false},
 }
 
 // Message is a resolved message ready for display

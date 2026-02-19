@@ -95,6 +95,7 @@ type MessagesConfig struct {
 	OperationCancelled MessageConfig `toml:"operation_cancelled"`
 	RecordingAborted   MessageConfig `toml:"recording_aborted"`
 	InjectionAborted   MessageConfig `toml:"injection_aborted"`
+	InjectionComplete  MessageConfig `toml:"injection_complete"`
 }
 
 // Resolve merges user config with defaults from MessageDefs

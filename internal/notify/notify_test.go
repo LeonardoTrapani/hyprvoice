@@ -13,6 +13,7 @@ func testMessages() map[MessageType]Message {
 		MsgOperationCancelled: {Title: "Hyprvoice", Body: "Operation Cancelled", IsError: false},
 		MsgRecordingAborted:   {Title: "", Body: "Recording Aborted", IsError: true},
 		MsgInjectionAborted:   {Title: "", Body: "Injection Aborted", IsError: true},
+		MsgInjectionComplete:  {Title: "Hyprvoice", Body: "Text Injected", IsError: false},
 	}
 }
 
@@ -105,8 +106,8 @@ func TestNotifierInterface(t *testing.T) {
 
 func TestMessageDefs(t *testing.T) {
 	// Verify MessageDefs contains expected entries
-	if len(MessageDefs) != 7 {
-		t.Errorf("Expected 7 MessageDefs, got %d", len(MessageDefs))
+	if len(MessageDefs) != 8 {
+		t.Errorf("Expected 8 MessageDefs, got %d", len(MessageDefs))
 	}
 
 	// Verify each has required fields
