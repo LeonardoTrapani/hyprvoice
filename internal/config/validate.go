@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"net/url"
 	"strings"
 
 	"github.com/leonardotrapani/hyprvoice/internal/provider"
@@ -80,6 +81,14 @@ func (c *Config) Validate() error {
 			envVar := envVarForProvider(registryName)
 			return fmt.Errorf("%s API key required: not found in config (providers.%s.api_key) or environment variable (%s)",
 				strings.Title(registryName), registryName, envVar)
+		}
+	}
+
+	// validate base_url if set
+	if baseURL := c.resolveBaseURLForProvider(c.Transcription.Provider); baseURL != "" {
+		u, err := url.Parse(baseURL)
+		if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
+			return fmt.Errorf("invalid providers.%s.base_url %q: must be a valid http/https URL (e.g., \"http://localhost:8080\")", registryName, baseURL)
 		}
 	}
 

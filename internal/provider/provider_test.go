@@ -188,16 +188,16 @@ func TestModelsOfType(t *testing.T) {
 }
 
 func TestFindModelByID(t *testing.T) {
-	// find model that exists
-	m, p, err := FindModelByID("whisper-1")
+	// find model that exists in exactly one provider
+	m, p, err := FindModelByID("gpt-4o-transcribe")
 	if err != nil {
-		t.Errorf("FindModelByID('whisper-1') unexpected error: %v", err)
+		t.Errorf("FindModelByID('gpt-4o-transcribe') unexpected error: %v", err)
 	}
 	if m == nil || p == nil {
 		t.Fatal("FindModelByID returned nil")
 	}
-	if m.ID != "whisper-1" {
-		t.Errorf("FindModelByID returned model %q, want 'whisper-1'", m.ID)
+	if m.ID != "gpt-4o-transcribe" {
+		t.Errorf("FindModelByID returned model %q, want 'gpt-4o-transcribe'", m.ID)
 	}
 	if p.Name() != "openai" {
 		t.Errorf("FindModelByID returned provider %q, want 'openai'", p.Name())

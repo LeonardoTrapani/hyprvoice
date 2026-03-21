@@ -31,8 +31,9 @@ type Config struct {
 	Language  string
 	Model     string
 	Keywords  []string
-	Threads   int  // CPU threads for local transcription (0 = auto)
-	Streaming bool // use streaming mode if model supports it
+	Threads   int    // CPU threads for local transcription (0 = auto)
+	Streaming bool   // use streaming mode if model supports it
+	BaseURL   string // override the provider's default endpoint base URL (e.g., "http://localhost:8080")
 }
 
 // NewTranscriber creates a new transcriber based on model metadata
@@ -117,11 +118,19 @@ func NewTranscriber(config Config) (Transcriber, error) {
 		return NewStreamingTranscriber(streamingAdapter, config.Language), nil
 	}
 
+	// resolve effective endpoint, allowing BaseURL override from config
+	batchEndpoint := model.Endpoint
+	if config.BaseURL != "" && batchEndpoint != nil {
+		batchEndpoint = &provider.EndpointConfig{BaseURL: config.BaseURL, Path: batchEndpoint.Path}
+	}
+
 	// batch mode: use SimpleTranscriber
 	var adapter BatchAdapter
 	switch model.AdapterType {
 	case provider.AdapterOpenAI:
-		adapter = NewOpenAIAdapter(model.Endpoint, config.APIKey, model.ID, config.Language, config.Keywords, registryProvider)
+		adapter = NewOpenAIAdapter(batchEndpoint, config.APIKey, model.ID, config.Language, config.Keywords, registryProvider)
+	case provider.AdapterWhisperServer:
+		adapter = NewWhisperServerAdapter(batchEndpoint, config.Language)
 	case provider.AdapterElevenLabs:
 		adapter = NewElevenLabsAdapter(model.Endpoint, config.APIKey, model.ID, config.Language, config.Keywords)
 	case provider.AdapterDeepgram:

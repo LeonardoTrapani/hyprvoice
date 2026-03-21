@@ -12,6 +12,7 @@ This guide helps you choose the right transcription provider for your use case.
 | **ElevenLabs** | Cloud | 4 | 57+ | Yes | Fast | Excellent | Pay per use |
 | **Deepgram** | Cloud | 4 | 33-42 | Yes | Very Fast | Excellent | Pay per use |
 | **whisper-cpp** | Local | 12 | 57 (4 EN-only) | No | Varies | Excellent | Free |
+| **whisper-server** | Local | 3 | 57 | No | Varies | Excellent | Free |
 
 ### OpenAI
 
@@ -71,6 +72,16 @@ Streaming-first provider with Nova models. Excellent for real-time applications.
 **Language Support:** Nova-3 supports 42 languages, Nova-2 supports 33 languages. Not all 57 languages from the master list are available.
 
 **Best for:** Real-time transcription, live captions, meeting transcription
+
+### whisper-server (Local HTTP Server)
+
+Run an OpenAI-compatible Whisper HTTP server locally and point hyprvoice at it. Supports [whisper.cpp server mode](https://github.com/ggml-org/whisper.cpp/tree/master/examples/server) and [faster-whisper-server](https://github.com/fedirz/faster-whisper-server).
+
+The model is chosen at server startup (e.g. `whisper-server -m ggml-base.en.bin`). The `model` field in hyprvoice config is sent in the request but whisper.cpp ignores it — use `whisper-1`. For model downloads and setup, see the [whisper.cpp README](https://github.com/ggml-org/whisper.cpp).
+
+**Best for:** HTTP-based local transcription (e.g., shared server on LAN, GPU machine), or users who already run a Whisper server for other tools
+
+---
 
 ### whisper-cpp (Local)
 

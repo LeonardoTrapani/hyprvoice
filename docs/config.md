@@ -155,6 +155,26 @@ language = ""                   # Empty for auto-detect
 - Nova-2: 33 languages, faster with filler word detection (batch+streaming)
 - Excellent for real-time transcription and live captions
 
+### Local Whisper HTTP Server (whisper-server)
+
+Use a locally-running OpenAI-compatible Whisper server such as [whisper.cpp server](https://github.com/ggml-org/whisper.cpp/tree/master/examples/server) or [faster-whisper-server](https://github.com/fedirz/faster-whisper-server):
+
+```toml
+[providers.whisper-server]
+  base_url = "http://localhost:8080"  # URL of your running Whisper server
+
+[transcription]
+  provider = "whisper-server"
+  model = "whisper-1"        # Ignored by whisper.cpp; model is set at server startup
+  language = ""              # Empty for auto-detect
+```
+
+**No API key required.** The `base_url` defaults to `http://localhost:8080` if not set.
+
+The `model` field is sent to the server but whisper.cpp ignores it — the model is chosen at server startup via `-m`. Use `whisper-1` (the default) unless your server software requires a specific value.
+
+For model downloads and server setup, see the [whisper.cpp README](https://github.com/ggml-org/whisper.cpp).
+
 ### Local Transcription (whisper-cpp)
 
 Run Whisper models locally on your machine. No API keys, no network latency, complete privacy.
@@ -603,6 +623,23 @@ You can customize notification text via the `[notifications.messages]` section:
 
 [llm]
   enabled = false               # No LLM for full privacy
+```
+
+### Local Whisper Server
+
+```toml
+# No API keys needed!
+
+[providers.whisper-server]
+  base_url = "http://localhost:8080"
+
+[transcription]
+  provider = "whisper-server"
+  model = "whisper-1"           # Ignored by whisper.cpp; model is set at server startup
+  language = ""                 # Auto-detect
+
+[llm]
+  enabled = false
 ```
 
 ### Real-Time Streaming with Deepgram

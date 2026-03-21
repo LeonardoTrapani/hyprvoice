@@ -2,12 +2,13 @@ package provider
 
 // Provider name constants for config and registry
 const (
-	ProviderOpenAI     = "openai"
-	ProviderGroq       = "groq"
-	ProviderMistral    = "mistral"
-	ProviderElevenLabs = "elevenlabs"
-	ProviderDeepgram   = "deepgram"
-	ProviderWhisperCpp = "whisper-cpp"
+	ProviderOpenAI        = "openai"
+	ProviderGroq          = "groq"
+	ProviderMistral       = "mistral"
+	ProviderElevenLabs    = "elevenlabs"
+	ProviderDeepgram      = "deepgram"
+	ProviderWhisperCpp    = "whisper-cpp"
+	ProviderWhisperServer = "whisper-server"
 )
 
 // Config provider names (used in config file transcription.provider)
@@ -18,6 +19,7 @@ const (
 	ConfigProviderElevenLabs           = "elevenlabs"
 	ConfigProviderDeepgram             = "deepgram"
 	ConfigProviderWhisperCpp           = "whisper-cpp"
+	ConfigProviderWhisperServer        = "whisper-server"
 )
 
 // Environment variable names for API keys
@@ -37,6 +39,7 @@ const (
 	AdapterDeepgram         = "deepgram"
 	AdapterWhisperCpp       = "whisper-cpp"
 	AdapterOpenAIRealtime   = "openai-realtime"
+	AdapterWhisperServer    = "whisper-server"
 )
 
 // BaseProviderName maps config provider names to registry provider names

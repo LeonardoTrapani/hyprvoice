@@ -23,9 +23,10 @@ type Config struct {
 	LLM           LLMConfig                 `toml:"llm"`
 }
 
-// ProviderConfig holds API key for a provider
+// ProviderConfig holds API key and optional endpoint override for a provider
 type ProviderConfig struct {
-	APIKey string `toml:"api_key"`
+	APIKey  string `toml:"api_key"`
+	BaseURL string `toml:"base_url"`
 }
 
 // LLMConfig configures the LLM post-processing phase

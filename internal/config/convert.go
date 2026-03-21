@@ -32,8 +32,20 @@ func (c *Config) ToTranscriberConfig() transcriber.Config {
 	}
 
 	config.APIKey = c.resolveAPIKeyForProvider(c.Transcription.Provider)
+	config.BaseURL = c.resolveBaseURLForProvider(c.Transcription.Provider)
 
 	return config
+}
+
+// resolveBaseURLForProvider returns the base_url override for a provider from config
+func (c *Config) resolveBaseURLForProvider(providerName string) string {
+	baseName := provider.BaseProviderName(providerName)
+	if c.Providers != nil {
+		if pc, ok := c.Providers[baseName]; ok {
+			return pc.BaseURL
+		}
+	}
+	return ""
 }
 
 // resolveEffectiveLanguage returns the language for transcription
