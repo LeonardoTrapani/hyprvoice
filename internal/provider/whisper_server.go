@@ -31,35 +31,13 @@ func (p *WhisperServerProvider) Models() []Model {
 
 	return []Model{
 		{
-			ID:                 "whisper-1",
-			Name:               "Whisper 1",
-			Description:        "Default; model is selected by the server at startup",
-			Type:               Transcription,
-			SupportsBatch:      true,
-			SupportsStreaming:  false,
-			Local:              true,
-			AdapterType:        AdapterWhisperServer,
-			SupportedLanguages: allLangs,
-			Endpoint:           defaultEndpoint,
-			DocsURL:            docsURL,
-		},
-		{
-			ID:                 "whisper-large-v3",
-			Name:               "Whisper Large v3",
-			Description:        "Best accuracy; use with a server loaded with the large-v3 model",
-			Type:               Transcription,
-			SupportsBatch:      true,
-			SupportsStreaming:  false,
-			Local:              true,
-			AdapterType:        AdapterWhisperServer,
-			SupportedLanguages: allLangs,
-			Endpoint:           defaultEndpoint,
-			DocsURL:            docsURL,
-		},
-		{
-			ID:                 "whisper-large-v3-turbo",
-			Name:               "Whisper Large v3 Turbo",
-			Description:        "Near-best accuracy with better speed; use with a server loaded with the large-v3-turbo model",
+			// "default" is sent as the model field in the multipart request.
+			// whisper.cpp server ignores it — the model is chosen at startup via -m.
+			// Servers that do use the model field (e.g. faster-whisper-server) will
+			// need to set transcription.model to a value their server recognises.
+			ID:                 "default",
+			Name:               "Default",
+			Description:        "Uses whichever model the server was started with",
 			Type:               Transcription,
 			SupportsBatch:      true,
 			SupportsStreaming:  false,
@@ -75,7 +53,7 @@ func (p *WhisperServerProvider) Models() []Model {
 func (p *WhisperServerProvider) DefaultModel(t ModelType) string {
 	switch t {
 	case Transcription:
-		return "whisper-1" // placeholder; whisper.cpp server ignores the model field — model is chosen at startup
+		return "default"
 	}
 	return ""
 }

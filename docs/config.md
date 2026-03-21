@@ -165,13 +165,13 @@ Use a locally-running OpenAI-compatible Whisper server such as [whisper.cpp serv
 
 [transcription]
   provider = "whisper-server"
-  model = "whisper-1"        # Ignored by whisper.cpp; model is set at server startup
+  model = "default"          # Sent to the server; whisper.cpp ignores it, faster-whisper-server uses it
   language = ""              # Empty for auto-detect
 ```
 
 **No API key required.** The `base_url` defaults to `http://localhost:8080` if not set.
 
-The `model` field is sent to the server but whisper.cpp ignores it — the model is chosen at server startup via `-m`. Use `whisper-1` (the default) unless your server software requires a specific value.
+The `model` field is sent as a form field in the request. whisper.cpp ignores it (the model is chosen at server startup via `-m`). If you use faster-whisper-server or another server that routes by model name, set this to the model name your server expects.
 
 For model downloads and server setup, see the [whisper.cpp README](https://github.com/ggml-org/whisper.cpp).
 
@@ -635,7 +635,7 @@ You can customize notification text via the `[notifications.messages]` section:
 
 [transcription]
   provider = "whisper-server"
-  model = "whisper-1"           # Ignored by whisper.cpp; model is set at server startup
+  model = "default"             # Sent to server; whisper.cpp ignores it, model is set at startup
   language = ""                 # Auto-detect
 
 [llm]

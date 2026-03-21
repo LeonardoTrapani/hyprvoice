@@ -130,7 +130,7 @@ func NewTranscriber(config Config) (Transcriber, error) {
 	case provider.AdapterOpenAI:
 		adapter = NewOpenAIAdapter(batchEndpoint, config.APIKey, model.ID, config.Language, config.Keywords, registryProvider)
 	case provider.AdapterWhisperServer:
-		adapter = NewWhisperServerAdapter(batchEndpoint, config.Language)
+		adapter = NewWhisperServerAdapter(batchEndpoint, config.Model, config.Language)
 	case provider.AdapterElevenLabs:
 		adapter = NewElevenLabsAdapter(model.Endpoint, config.APIKey, model.ID, config.Language, config.Keywords)
 	case provider.AdapterDeepgram:

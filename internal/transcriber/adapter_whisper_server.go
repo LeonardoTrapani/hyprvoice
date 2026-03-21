@@ -19,12 +19,14 @@ import (
 // using its native /inference endpoint (multipart/form-data)
 type WhisperServerAdapter struct {
 	endpoint *provider.EndpointConfig
+	model    string
 	language string
 }
 
-func NewWhisperServerAdapter(endpoint *provider.EndpointConfig, language string) *WhisperServerAdapter {
+func NewWhisperServerAdapter(endpoint *provider.EndpointConfig, model, language string) *WhisperServerAdapter {
 	return &WhisperServerAdapter{
 		endpoint: endpoint,
+		model:    model,
 		language: language,
 	}
 }
@@ -32,6 +34,8 @@ func NewWhisperServerAdapter(endpoint *provider.EndpointConfig, language string)
 type whisperServerResponse struct {
 	Text string `json:"text"`
 }
+
+var whisperServerHTTPClient = &http.Client{Timeout: 30 * time.Second}
 
 func (a *WhisperServerAdapter) Transcribe(ctx context.Context, audioData []byte) (string, error) {
 	if len(audioData) == 0 {
@@ -58,13 +62,16 @@ func (a *WhisperServerAdapter) Transcribe(ctx context.Context, audioData []byte)
 	_ = w.WriteField("response_format", "json")
 	_ = w.WriteField("temperature", "0.0")
 
+	if a.model != "" {
+		_ = w.WriteField("model", a.model)
+	}
 	if a.language != "" {
 		_ = w.WriteField("language", a.language)
 	}
 
 	w.Close()
 
-	url := a.endpoint.BaseURL + a.endpoint.Path
+	url := strings.TrimRight(a.endpoint.BaseURL, "/") + a.endpoint.Path
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, &body)
 	if err != nil {
 		return "", fmt.Errorf("create request: %w", err)
@@ -72,7 +79,7 @@ func (a *WhisperServerAdapter) Transcribe(ctx context.Context, audioData []byte)
 	req.Header.Set("Content-Type", w.FormDataContentType())
 
 	start := time.Now()
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := whisperServerHTTPClient.Do(req)
 	duration := time.Since(start)
 	if err != nil {
 		return "", fmt.Errorf("whisper-server request: %w", err)
