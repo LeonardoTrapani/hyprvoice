@@ -157,7 +157,7 @@ language = ""                   # Empty for auto-detect
 
 ### Local Whisper HTTP Server (whisper-server)
 
-Use a locally-running OpenAI-compatible Whisper server such as [whisper.cpp server](https://github.com/ggml-org/whisper.cpp/tree/master/examples/server) or [faster-whisper-server](https://github.com/fedirz/faster-whisper-server):
+Use [whisper.cpp server](https://github.com/ggml-org/whisper.cpp/tree/master/examples/server) running locally. hyprvoice posts to the whisper.cpp native `/inference` endpoint — this is **not** OpenAI-compatible.
 
 ```toml
 [providers.whisper-server]
@@ -165,15 +165,13 @@ Use a locally-running OpenAI-compatible Whisper server such as [whisper.cpp serv
 
 [transcription]
   provider = "whisper-server"
-  model = "default"          # Sent to the server; whisper.cpp ignores it, faster-whisper-server uses it
+  model = "default"          # Sent as a form field; whisper.cpp ignores it (model is set at server startup)
   language = ""              # Empty for auto-detect
 ```
 
 **No API key required.** The `base_url` defaults to `http://localhost:8080` if not set.
 
-The `model` field is sent as a form field in the request. whisper.cpp ignores it (the model is chosen at server startup via `-m`). If you use faster-whisper-server or another server that routes by model name, set this to the model name your server expects.
-
-For model downloads and server setup, see the [whisper.cpp README](https://github.com/ggml-org/whisper.cpp).
+The `model` field is sent as a form field but whisper.cpp ignores it — the model is chosen at server startup via `-m`. For model downloads and server setup, see the [whisper.cpp README](https://github.com/ggml-org/whisper.cpp).
 
 ### Local Transcription (whisper-cpp)
 

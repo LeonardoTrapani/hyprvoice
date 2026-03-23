@@ -75,9 +75,9 @@ Streaming-first provider with Nova models. Excellent for real-time applications.
 
 ### whisper-server (Local HTTP Server)
 
-Run an OpenAI-compatible Whisper HTTP server locally and point hyprvoice at it. Supports [whisper.cpp server mode](https://github.com/ggml-org/whisper.cpp/tree/master/examples/server) and [faster-whisper-server](https://github.com/fedirz/faster-whisper-server).
+Run [whisper.cpp server](https://github.com/ggml-org/whisper.cpp/tree/master/examples/server) locally and point hyprvoice at it. Uses whisper.cpp's native `/inference` endpoint — this is **not** OpenAI-compatible.
 
-The `model` field is sent as a form field in the request. whisper.cpp ignores it (the model is chosen at server startup via `-m`); use `default`. If you use faster-whisper-server or another server that routes by model name, set `transcription.model` to whatever name your server expects. For model downloads and server setup, see the [whisper.cpp README](https://github.com/ggml-org/whisper.cpp).
+The `model` field is sent as a form field in the request. whisper.cpp ignores it (the model is chosen at server startup via `-m`); use `default`. For model downloads and server setup, see the [whisper.cpp README](https://github.com/ggml-org/whisper.cpp).
 
 **Best for:** HTTP-based local transcription (e.g., shared server on LAN, GPU machine), or users who already run a Whisper server for other tools
 
