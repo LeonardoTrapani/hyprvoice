@@ -368,8 +368,15 @@ LLM post-processing is **enabled by default** and significantly improves transcr
 [llm]
   enabled = true               # Disable with false if you want raw transcriptions
   provider = "openai"          # "openai" or "groq"
-  model = "gpt-4o-mini"        # OpenAI: "gpt-4o-mini", Groq: "llama-3.3-70b-versatile"
+  model = "gpt-4o-mini"        # OpenAI: "gpt-4o-mini" (default), "gpt-4o",
+                               #   "gpt-5", "gpt-5-mini", "gpt-5.4",
+                               #   "gpt-5.4-mini", "gpt-5.4-nano"
+                               # Groq: "llama-3.3-70b-versatile"
 ```
+
+GPT-5 family models do not accept sampling parameters. The adapter omits
+`temperature` for them, so the cleanup tuning that applies to the GPT-4o
+line has no effect. Use the system prompt to shape output style.
 
 ### Post-Processing Options
 
@@ -405,6 +412,10 @@ Add custom instructions for specific use cases:
 | Provider | Model                   | Best For                            |
 | -------- | ----------------------- | ----------------------------------- |
 | OpenAI   | gpt-4o-mini             | Best quality/cost balance (default) |
+| OpenAI   | gpt-4o                  | Higher quality on the GPT-4o line |
+| OpenAI   | gpt-5.4-mini            | GPT-5 line, low latency |
+| OpenAI   | gpt-5.4-nano            | Cheapest GPT-5 option |
+| OpenAI   | gpt-5.4, gpt-5, gpt-5-mini | Larger GPT-5 options |
 | Groq     | llama-3.3-70b-versatile | Fastest processing, free tier       |
 
 ## Keywords
