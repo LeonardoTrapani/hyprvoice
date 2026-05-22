@@ -11,6 +11,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/leonardotrapani/hyprvoice/internal/config"
 	"github.com/leonardotrapani/hyprvoice/internal/deps"
+	"github.com/leonardotrapani/hyprvoice/internal/llm"
 	"github.com/leonardotrapani/hyprvoice/internal/models/whisper"
 	"github.com/leonardotrapani/hyprvoice/internal/notify"
 	"github.com/leonardotrapani/hyprvoice/internal/provider"
@@ -485,10 +486,60 @@ func newPostProcessingScreen(state *wizardState, onBack func() screen, onNext fu
 			}
 		}
 		state.cfg.LLM.PostProcessing = result
-		return newCustomPromptConfirmScreen(state, onBack, onNext)
+		return newSystemPromptConfirmScreen(state, onBack, onNext)
 	}, func() screen { return newLLMModelScreen(state, state.cfg.LLM.Provider, onBack, onNext) })
 	screen.footer = "space toggle • enter save • esc back • / filter"
 	return screen
+}
+
+func newSystemPromptConfirmScreen(state *wizardState, onBack func() screen, onNext func() screen) screen {
+	desc := []string{
+		"Replace the built-in system prompt sent to the LLM.",
+		"Keywords will still be appended automatically.",
+		"Tip: for multi-line prompts, edit ~/.config/hyprvoice/config.toml directly.",
+	}
+	if state.cfg.LLM.SystemPrompt.Enabled && state.cfg.LLM.SystemPrompt.Prompt != "" {
+		preview := strings.ReplaceAll(state.cfg.LLM.SystemPrompt.Prompt, "\n", " ")
+		if len(preview) > 60 {
+			preview = preview[:60] + "..."
+		}
+		desc = append([]string{fmt.Sprintf("Current override: \"%s\"", preview)}, desc...)
+	} else {
+		desc = append([]string{"Current override: none (using built-in)."}, desc...)
+	}
+	prev := func() screen { return newPostProcessingScreen(state, onBack, onNext) }
+
+	seed := state.cfg.LLM.SystemPrompt.Prompt
+	if seed == "" {
+		seed = llm.DefaultSystemPrompt(llm.PostProcessingOptions{
+			RemoveStutters:    state.cfg.LLM.PostProcessing.RemoveStutters,
+			AddPunctuation:    state.cfg.LLM.PostProcessing.AddPunctuation,
+			FixGrammar:        state.cfg.LLM.PostProcessing.FixGrammar,
+			RemoveFillerWords: state.cfg.LLM.PostProcessing.RemoveFillerWords,
+		})
+	}
+
+	return newConfirmScreen(state, "Override System Prompt?", desc, "Yes", "Provide your own system prompt.", "No", "Use the built-in prompt.", func() screen {
+		inputDesc := []string{
+			"Replaces the entire built-in system prompt.",
+			"Single-line input; for multi-line prompts edit config.toml.",
+		}
+		return newInputScreen(state, "System Prompt", inputDesc, seed, "You are a text cleanup assistant...", false, func(s string) error {
+			if len(s) > 4000 {
+				return fmt.Errorf("prompt must be 4000 characters or less")
+			}
+			return nil
+		}, func(value string) screen {
+			state.cfg.LLM.SystemPrompt.Enabled = true
+			state.cfg.LLM.SystemPrompt.Prompt = value
+			state.cfg.LLM.Enabled = true
+			return newCustomPromptConfirmScreen(state, onBack, onNext)
+		}, func() screen { return newSystemPromptConfirmScreen(state, onBack, onNext) })
+	}, func() screen {
+		state.cfg.LLM.SystemPrompt.Enabled = false
+		state.cfg.LLM.Enabled = true
+		return newCustomPromptConfirmScreen(state, onBack, onNext)
+	}, prev)
 }
 
 func newCustomPromptConfirmScreen(state *wizardState, onBack func() screen, onNext func() screen) screen {
@@ -502,7 +553,7 @@ func newCustomPromptConfirmScreen(state *wizardState, onBack func() screen, onNe
 	} else {
 		desc = append([]string{"Current prompt: none."}, desc...)
 	}
-	prev := func() screen { return newPostProcessingScreen(state, onBack, onNext) }
+	prev := func() screen { return newSystemPromptConfirmScreen(state, onBack, onNext) }
 	return newConfirmScreen(state, "Add Custom Prompt?", desc, "Yes", "Provide additional instructions.", "No", "Use default behavior only.", func() screen {
 		return newInputScreen(state, "Custom Prompt", []string{"Additional instructions for the LLM."}, state.cfg.LLM.CustomPrompt.Prompt, "Format as bullet points", false, func(s string) error {
 			if len(s) > 500 {

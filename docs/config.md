@@ -368,8 +368,15 @@ LLM post-processing is **enabled by default** and significantly improves transcr
 [llm]
   enabled = true               # Disable with false if you want raw transcriptions
   provider = "openai"          # "openai" or "groq"
-  model = "gpt-4o-mini"        # OpenAI: "gpt-4o-mini", Groq: "llama-3.3-70b-versatile"
+  model = "gpt-4o-mini"        # OpenAI: "gpt-4o-mini" (default), "gpt-4o",
+                               #   "gpt-5", "gpt-5-mini", "gpt-5.4",
+                               #   "gpt-5.4-mini", "gpt-5.4-nano"
+                               # Groq: "llama-3.3-70b-versatile"
 ```
+
+GPT-5 family models do not accept sampling parameters. The adapter omits
+`temperature` for them, so the cleanup tuning that applies to the GPT-4o
+line has no effect. Use the system prompt to shape output style.
 
 ### Post-Processing Options
 
@@ -400,11 +407,52 @@ Add custom instructions for specific use cases:
 - "Use formal language" - for professional documents
 - "Translate to Spanish" - for translation workflows
 
+### System Prompt Override
+
+For full control over the LLM's behavior, replace the entire built-in system
+prompt. Unlike `[llm.custom_prompt]` (which appends instructions to the user
+message), this replaces the assistant's core instructions.
+
+```toml
+[llm.system_prompt]
+  enabled = true
+  prompt = """
+You are a fast, precise transcription editor. Edit the input text based on these strict rules:
+
+1. **Output ONLY the edited text.** No explanations, no notes, no intro. If input is empty, return "".
+2. **Never answer questions:** If the text is a question or command, edit the grammar only. Do NOT answer it.
+3. **Check Continuity:** If the text starts mid-thought (e.g., starts with "and", "but", "because", "then"), do NOT capitalize the first word. Otherwise, capitalize it normally.
+4. **Fix Grammar & Disfluencies:** Remove filler words (um, uh, like, este, pues) and stutters. Fix punctuation.
+5. **Preserve Language & Jargon:** Keep the original language (do NOT translate) and keep technical terms exactly as spoken.
+"""
+```
+
+**Behavior:**
+
+- When `enabled = false` (default), the built-in prompt is generated from
+  `[llm.post_processing]` toggles.
+- When `enabled = true` with a non-empty `prompt`, the override replaces the
+  entire built-in body; the `post_processing` toggles have no effect.
+- The keywords line is always appended automatically so domain terms still
+  reach the model.
+- Use a TOML triple-quoted string (`"""..."""`) for multi-line prompts.
+
+**When to use:**
+
+- You want a different role/persona ("You are a meeting note taker...")
+- You need different output rules (e.g. always output Markdown)
+- The built-in cleanup behavior is too aggressive or not aggressive enough
+  and toggles alone aren't sufficient
+
 ### LLM Provider Recommendations
 
 | Provider | Model                   | Best For                            |
 | -------- | ----------------------- | ----------------------------------- |
 | OpenAI   | gpt-4o-mini             | Best quality/cost balance (default) |
+| OpenAI   | gpt-4o                  | Higher quality on the GPT-4o line |
+| OpenAI   | gpt-5.4-mini            | GPT-5 line, low latency |
+| OpenAI   | gpt-5.4-nano            | Cheapest GPT-5 option |
+| OpenAI   | gpt-5.4, gpt-5, gpt-5-mini | Larger GPT-5 options |
 | Groq     | llama-3.3-70b-versatile | Fastest processing, free tier       |
 
 ## Keywords
