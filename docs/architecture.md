@@ -12,7 +12,7 @@ Hyprvoice is split into a thin CLI and a long-lived daemon. The CLI sends single
 - Recording: PipeWire capture (`internal/recording/`).
 - Transcription: batch + streaming adapters (`internal/transcriber/`).
 - LLM post-processing: adapters and prompt builders (`internal/llm/`).
-- Injection: wtype/ydotool/clipboard backends (`internal/injection/`).
+- Injection: wtype/ydotool/dotool/clipboard backends (`internal/injection/`).
 - Provider registry: model metadata and adapter selection (`internal/provider/`).
 - Config manager: load/validate + hot reload (`internal/config/`).
 
@@ -66,8 +66,9 @@ The pipeline invokes LLM processing only if enabled in config.
 `internal/injection/injection.go` defines `Injector` and an ordered list of backends.
 `internal/injection/backend.go` defines the `Backend` interface (`Name/Available/Inject`).
 Backends include:
-- `wtype` (Wayland typing)
 - `ydotool` (uinput typing)
+- `wtype` (Wayland typing)
+- `dotool` (keystroke via dotool)
 - `wl-clipboard` fallback
 
 The injector tries backends in order and falls back to clipboard when typing fails.

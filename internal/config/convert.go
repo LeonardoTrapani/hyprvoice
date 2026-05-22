@@ -110,5 +110,8 @@ func (c *Config) ToInjectionConfig() injection.Config {
 		YdotoolTimeout:   c.Injection.YdotoolTimeout,
 		WtypeTimeout:     c.Injection.WtypeTimeout,
 		ClipboardTimeout: c.Injection.ClipboardTimeout,
+		DotoolTimeout:    c.Injection.DotoolTimeout,
+		DotoolTypedelay:  c.Injection.DotoolTypedelay,
+		DotoolTypehold:   c.Injection.DotoolTypehold,
 	}
 }

@@ -9,7 +9,7 @@ Press a toggle key, speak, and get instant text input. Built natively for Waylan
 - 26 speech-to-text models across cloud and local providers, including whisper.cpp.
 - Optional LLM post-processing for grammar, punctuation, and more.
 - Toggle workflow with optional status notifications and cancel support.
-- Text injection via ydotool, wtype, and clipboard fallback with clipboard restore.
+- Text injection via ydotool, wtype, dotool, and clipboard fallback with clipboard restore.
 - Guided onboarding and a full configure menu with hot-reload.
 - Personalization through custom prompt and keywords sent both to LLM and to voice model.
 - Whisprflow quality but for linux and open source.
@@ -314,7 +314,7 @@ flowchart LR
   subgraph Pipeline
     A["Audio Capture"]
     T["Transcribing"]
-    I["Injecting (wtype + clipboard)"]
+    I["Injecting (ydotool + wtype + dotool + clipboard)"]
   end
   N["notify-send/log"]
 

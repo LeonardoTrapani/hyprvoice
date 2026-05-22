@@ -12,10 +12,13 @@ type Injector interface {
 }
 
 type Config struct {
-	Backends         []string      // Ordered list: "ydotool", "wtype", "clipboard"
+	Backends         []string      // Ordered list: "ydotool", "wtype", "dotool", "clipboard"
 	YdotoolTimeout   time.Duration // Timeout for ydotool commands
 	WtypeTimeout     time.Duration // Timeout for wtype commands
 	ClipboardTimeout time.Duration // Timeout for clipboard operations
+	DotoolTimeout    time.Duration // Timeout for dotool commands
+	DotoolTypedelay  time.Duration // Set the delay between each key
+	DotoolTypehold   time.Duration // Set the hold time for each key
 }
 
 type injector struct {
@@ -34,6 +37,11 @@ func NewInjector(config Config) Injector {
 			backends = append(backends, NewWtypeBackend())
 		case "clipboard":
 			backends = append(backends, NewClipboardBackend())
+		case "dotool":
+			backends = append(backends, NewDotoolBackend(
+				config.DotoolTypedelay.Milliseconds(),
+				config.DotoolTypehold.Milliseconds(),
+			))
 		default:
 			log.Printf("Injection: unknown backend %q, skipping", name)
 		}
@@ -80,6 +88,8 @@ func (i *injector) getTimeout(backendName string) time.Duration {
 		return i.config.WtypeTimeout
 	case "clipboard":
 		return i.config.ClipboardTimeout
+	case "dotool":
+		return i.config.DotoolTimeout
 	default:
 		return 5 * time.Second
 	}

@@ -25,7 +25,7 @@ State machine: idle -> recording -> transcribing -> processing -> injecting -> i
 - internal/recording: PipeWire audio capture
 - internal/transcriber: batch and streaming provider adapters
 - internal/llm: post-processing adapters and prompts
-- internal/injection: wtype/ydotool/clipboard injection
+- internal/injection: wtype/ydotool/dotool/clipboard injection
 - internal/notify: desktop notifications
 - internal/provider: provider registry and model metadata
 - internal/models/whisper: local whisper model registry and downloads

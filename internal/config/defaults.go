@@ -20,10 +20,13 @@ func DefaultConfig() *Config {
 			Threads:   0,
 		},
 		Injection: InjectionConfig{
-			Backends:         []string{"ydotool", "wtype", "clipboard"},
+			Backends:         []string{"ydotool", "wtype", "dotool", "clipboard"},
 			YdotoolTimeout:   5 * time.Second,
 			WtypeTimeout:     5 * time.Second,
 			ClipboardTimeout: 3 * time.Second,
+			DotoolTimeout:    5 * time.Second,
+			DotoolTypedelay:  1 * time.Millisecond,
+			DotoolTypehold:   2 * time.Millisecond,
 		},
 		Notifications: NotificationsConfig{
 			Enabled: false,
