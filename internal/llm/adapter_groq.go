@@ -13,6 +13,11 @@ import (
 type GroqAdapter struct {
 	client *openai.Client
 	config Config
+
+	// systemPrompt is rendered once at construction time. It is a pure
+	// function of cfg, so rebuilding it on every Process call would be
+	// wasted work.
+	systemPrompt string
 }
 
 // NewGroqAdapter creates a new Groq LLM adapter
@@ -20,8 +25,9 @@ func NewGroqAdapter(cfg Config) *GroqAdapter {
 	clientConfig := openai.DefaultConfig(cfg.APIKey)
 	clientConfig.BaseURL = "https://api.groq.com/openai/v1"
 	return &GroqAdapter{
-		client: openai.NewClientWithConfig(clientConfig),
-		config: cfg,
+		client:       openai.NewClientWithConfig(clientConfig),
+		config:       cfg,
+		systemPrompt: cfg.renderSystemPrompt(),
 	}
 }
 
@@ -30,14 +36,6 @@ func (a *GroqAdapter) Process(ctx context.Context, text string) (string, error) 
 		return "", nil
 	}
 
-	opts := PostProcessingOptions{
-		RemoveStutters:    a.config.RemoveStutters,
-		AddPunctuation:    a.config.AddPunctuation,
-		FixGrammar:        a.config.FixGrammar,
-		RemoveFillerWords: a.config.RemoveFillerWords,
-	}
-
-	systemPrompt := BuildSystemPrompt(opts, a.config.Keywords)
 	userPrompt := BuildUserPrompt(text, a.config.CustomPrompt)
 
 	model := a.config.Model
@@ -48,7 +46,7 @@ func (a *GroqAdapter) Process(ctx context.Context, text string) (string, error) 
 	req := openai.ChatCompletionRequest{
 		Model: model,
 		Messages: []openai.ChatCompletionMessage{
-			{Role: openai.ChatMessageRoleSystem, Content: systemPrompt},
+			{Role: openai.ChatMessageRoleSystem, Content: a.systemPrompt},
 			{Role: openai.ChatMessageRoleUser, Content: userPrompt},
 		},
 		Temperature: 0.3, // Low temperature for consistent cleanup

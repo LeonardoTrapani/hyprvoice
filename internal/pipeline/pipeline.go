@@ -315,6 +315,7 @@ func (p *pipeline) handleInjectAction(ctx context.Context, recorder recording.Re
 			AddPunctuation:    llmCfg.AddPunctuation,
 			FixGrammar:        llmCfg.FixGrammar,
 			RemoveFillerWords: llmCfg.RemoveFillerWords,
+			SystemPrompt:      llmCfg.SystemPrompt,
 			CustomPrompt:      llmCfg.CustomPrompt,
 			Keywords:          llmCfg.Keywords,
 		})

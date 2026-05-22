@@ -35,6 +35,11 @@ type OpenAIAdapter struct {
 	client *openai.Client
 	config Config
 
+	// systemPrompt is rendered once at construction time. It is a pure
+	// function of cfg, so rebuilding it on every Process call would be
+	// wasted work.
+	systemPrompt string
+
 	// omitSamplingParams is resolved once from the provider registry at
 	// construction time. True for gpt-5 family models, which reject sampling
 	// params on the chat completions API. Models not in the registry fall
@@ -52,6 +57,7 @@ func NewOpenAIAdapter(cfg Config) *OpenAIAdapter {
 	return &OpenAIAdapter{
 		client:             openai.NewClient(cfg.APIKey),
 		config:             cfg,
+		systemPrompt:       cfg.renderSystemPrompt(),
 		omitSamplingParams: omit,
 	}
 }
@@ -61,14 +67,6 @@ func (a *OpenAIAdapter) Process(ctx context.Context, text string) (string, error
 		return "", nil
 	}
 
-	opts := PostProcessingOptions{
-		RemoveStutters:    a.config.RemoveStutters,
-		AddPunctuation:    a.config.AddPunctuation,
-		FixGrammar:        a.config.FixGrammar,
-		RemoveFillerWords: a.config.RemoveFillerWords,
-	}
-
-	systemPrompt := BuildSystemPrompt(opts, a.config.Keywords)
 	userPrompt := BuildUserPrompt(text, a.config.CustomPrompt)
 
 	model := a.config.Model
@@ -76,7 +74,7 @@ func (a *OpenAIAdapter) Process(ctx context.Context, text string) (string, error
 		model = "gpt-4o-mini"
 	}
 
-	req := buildOpenAIChatRequest(model, systemPrompt, userPrompt, a.omitSamplingParams)
+	req := buildOpenAIChatRequest(model, a.systemPrompt, userPrompt, a.omitSamplingParams)
 
 	start := time.Now()
 	resp, err := a.client.CreateChatCompletion(ctx, req)

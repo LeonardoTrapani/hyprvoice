@@ -75,6 +75,10 @@ func (c *Config) ToLLMConfig() LLMAdapterConfig {
 		config.APIKey = c.resolveAPIKeyForLLMProvider(c.LLM.Provider)
 	}
 
+	if c.LLM.SystemPrompt.Enabled && c.LLM.SystemPrompt.Prompt != "" {
+		config.SystemPrompt = c.LLM.SystemPrompt.Prompt
+	}
+
 	if c.LLM.CustomPrompt.Enabled && c.LLM.CustomPrompt.Prompt != "" {
 		config.CustomPrompt = c.LLM.CustomPrompt.Prompt
 	}

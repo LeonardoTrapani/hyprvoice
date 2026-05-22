@@ -7,10 +7,12 @@ import (
 
 func TestBuildSystemPrompt(t *testing.T) {
 	tests := []struct {
-		name     string
-		opts     PostProcessingOptions
-		keywords []string
-		contains []string
+		name        string
+		opts        PostProcessingOptions
+		keywords    []string
+		override    string
+		contains    []string
+		notContains []string
 	}{
 		{
 			name: "all options enabled",
@@ -59,17 +61,89 @@ func TestBuildSystemPrompt(t *testing.T) {
 				"Clean up the text",
 			},
 		},
+		{
+			name:     "override replaces built-in body",
+			opts:     PostProcessingOptions{FixGrammar: true},
+			keywords: nil,
+			override: "You are a haiku poet. Reformat speech as haiku.",
+			contains: []string{
+				"haiku poet",
+			},
+			notContains: []string{
+				"text cleanup assistant",
+				"Fix grammar",
+			},
+		},
+		{
+			name:     "override still appends keywords",
+			opts:     PostProcessingOptions{},
+			keywords: []string{"Kubernetes"},
+			override: "Custom system instructions.",
+			contains: []string{
+				"Custom system instructions.",
+				"Context keywords",
+				"Kubernetes",
+			},
+			notContains: []string{
+				"text cleanup assistant",
+			},
+		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			result := BuildSystemPrompt(tc.opts, tc.keywords)
+			result := BuildSystemPrompt(tc.opts, tc.keywords, tc.override)
 			for _, expected := range tc.contains {
 				if !strings.Contains(result, expected) {
 					t.Errorf("expected prompt to contain %q, got: %s", expected, result)
 				}
 			}
+			for _, forbidden := range tc.notContains {
+				if strings.Contains(result, forbidden) {
+					t.Errorf("expected prompt NOT to contain %q, got: %s", forbidden, result)
+				}
+			}
 		})
+	}
+}
+
+func TestDefaultSystemPrompt(t *testing.T) {
+	opts := PostProcessingOptions{FixGrammar: true}
+	result := DefaultSystemPrompt(opts)
+	if !strings.Contains(result, "Fix grammar") {
+		t.Errorf("expected default to contain 'Fix grammar', got: %s", result)
+	}
+	if strings.Contains(result, "Context keywords") {
+		t.Error("DefaultSystemPrompt should not append the keywords line")
+	}
+}
+
+func TestAdaptersCacheSystemPromptAtConstruction(t *testing.T) {
+	// The system prompt is a pure function of Config and should be rendered
+	// once in NewXxxAdapter, not on every Process call. This test pins that
+	// behavior so a regression that pushes work into the hot path is caught.
+	cfg := Config{
+		Provider:     "openai",
+		APIKey:       "sk-test",
+		Model:        "gpt-4o-mini",
+		FixGrammar:   true,
+		SystemPrompt: "you are a custom assistant",
+	}
+
+	openaiAdapter := NewOpenAIAdapter(cfg)
+	if openaiAdapter.systemPrompt == "" {
+		t.Error("OpenAIAdapter.systemPrompt should be populated at construction")
+	}
+	if !strings.Contains(openaiAdapter.systemPrompt, "custom assistant") {
+		t.Errorf("OpenAIAdapter.systemPrompt should reflect override, got: %s", openaiAdapter.systemPrompt)
+	}
+
+	groqAdapter := NewGroqAdapter(Config{Provider: "groq", APIKey: "gsk-test", Model: "llama-3.3-70b-versatile", FixGrammar: true})
+	if groqAdapter.systemPrompt == "" {
+		t.Error("GroqAdapter.systemPrompt should be populated at construction")
+	}
+	if !strings.Contains(groqAdapter.systemPrompt, "Fix grammar") {
+		t.Errorf("GroqAdapter.systemPrompt should include task line, got: %s", groqAdapter.systemPrompt)
 	}
 }
 

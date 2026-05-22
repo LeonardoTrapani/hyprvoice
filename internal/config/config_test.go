@@ -1358,6 +1358,10 @@ func TestConfig_LLMConfig(t *testing.T) {
 				FixGrammar:        false,
 				RemoveFillerWords: true,
 			},
+			SystemPrompt: LLMSystemPromptConfig{
+				Enabled: true,
+				Prompt:  "You are a code formatter.",
+			},
 			CustomPrompt: LLMCustomPromptConfig{
 				Enabled: true,
 				Prompt:  "Format as code",
@@ -1402,8 +1406,33 @@ func TestConfig_LLMConfig(t *testing.T) {
 	if llmConfig.CustomPrompt != "Format as code" {
 		t.Errorf("CustomPrompt = %s, want 'Format as code'", llmConfig.CustomPrompt)
 	}
+	if llmConfig.SystemPrompt != "You are a code formatter." {
+		t.Errorf("SystemPrompt = %s, want 'You are a code formatter.'", llmConfig.SystemPrompt)
+	}
 	if len(llmConfig.Keywords) != 2 {
 		t.Errorf("Keywords length = %d, want 2", len(llmConfig.Keywords))
+	}
+}
+
+func TestConfig_LLMSystemPromptDisabled(t *testing.T) {
+	config := &Config{
+		Providers: map[string]ProviderConfig{
+			"openai": {APIKey: "sk-test-key"},
+		},
+		LLM: LLMConfig{
+			Enabled:  true,
+			Provider: "openai",
+			Model:    "gpt-4o-mini",
+			SystemPrompt: LLMSystemPromptConfig{
+				Enabled: false,
+				Prompt:  "You are a code formatter.",
+			},
+		},
+	}
+
+	llmConfig := config.ToLLMConfig()
+	if llmConfig.SystemPrompt != "" {
+		t.Errorf("SystemPrompt should be empty when disabled, got %q", llmConfig.SystemPrompt)
 	}
 }
 
