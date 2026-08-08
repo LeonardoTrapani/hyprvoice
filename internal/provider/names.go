@@ -8,6 +8,7 @@ const (
 	ProviderElevenLabs = "elevenlabs"
 	ProviderDeepgram   = "deepgram"
 	ProviderWhisperCpp = "whisper-cpp"
+	ProviderParakeet   = "parakeet"
 )
 
 // Config provider names (used in config file transcription.provider)
@@ -18,6 +19,7 @@ const (
 	ConfigProviderElevenLabs           = "elevenlabs"
 	ConfigProviderDeepgram             = "deepgram"
 	ConfigProviderWhisperCpp           = "whisper-cpp"
+	ConfigProviderParakeet             = "parakeet"
 )
 
 // Environment variable names for API keys
@@ -36,6 +38,7 @@ const (
 	AdapterElevenLabsStream = "elevenlabs-streaming"
 	AdapterDeepgram         = "deepgram"
 	AdapterWhisperCpp       = "whisper-cpp"
+	AdapterParakeet         = "parakeet"
 	AdapterOpenAIRealtime   = "openai-realtime"
 )
 

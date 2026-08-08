@@ -7,6 +7,7 @@ import (
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
 
+	"github.com/leonardotrapani/hyprvoice/internal/models/parakeet"
 	"github.com/leonardotrapani/hyprvoice/internal/models/whisper"
 	"github.com/leonardotrapani/hyprvoice/internal/provider"
 	"github.com/leonardotrapani/hyprvoice/internal/recording"
@@ -132,6 +133,12 @@ func NewTranscriber(config Config) (Transcriber, error) {
 			return nil, fmt.Errorf("unknown whisper model: %s", config.Model)
 		}
 		adapter = NewWhisperCppAdapter(modelPath, config.Language, config.Threads)
+	case provider.AdapterParakeet:
+		modelPath := parakeet.GetModelPath(config.Model)
+		if modelPath == "" {
+			return nil, fmt.Errorf("unknown parakeet model: %s", config.Model)
+		}
+		adapter = NewParakeetAdapter(modelPath, "")
 	default:
 		return nil, fmt.Errorf("unsupported adapter type: %s", model.AdapterType)
 	}
