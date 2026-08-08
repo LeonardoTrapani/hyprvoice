@@ -30,6 +30,7 @@ func init() {
 	Register(&MistralProvider{})
 	Register(&ElevenLabsProvider{})
 	Register(&WhisperCppProvider{})
+	Register(&ParakeetProvider{})
 	Register(&DeepgramProvider{})
 }
 

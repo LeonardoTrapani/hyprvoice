@@ -46,6 +46,11 @@ All supported speech-to-text providers and models:
 - English-only: `tiny.en`, `base.en`, `small.en`, `medium.en`
 - Multilingual: `tiny`, `base`, `small`, `medium`, `large-v1`, `large-v2`, `large-v3`, `large-v3-turbo`
 
+### parakeet (local)
+
+- Multilingual (25 European languages): `parakeet-tdt-0.6b-v3`
+- Requires [NeMo-Speech.cpp](https://github.com/NVIDIA/NeMo-Speech.cpp) runtime
+
 ### Deepgram (cloud)
 
 - `flux-general-en`
