@@ -88,6 +88,105 @@ func TestDeepgramAdapter_BuildURL(t *testing.T) {
 	}
 }
 
+func TestDeepgramAdapter_BuildURL_Keywords(t *testing.T) {
+	tests := []struct {
+		name     string
+		model    string
+		keywords []string
+		wantURL  []string // URL must contain all these substrings
+		wantNot  []string // URL must not contain any of these substrings
+	}{
+		{
+			name:     "nova-3 uses repeated keyterm",
+			model:    "nova-3",
+			keywords: []string{"hyprvoice", "wayland"},
+			wantURL:  []string{"keyterm=hyprvoice", "keyterm=wayland"},
+			wantNot:  []string{"keywords="},
+		},
+		{
+			name:     "flux uses repeated keyterm",
+			model:    "flux-general-en",
+			keywords: []string{"hyprvoice", "wayland"},
+			wantURL:  []string{"keyterm=hyprvoice", "keyterm=wayland"},
+			wantNot:  []string{"keywords="},
+		},
+		{
+			name:     "nova-2 uses repeated keywords",
+			model:    "nova-2",
+			keywords: []string{"hyprvoice", "wayland"},
+			wantURL:  []string{"keywords=hyprvoice", "keywords=wayland"},
+			wantNot:  []string{"keyterm=", "hyprvoice%2Cwayland"},
+		},
+		{
+			name:     "multi-word phrase is a single encoded value",
+			model:    "nova-3",
+			keywords: []string{"Leonardo Trapani"},
+			wantURL:  []string{"keyterm=Leonardo+Trapani"},
+		},
+		{
+			name:     "whitespace trimmed and empty terms skipped",
+			model:    "nova-3",
+			keywords: []string{"  hyprvoice ", "", "   "},
+			wantURL:  []string{"keyterm=hyprvoice"},
+			wantNot:  []string{"keyterm=&", "keyterm=+"},
+		},
+		{
+			name:     "no keywords emits no params",
+			model:    "nova-3",
+			keywords: nil,
+			wantNot:  []string{"keyterm=", "keywords="},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			endpoint := &provider.EndpointConfig{
+				BaseURL: "wss://api.deepgram.com",
+				Path:    "/v1/listen",
+			}
+			adapter := NewDeepgramAdapter(endpoint, "test-key", tt.model, "en", tt.keywords)
+
+			url, err := adapter.buildURL()
+			if err != nil {
+				t.Fatalf("buildURL() error = %v", err)
+			}
+
+			for _, want := range tt.wantURL {
+				if !strings.Contains(url, want) {
+					t.Errorf("buildURL() = %q, want to contain %q", url, want)
+				}
+			}
+			for _, notWant := range tt.wantNot {
+				if strings.Contains(url, notWant) {
+					t.Errorf("buildURL() = %q, must not contain %q", url, notWant)
+				}
+			}
+
+			// batch adapter shares the same keyword logic
+			batch := NewDeepgramBatchAdapter(&provider.EndpointConfig{
+				BaseURL: "https://api.deepgram.com",
+				Path:    "/v1/listen",
+			}, "test-key", tt.model, "en", tt.keywords)
+
+			batchURL, err := batch.buildURL()
+			if err != nil {
+				t.Fatalf("batch buildURL() error = %v", err)
+			}
+
+			for _, want := range tt.wantURL {
+				if !strings.Contains(batchURL, want) {
+					t.Errorf("batch buildURL() = %q, want to contain %q", batchURL, want)
+				}
+			}
+			for _, notWant := range tt.wantNot {
+				if strings.Contains(batchURL, notWant) {
+					t.Errorf("batch buildURL() = %q, must not contain %q", batchURL, notWant)
+				}
+			}
+		})
+	}
+}
+
 func TestDeepgramAdapter_SendChunkNotStarted(t *testing.T) {
 	endpoint := &provider.EndpointConfig{
 		BaseURL: "wss://api.deepgram.com",
