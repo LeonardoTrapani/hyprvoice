@@ -8,7 +8,6 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"strings"
 
 	"github.com/leonardotrapani/hyprvoice/internal/provider"
 )
@@ -133,10 +132,7 @@ func (a *DeepgramBatchAdapter) buildURL() (string, error) {
 		q.Set("language", lang)
 	}
 
-	// nova-3 uses "keyterm" (singular), others use "keywords" (plural)
-	if len(a.keywords) > 0 && !strings.HasPrefix(a.model, "nova-3") && !strings.HasPrefix(a.model, "flux") {
-		q.Set("keywords", strings.Join(a.keywords, ","))
-	}
+	addDeepgramKeywords(q, a.model, a.keywords)
 
 	u.RawQuery = q.Encode()
 	return u.String(), nil
