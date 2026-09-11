@@ -145,6 +145,11 @@ func Save(cfg *Config) error {
 			sb.WriteString(fmt.Sprintf("      title = %q\n", msgs.LLMProcessing.Title))
 			sb.WriteString(fmt.Sprintf("      body = %q\n", msgs.LLMProcessing.Body))
 		}
+		if msgs.InjectionComplete.Title != "" || msgs.InjectionComplete.Body != "" {
+			sb.WriteString("    [notifications.messages.injection_complete]\n")
+			sb.WriteString(fmt.Sprintf("      title = %q\n", msgs.InjectionComplete.Title))
+			sb.WriteString(fmt.Sprintf("      body = %q\n", msgs.InjectionComplete.Body))
+		}
 		if msgs.ConfigReloaded.Title != "" || msgs.ConfigReloaded.Body != "" {
 			sb.WriteString("    [notifications.messages.config_reloaded]\n")
 			sb.WriteString(fmt.Sprintf("      title = %q\n", msgs.ConfigReloaded.Title))
@@ -176,6 +181,7 @@ func hasCustomMessages(msgs MessagesConfig) bool {
 	return msgs.RecordingStarted.Title != "" || msgs.RecordingStarted.Body != "" ||
 		msgs.Transcribing.Title != "" || msgs.Transcribing.Body != "" ||
 		msgs.LLMProcessing.Title != "" || msgs.LLMProcessing.Body != "" ||
+		msgs.InjectionComplete.Title != "" || msgs.InjectionComplete.Body != "" ||
 		msgs.ConfigReloaded.Title != "" || msgs.ConfigReloaded.Body != "" ||
 		msgs.OperationCancelled.Title != "" || msgs.OperationCancelled.Body != "" ||
 		msgs.RecordingAborted.Body != "" ||
@@ -244,7 +250,7 @@ keywords = []
   provider = "openai"          # "openai", "groq-transcription", "mistral-transcription", "elevenlabs", "whisper-cpp"
   model = "whisper-1"          # Model: OpenAI="whisper-1", Groq="whisper-large-v3", Mistral="voxtral-mini-latest", ElevenLabs="scribe_v1"
   language = ""                # ISO 639-1 code (e.g., en, es, de). Empty for auto-detect.
-  threads = 0                  # CPU threads for local transcription (0 = auto: uses NumCPU-1)
+  threads = 0                  # CPU threads for local transcription (0 = auto: min(NumCPU-1, 8))
 
 # ─────────────────────────────────────────────────────────────────────────────
 # LLM Post-Processing (Recommended)
@@ -297,6 +303,9 @@ keywords = []
   #   [notifications.messages.llm_processing]
   #     title = "Hyprvoice"
   #     body = "Processing..."
+  #   [notifications.messages.injection_complete]
+  #     title = "Hyprvoice"
+  #     body = "Ready"
   #   [notifications.messages.config_reloaded]
   #     title = "Hyprvoice"
   #     body = "Config Reloaded"

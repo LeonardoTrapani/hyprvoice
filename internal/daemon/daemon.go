@@ -20,6 +20,7 @@ import (
 type Daemon struct {
 	mu        sync.RWMutex
 	notifier  notify.Notifier
+	notifType string
 	configMgr *config.Manager
 
 	ctx    context.Context
@@ -27,7 +28,8 @@ type Daemon struct {
 
 	pipeline pipeline.Pipeline
 
-	wg sync.WaitGroup
+	wg       sync.WaitGroup
+	monitors sync.WaitGroup
 }
 
 func New() (*Daemon, error) {
@@ -40,13 +42,11 @@ func New() (*Daemon, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	// force desktop notifications when legacy config so user sees the onboarding prompt
-	notifType := conf.Notifications.Type
-	if configMgr.IsLegacy() {
-		notifType = "desktop"
-	}
+	notifType := notificationType(conf, configMgr.IsLegacy())
 
 	d := &Daemon{
 		notifier:  notify.NewNotifier(notifType, conf.Notifications.Messages.Resolve()),
+		notifType: notifType,
 		configMgr: configMgr,
 		ctx:       ctx,
 		cancel:    cancel,
@@ -59,13 +59,34 @@ func (d *Daemon) onConfigReload() {
 	log.Printf("Config reloaded, restarting pipeline")
 	d.stopPipeline()
 
-	conf := d.configMgr.GetConfig()
+	d.replaceNotifier(d.configMgr.GetConfig())
+	d.sendNotify(notify.MsgConfigReloaded)
+}
+
+func notificationType(conf *config.Config, legacy bool) string {
+	if legacy {
+		return "desktop"
+	}
+	if !conf.Notifications.Enabled {
+		return "none"
+	}
+	return conf.Notifications.Type
+}
+
+func (d *Daemon) replaceNotifier(conf *config.Config) {
+	nextType := notificationType(conf, d.configMgr.IsLegacy())
+	msgs := conf.Notifications.Messages.Resolve()
 
 	d.mu.Lock()
-	d.notifier = notify.NewNotifier(conf.Notifications.Type, conf.Notifications.Messages.Resolve())
-	d.mu.Unlock()
+	defer d.mu.Unlock()
 
-	d.notifier.Send(notify.MsgConfigReloaded)
+	if d.notifType == nextType {
+		d.notifier.SetMessages(msgs)
+		return
+	}
+	d.notifier.BeginSession()
+	d.notifier = notify.NewNotifier(nextType, msgs)
+	d.notifType = nextType
 }
 
 func (d *Daemon) status() pipeline.Status {
@@ -77,7 +98,7 @@ func (d *Daemon) status() pipeline.Status {
 	return d.pipeline.Status()
 }
 
-func (d *Daemon) stopPipeline() {
+func (d *Daemon) stopPipeline() pipeline.Pipeline {
 	d.mu.Lock()
 	p := d.pipeline
 	d.pipeline = nil
@@ -86,6 +107,8 @@ func (d *Daemon) stopPipeline() {
 	if p != nil {
 		p.Stop()
 	}
+	d.monitors.Wait()
+	return p
 }
 
 func (d *Daemon) Run() error {
@@ -185,12 +208,15 @@ func (d *Daemon) handle(c net.Conn) {
 
 func (d *Daemon) toggle() {
 	if d.configMgr.IsLegacy() {
-		d.notifier.Error("Legacy config detected. Run: hyprvoice onboarding")
+		d.sendNotifyError("Legacy config detected. Run: hyprvoice onboarding")
 		return
 	}
 	conf := d.configMgr.GetConfig()
 	switch d.status() {
 	case pipeline.Idle:
+		d.stopPipeline()
+		d.beginNotifySession()
+
 		p := pipeline.New(conf)
 		p.Run(d.ctx)
 
@@ -198,13 +224,12 @@ func (d *Daemon) toggle() {
 		d.pipeline = p
 		d.mu.Unlock()
 
-		go d.notifier.Send(notify.MsgRecordingStarted)
-		go d.monitorPipelineErrors(p)
-		go d.monitorPipelineNotifications(p)
+		d.sendNotify(notify.MsgRecordingStarted)
+		d.startMonitors(p)
 
 	case pipeline.Recording:
 		d.stopPipeline()
-		go d.notifier.Send(notify.MsgRecordingAborted)
+		d.sendNotify(notify.MsgRecordingAborted)
 
 	case pipeline.Transcribing:
 		d.mu.RLock()
@@ -216,11 +241,13 @@ func (d *Daemon) toggle() {
 		} else {
 			d.mu.RUnlock()
 		}
-		go d.notifier.Send(notify.MsgTranscribing)
+		d.sendNotify(notify.MsgTranscribing)
 
 	case pipeline.Injecting:
-		d.stopPipeline()
-		go d.notifier.Send(notify.MsgInjectionAborted)
+		p := d.stopPipeline()
+		if p == nil || !p.Succeeded() {
+			d.sendNotify(notify.MsgInjectionAborted)
+		}
 	}
 }
 
@@ -230,22 +257,58 @@ func (d *Daemon) cancelPipeline() {
 		log.Printf("Daemon: Cancel requested but pipeline is idle, ignoring")
 	default:
 		d.stopPipeline()
-		go d.notifier.Send(notify.MsgOperationCancelled)
+		d.sendNotify(notify.MsgOperationCancelled)
 	}
+}
+
+func (d *Daemon) sendNotify(mt notify.MessageType) {
+	d.mu.RLock()
+	n := d.notifier
+	d.mu.RUnlock()
+	n.Send(mt)
+}
+
+func (d *Daemon) sendNotifyError(msg string) {
+	d.mu.RLock()
+	n := d.notifier
+	d.mu.RUnlock()
+	n.Error(msg)
+}
+
+func (d *Daemon) beginNotifySession() {
+	d.mu.RLock()
+	n := d.notifier
+	d.mu.RUnlock()
+	n.BeginSession()
+}
+
+func (d *Daemon) startMonitors(p pipeline.Pipeline) {
+	d.monitors.Add(2)
+	go func() {
+		defer d.monitors.Done()
+		d.monitorPipelineErrors(p)
+	}()
+	go func() {
+		defer d.monitors.Done()
+		d.monitorPipelineNotifications(p)
+	}()
 }
 
 func (d *Daemon) monitorPipelineErrors(p pipeline.Pipeline) {
 	errorCh := p.GetErrorCh()
 	for {
 		select {
-		case pipelineErr := <-errorCh:
+		case pipelineErr, ok := <-errorCh:
+			if !ok {
+				return
+			}
 			message := pipelineErr.Message
 
 			if pipelineErr.Err != nil {
 				message = fmt.Sprintf("%s: %v", message, pipelineErr.Err)
 			}
 
-			d.notifier.Error(message)
+			d.sendNotifyError(message)
 		case <-d.ctx.Done():
 			return
 		}
@@ -256,8 +319,11 @@ func (d *Daemon) monitorPipelineNotifications(p pipeline.Pipeline) {
 	notifyCh := p.GetNotifyCh()
 	for {
 		select {
-		case mt := <-notifyCh:
-			d.notifier.Send(mt)
+		case mt, ok := <-notifyCh:
+			if !ok {
+				return
+			}
+			d.sendNotify(mt)
 		case <-d.ctx.Done():
 			return
 		}

@@ -362,6 +362,7 @@ type MockPipeline struct{}
 func (m *MockPipeline) Run(ctx context.Context) {}
 func (m *MockPipeline) Stop()                   {}
 func (m *MockPipeline) Status() pipeline.Status { return pipeline.Idle }
+func (m *MockPipeline) Succeeded() bool         { return false }
 func (m *MockPipeline) GetErrorCh() <-chan pipeline.PipelineError {
 	return make(chan pipeline.PipelineError)
 }

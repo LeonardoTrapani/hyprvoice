@@ -204,7 +204,7 @@ Run Whisper models locally on your machine. No API keys, no network latency, com
 provider = "whisper-cpp"
 model = "base.en"               # English-only model (fastest)
 language = ""                   # Empty for auto-detect (use "en" for English-only models)
-threads = 0                     # 0 = auto (uses NumCPU - 1)
+threads = 0                     # 0 = auto (min(NumCPU - 1, 8))
 ```
 
 **Available models:**
@@ -226,9 +226,9 @@ threads = 0                     # 0 = auto (uses NumCPU - 1)
 
 **Threads configuration:**
 
-- `threads = 0` (default): auto-detects, uses NumCPU - 1 to leave one core free
+- `threads = 0` (default): auto-detects, uses min(NumCPU - 1, 8)
 - `threads = 4`: explicitly use 4 threads
-- Higher thread count = faster transcription but more CPU usage
+- Higher thread counts often slow transcription (memory bandwidth / GPU contention), especially above 8
 
 ### Streaming Transcription
 
@@ -417,7 +417,7 @@ keywords = ["Hyprland", "Wayland", "PipeWire", "Claude", "TypeScript"]
 
 **How keywords work:**
 
-- **Transcription**: Passed as provider-specific hints (prompt/keyterms/keywords) when supported to improve recognition
+- **Transcription**: Passed as provider-specific hints (prompt/keyterms/keywords) when supported to improve recognition. For whisper-cpp this uses `whisper-cli --prompt`.
 - **LLM**: Included in the system prompt to ensure correct spelling
 
 **When to use keywords:**
@@ -519,6 +519,8 @@ type = "desktop"           # "desktop", "log", or "none"
 - **`log`**: Log messages to console only
 - **`none`**: Disable all notifications
 
+Desktop notifications keep one in-progress toast (recording → transcribing → processing) and replace it in place. Ready, cancelled, and error toasts dismiss that toast and send a new one so previous icons or emoji images are not reused. In-progress toasts use a long timeout as a safety net; terminal toasts expire after a few seconds.
+
 ### Custom Notification Messages
 
 You can customize notification text via the `[notifications.messages]` section:
@@ -534,6 +536,9 @@ You can customize notification text via the `[notifications.messages]` section:
   [notifications.messages.llm_processing]
     title = "Hyprvoice"
     body = "Processing..."
+  [notifications.messages.injection_complete]
+    title = "Hyprvoice"
+    body = "Ready"
   [notifications.messages.config_reloaded]
     title = "Hyprvoice"
     body = "Config Reloaded"
@@ -634,7 +639,7 @@ You can customize notification text via the `[notifications.messages]` section:
   provider = "whisper-cpp"
   model = "base.en"
   language = ""                 # Auto-detect
-  threads = 0                   # Auto-detect (NumCPU - 1)
+  threads = 0                   # Auto-detect (min(NumCPU - 1, 8))
 
 [llm]
   enabled = false               # No LLM for full privacy

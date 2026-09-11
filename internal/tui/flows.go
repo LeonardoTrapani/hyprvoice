@@ -1051,6 +1051,8 @@ func getNotificationMessage(cfg *config.Config, def notify.MessageDef) (string, 
 		return cfg.Notifications.Messages.Transcribing.Title, cfg.Notifications.Messages.Transcribing.Body
 	case "llm_processing":
 		return cfg.Notifications.Messages.LLMProcessing.Title, cfg.Notifications.Messages.LLMProcessing.Body
+	case "injection_complete":
+		return cfg.Notifications.Messages.InjectionComplete.Title, cfg.Notifications.Messages.InjectionComplete.Body
 	case "config_reloaded":
 		return cfg.Notifications.Messages.ConfigReloaded.Title, cfg.Notifications.Messages.ConfigReloaded.Body
 	case "operation_cancelled":
@@ -1072,6 +1074,8 @@ func setNotificationMessage(cfg *config.Config, configKey string, msg config.Mes
 		cfg.Notifications.Messages.Transcribing = msg
 	case "llm_processing":
 		cfg.Notifications.Messages.LLMProcessing = msg
+	case "injection_complete":
+		cfg.Notifications.Messages.InjectionComplete = msg
 	case "config_reloaded":
 		cfg.Notifications.Messages.ConfigReloaded = msg
 	case "operation_cancelled":

@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/leonardotrapani/hyprvoice/internal/config"
+	"github.com/leonardotrapani/hyprvoice/internal/notify"
 	"github.com/leonardotrapani/hyprvoice/internal/testutil"
 )
 
@@ -453,7 +454,73 @@ func TestPipeline_WithMocks(t *testing.T) {
 		t.Errorf("expected injected text 'hello world', got %q", injected[0])
 	}
 
+	select {
+	case mt := <-p.GetNotifyCh():
+		if mt != notify.MsgInjectionComplete {
+			t.Errorf("expected MsgInjectionComplete, got %v", mt)
+		}
+	case <-time.After(200 * time.Millisecond):
+		t.Error("expected MsgInjectionComplete notification after successful inject")
+	}
+
+	if !p.Succeeded() {
+		t.Error("expected pipeline to report success after inject")
+	}
+
 	p.Stop()
+
+	if _, ok := <-p.GetNotifyCh(); ok {
+		t.Error("expected notify channel to close after Stop")
+	}
+}
+
+func TestPipeline_ClosesNotifyChOnStop(t *testing.T) {
+	cfg := &config.Config{
+		Recording: config.RecordingConfig{
+			SampleRate:        16000,
+			Channels:          1,
+			Format:            "s16",
+			BufferSize:        8192,
+			ChannelBufferSize: 30,
+			Timeout:           5 * time.Minute,
+		},
+		Transcription: config.TranscriptionConfig{
+			Provider: "openai",
+			Language: "en",
+			Model:    "whisper-1",
+		},
+		Providers: map[string]config.ProviderConfig{
+			"openai": {APIKey: "test-key"},
+		},
+		Injection: config.InjectionConfig{
+			Backends:         []string{"clipboard"},
+			ClipboardTimeout: 3 * time.Second,
+		},
+		Notifications: config.NotificationsConfig{
+			Enabled: true,
+			Type:    "log",
+		},
+	}
+
+	p := New(cfg,
+		WithRecorderFactory(testutil.MockRecorderFactory(testutil.NewMockRecorder())),
+		WithTranscriberFactory(testutil.MockTranscriberFactory(testutil.NewMockTranscriber(""))),
+		WithInjectorFactory(testutil.MockInjectorFactory(testutil.NewMockInjector())),
+	)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	p.Run(ctx)
+	time.Sleep(50 * time.Millisecond)
+	p.Stop()
+
+	if p.Succeeded() {
+		t.Error("cancelled pipeline should not report success")
+	}
+	if _, ok := <-p.GetNotifyCh(); ok {
+		t.Error("expected notify channel to close after Stop")
+	}
 }
 
 func TestPipeline_WithMocks_LLMProcessing(t *testing.T) {
@@ -524,6 +591,18 @@ func TestPipeline_WithMocks_LLMProcessing(t *testing.T) {
 		t.Errorf("expected 1 injected text, got %d", len(injected))
 	} else if injected[0] != "Hello, World!" {
 		t.Errorf("expected injected text 'Hello, World!', got %q", injected[0])
+	}
+
+	want := []notify.MessageType{notify.MsgLLMProcessing, notify.MsgInjectionComplete}
+	for _, mt := range want {
+		select {
+		case got := <-p.GetNotifyCh():
+			if got != mt {
+				t.Errorf("notification = %v, want %v", got, mt)
+			}
+		case <-time.After(200 * time.Millisecond):
+			t.Errorf("expected %v notification", mt)
+		}
 	}
 
 	p.Stop()

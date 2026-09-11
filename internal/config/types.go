@@ -66,7 +66,7 @@ type TranscriptionConfig struct {
 	Language  string `toml:"language"`
 	Model     string `toml:"model"`
 	Streaming bool   `toml:"streaming"` // use streaming mode if model supports it
-	Threads   int    `toml:"threads"`   // CPU threads for local transcription (0 = auto: NumCPU-1)
+	Threads   int    `toml:"threads"`   // CPU threads for local transcription (0 = auto: min(NumCPU-1, 8))
 }
 
 type InjectionConfig struct {
@@ -91,6 +91,7 @@ type MessagesConfig struct {
 	RecordingStarted   MessageConfig `toml:"recording_started"`
 	Transcribing       MessageConfig `toml:"transcribing"`
 	LLMProcessing      MessageConfig `toml:"llm_processing"`
+	InjectionComplete  MessageConfig `toml:"injection_complete"`
 	ConfigReloaded     MessageConfig `toml:"config_reloaded"`
 	OperationCancelled MessageConfig `toml:"operation_cancelled"`
 	RecordingAborted   MessageConfig `toml:"recording_aborted"`

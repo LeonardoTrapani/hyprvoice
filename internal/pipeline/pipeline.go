@@ -41,6 +41,7 @@ type Pipeline interface {
 	Run(ctx context.Context)
 	Stop()
 	Status() Status
+	Succeeded() bool
 	GetActionCh() chan<- Action
 	GetErrorCh() <-chan PipelineError
 	GetNotifyCh() <-chan notify.MessageType
@@ -90,12 +91,16 @@ type pipeline struct {
 	notifyCh chan notify.MessageType
 	config   *config.Config
 
-	mu       sync.RWMutex
-	wg       sync.WaitGroup
-	cancel   context.CancelFunc
-	stopOnce sync.Once
+	mu           sync.RWMutex
+	wg           sync.WaitGroup
+	cancel       context.CancelFunc
+	stopOnce     sync.Once
+	channelsOnce sync.Once
+	notifyClosed bool
+	errClosed    bool
 
-	running atomic.Bool
+	running   atomic.Bool
+	succeeded atomic.Bool
 
 	// dependency factories (for testing)
 	recorderFactory    RecorderFactory
@@ -140,6 +145,7 @@ func (p *pipeline) run(ctx context.Context) {
 	defer func() {
 		p.running.Store(false)
 		p.setStatus(Idle)
+		p.closeChannels()
 		p.wg.Done()
 	}()
 
@@ -252,11 +258,32 @@ func (p *pipeline) GetNotifyCh() <-chan notify.MessageType {
 	return p.notifyCh
 }
 
+func (p *pipeline) Succeeded() bool {
+	return p.succeeded.Load()
+}
+
+func (p *pipeline) closeChannels() {
+	p.channelsOnce.Do(func() {
+		p.mu.Lock()
+		defer p.mu.Unlock()
+		p.notifyClosed = true
+		p.errClosed = true
+		close(p.notifyCh)
+		close(p.errorCh)
+	})
+}
+
 func (p *pipeline) sendError(title, message string, err error) {
 	pipelineErr := PipelineError{
 		Title:   title,
 		Message: message,
 		Err:     err,
+	}
+
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if p.errClosed {
+		return
 	}
 
 	select {
@@ -267,6 +294,12 @@ func (p *pipeline) sendError(title, message string, err error) {
 }
 
 func (p *pipeline) sendNotify(mt notify.MessageType) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if p.notifyClosed {
+		return
+	}
+
 	select {
 	case p.notifyCh <- mt:
 	default:
@@ -347,9 +380,14 @@ func (p *pipeline) handleInjectAction(ctx context.Context, recorder recording.Re
 	injector := p.injectorFactory(p.config.ToInjectionConfig())
 
 	if err := injector.Inject(ctx, textToInject); err != nil {
+		if ctx.Err() != nil {
+			return
+		}
 		p.sendError("Injection Error", "Failed to inject text", err)
-	} else {
+	} else if ctx.Err() == nil {
 		log.Printf("Pipeline: Text injection completed successfully")
+		p.succeeded.Store(true)
+		p.sendNotify(notify.MsgInjectionComplete)
 	}
 
 	p.setStatus(Idle)
