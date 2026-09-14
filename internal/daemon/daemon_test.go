@@ -369,3 +369,8 @@ func (m *MockPipeline) GetActionCh() chan<- pipeline.Action { return make(chan p
 func (m *MockPipeline) GetNotifyCh() <-chan notify.MessageType {
 	return make(chan notify.MessageType)
 }
+func (m *MockPipeline) GetEventCh() <-chan pipeline.StatusEvent {
+	return make(chan pipeline.StatusEvent)
+}
+func (m *MockPipeline) Listening() bool      { return false }
+func (m *MockPipeline) SetLevelsWanted(bool) {}

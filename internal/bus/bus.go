@@ -217,6 +217,26 @@ func RemovePidFile() error {
 	return pm.remove()
 }
 
+// OpenStream sends a command and hands back the still-open connection so the
+// caller can read a continuous response.
+//
+// SendCommand exists for the request/response commands, which read exactly one
+// line and close. Streaming commands keep writing until the client disconnects,
+// so closing the connection is the caller's job.
+func OpenStream(cmd byte) (net.Conn, error) {
+	c, err := Dial()
+	if err != nil {
+		return nil, fmt.Errorf("failed to connect to daemon: %w", err)
+	}
+
+	if _, err := c.Write([]byte{cmd, '\n'}); err != nil {
+		c.Close()
+		return nil, fmt.Errorf("failed to send command: %w", err)
+	}
+
+	return c, nil
+}
+
 func SendCommand(cmd byte) (string, error) {
 	c, err := Dial()
 	if err != nil {
