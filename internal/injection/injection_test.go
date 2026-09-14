@@ -153,7 +153,7 @@ func TestConfig(t *testing.T) {
 
 // TestWtypeBackend tests the wtype backend
 func TestWtypeBackend(t *testing.T) {
-	backend := NewWtypeBackend()
+	backend := NewWtypeBackend(0, 0)
 
 	if backend.Name() != "wtype" {
 		t.Errorf("Name() = %s, want wtype", backend.Name())
@@ -187,7 +187,7 @@ func TestYdotoolBackend(t *testing.T) {
 
 // TestClipboardBackend tests the clipboard backend
 func TestClipboardBackend(t *testing.T) {
-	backend := NewClipboardBackend()
+	backend := NewClipboardBackend(false)
 
 	if backend.Name() != "clipboard" {
 		t.Errorf("Name() = %s, want clipboard", backend.Name())
