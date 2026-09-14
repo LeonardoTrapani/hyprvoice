@@ -59,6 +59,8 @@ func LoadOrLegacy() (*Config, bool, error) {
 	if err != nil {
 		return nil, false, fmt.Errorf("failed to parse config file %s: %w", configPath, err)
 	}
+	applyDefaults(meta, &config)
+
 	if isLegacyConfig(meta, &config) {
 		log.Printf("Config: legacy configuration detected - run hyprvoice onboarding")
 		return DefaultConfig(), true, nil
@@ -110,5 +112,25 @@ func (c *Config) applyLLMDefaults() {
 		pp.AddPunctuation = true
 		pp.FixGrammar = true
 		pp.RemoveFillerWords = true
+	}
+}
+
+// applyDefaults fills in settings the config file does not mention.
+//
+// Decoding targets a zero-valued struct rather than DefaultConfig(), so an
+// absent section is indistinguishable from one full of zero values. That is
+// harmless where the zero value is also the default, but not for settings that
+// default to on: [history] is absent from every config written before it
+// existed, and without this those configs would read as "archive disabled"
+// rather than "archive unspecified".
+func applyDefaults(meta toml.MetaData, c *Config) {
+	defaults := DefaultConfig()
+
+	// Distinguish an absent key from an explicit `enabled = false`.
+	if !meta.IsDefined("history", "enabled") {
+		c.History.Enabled = defaults.History.Enabled
+	}
+	if c.History.MaxEntries <= 0 {
+		c.History.MaxEntries = defaults.History.MaxEntries
 	}
 }

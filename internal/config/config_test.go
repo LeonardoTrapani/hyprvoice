@@ -2009,3 +2009,82 @@ type = "log"`
 		}
 	})
 }
+
+func loadConfigFrom(t *testing.T, body string) *Config {
+	t.Helper()
+
+	dir := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", dir)
+
+	path := filepath.Join(dir, "hyprvoice", "config.toml")
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, []byte(body), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	c, err := Load()
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	return c
+}
+
+const minimalConfig = `
+[recording]
+sample_rate = 16000
+channels = 1
+format = "s16"
+
+[transcription]
+provider = "groq-transcription"
+model = "whisper-large-v3"
+language = "en"
+
+[injection]
+backends = ["wtype"]
+`
+
+// Every config written before [history] existed omits the section entirely.
+// Decoding targets a zero-valued struct, so without applyDefaults that reads
+// as "archive disabled" and the feature silently never runs.
+func TestHistoryDefaultsOnWhenSectionAbsent(t *testing.T) {
+	c := loadConfigFrom(t, minimalConfig)
+
+	if !c.History.Enabled {
+		t.Error("history is disabled for a config with no [history] section")
+	}
+	if c.History.MaxEntries <= 0 {
+		t.Errorf("MaxEntries is %d, want the default", c.History.MaxEntries)
+	}
+}
+
+// An explicit opt-out must still be honoured.
+func TestHistoryRespectsExplicitDisable(t *testing.T) {
+	c := loadConfigFrom(t, minimalConfig+"\n[history]\nenabled = false\n")
+
+	if c.History.Enabled {
+		t.Error("explicit `enabled = false` was overridden by the default")
+	}
+}
+
+func TestHistoryRespectsExplicitEnable(t *testing.T) {
+	c := loadConfigFrom(t, minimalConfig+"\n[history]\nenabled = true\nmax_entries = 7\n")
+
+	if !c.History.Enabled {
+		t.Error("explicit `enabled = true` was not honoured")
+	}
+	if c.History.MaxEntries != 7 {
+		t.Errorf("MaxEntries is %d, want 7", c.History.MaxEntries)
+	}
+}
+
+// A section present but with no max_entries still needs a usable cap.
+func TestHistoryMaxEntriesDefaultsWhenUnset(t *testing.T) {
+	c := loadConfigFrom(t, minimalConfig+"\n[history]\nenabled = true\n")
+
+	if c.History.MaxEntries <= 0 {
+		t.Errorf("MaxEntries is %d, want the default", c.History.MaxEntries)
+	}
+}
