@@ -112,3 +112,15 @@ func (c *Config) ToInjectionConfig() injection.Config {
 		ClipboardTimeout: c.Injection.ClipboardTimeout,
 	}
 }
+
+// NotifierType resolves which notifier the daemon should build.
+//
+// Type alone is not enough: notifications.enabled is a separate switch, and a
+// user who sets it to false still has a type in their config. Resolving here
+// keeps the two fields from disagreeing at the call site.
+func (c *Config) NotifierType() string {
+	if !c.Notifications.Enabled {
+		return ""
+	}
+	return c.Notifications.Type
+}
