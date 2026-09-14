@@ -2,7 +2,7 @@ package injection
 
 import (
 	"context"
-	"os"
+	"github.com/leonardotrapani/hyprvoice/internal/testenv"
 	"testing"
 	"time"
 )
@@ -66,10 +66,7 @@ func TestNewInjector_IgnoresUnknownBackends(t *testing.T) {
 }
 
 func TestInjector_Inject(t *testing.T) {
-	// Skip integration tests in CI environments
-	if os.Getenv("CI") == "true" {
-		t.Skip("Skipping integration test in CI environment")
-	}
+	testenv.RequireIntegration(t)
 
 	tests := []struct {
 		name    string
