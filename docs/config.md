@@ -52,15 +52,26 @@ Each press toggles between recording and idle.
 
 ### Push-to-talk (hold-to-record)
 
-Pair `bind` (press) with `bindr` (release) on the same key for hold-to-record:
+Bind `record start` to the press and `record stop` to the release:
 
 ```bash
 # ~/.config/hypr/hyprland.conf
-bind  = SUPER, R, exec, hyprvoice toggle   # key down → start recording
-bindr = SUPER, R, exec, hyprvoice toggle    # key up   → stop and transcribe
+bind  = SUPER, R, exec, hyprvoice record start   # key down → start recording
+bindr = SUPER, R, exec, hyprvoice record stop    # key up   → stop and transcribe
 ```
 
-Hold the key while speaking, release when done. Both lines send `toggle` to the daemon — the first starts the pipeline, the second stops it. Because the stop fires on release, modifiers are clean for injection.
+Hold the key while speaking, release when done.
+
+Do **not** bind `toggle` to both edges. `toggle` flips whatever state the daemon
+is in, so a release the compositor never delivers leaves it recording *and*
+inverts every press that follows — the next press stops instead of starting.
+`record start` and `record stop` are idempotent, so a lost edge costs one
+dictation rather than every one after it.
+
+Prefer a key that is not a modifier. Compositors can drop the release for a
+held modifier, and a key like `SUPER, R` only reports its release while SUPER is
+still down — let go of SUPER first and the release never fires. A single
+unmodified key has no such window.
 
 ### `bind` vs `bindr`
 
