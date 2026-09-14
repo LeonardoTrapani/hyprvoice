@@ -8,6 +8,7 @@ import (
 	"sync/atomic"
 
 	"github.com/leonardotrapani/hyprvoice/internal/config"
+	"github.com/leonardotrapani/hyprvoice/internal/history"
 	"github.com/leonardotrapani/hyprvoice/internal/injection"
 	"github.com/leonardotrapani/hyprvoice/internal/llm"
 	"github.com/leonardotrapani/hyprvoice/internal/notify"
@@ -346,13 +347,47 @@ func (p *pipeline) handleInjectAction(ctx context.Context, recorder recording.Re
 
 	injector := p.injectorFactory(p.config.ToInjectionConfig())
 
+	injected := true
 	if err := injector.Inject(ctx, textToInject); err != nil {
+		injected = false
 		p.sendError("Injection Error", "Failed to inject text", err)
 	} else {
 		log.Printf("Pipeline: Text injection completed successfully")
 	}
 
+	// Recorded after the attempt, and whether or not it succeeded: a failed
+	// injection is exactly when the user needs the text back.
+	p.recordHistory(textToInject, transcriptionText, injected)
+
 	p.setStatus(Idle)
+}
+
+// recordHistory archives a transcription. Failures are logged and swallowed:
+// losing the archive copy must never take the transcription with it.
+func (p *pipeline) recordHistory(text, raw string, injected bool) {
+	if !p.config.History.Enabled {
+		return
+	}
+
+	path := p.config.History.Path
+	if path == "" {
+		var err error
+		if path, err = history.DefaultPath(); err != nil {
+			log.Printf("Pipeline: Cannot resolve history path: %v", err)
+			return
+		}
+	}
+
+	err := history.New(path, p.config.History.MaxEntries).Append(history.Entry{
+		Text:     text,
+		Raw:      raw,
+		Provider: p.config.Transcription.Provider,
+		Model:    p.config.Transcription.Model,
+		Injected: injected,
+	})
+	if err != nil {
+		log.Printf("Pipeline: Failed to record history: %v", err)
+	}
 }
 
 func (p *pipeline) Stop() {

@@ -34,6 +34,7 @@ Configuration is stored in `~/.config/hyprvoice/config.toml` and changes are app
 - [Recording Configuration](#recording-configuration)
 - [Text Injection](#text-injection)
 - [Notifications](#notifications)
+- [History](#history)
 - [Example Configurations](#example-configurations)
 - [Legacy Configs](#legacy-configs)
 
@@ -687,6 +688,44 @@ streaming = true
   provider = "openai"
   model = "gpt-4o-mini"
 ```
+
+## History
+
+hyprvoice keeps a rolling archive of what it transcribed. Dictated text is typed
+into whichever window had focus and is gone if that window did not want it --
+the wrong window was focused, the app swallowed it, or injection failed. The
+transcription was the expensive part, so it is kept.
+
+```toml
+[history]
+enabled = true        # Keep an archive of transcriptions (default: true)
+max_entries = 200     # How many to keep (default: 200)
+# path = ""           # Override location; empty uses the XDG state directory
+```
+
+The store lives at `$XDG_STATE_HOME/hyprvoice/history.jsonl`, falling back to
+`~/.local/state/hyprvoice/history.jsonl`. It is one JSON object per line, and
+both the file and its directory are created with owner-only permissions --
+these are transcripts of everything you have dictated.
+
+Each entry records the injected text, whether it actually reached a window, and
+the provider and model that produced it. When LLM post-processing rewrote the
+transcription, the pre-processing text is kept alongside it as `raw`, which is
+what you want when the cleanup pass changed something it should have left alone.
+
+```bash
+hyprvoice history list             # recent transcriptions, newest first
+hyprvoice history list -n 50       # more of them; -n 0 for everything
+hyprvoice history last             # just the text, ready to pipe
+hyprvoice history last | wl-copy   # recover a mis-aimed dictation
+hyprvoice history get <id>         # one entry by id
+hyprvoice history clear --yes      # delete everything
+```
+
+In `list`, a `!` marks text that never reached a window and a `~` marks text the
+LLM pass rewrote. Add `--format json` to any of these for scripting.
+
+To turn the archive off entirely, set `enabled = false`.
 
 ## Legacy Configs
 
