@@ -1,3 +1,7 @@
+Repository Status: `Archived`.
+
+> Moved temporarily to MacOS, will not be able to maintain this project for now.
+
 # Hyprvoice - Voice-Powered Typing for Wayland/Hyprland
 
 26 voice models, cloud and local, built for hyprland dictation.
