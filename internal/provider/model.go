@@ -17,6 +17,7 @@ type Model struct {
 	SupportsBatch      bool            // can do batch/non-streaming transcription
 	SupportsStreaming  bool            // can do real-time streaming transcription
 	Local              bool            // runs locally (no API call)
+	RestrictedSampling bool            // if true, adapters must omit sampling params (Temperature etc.) from API requests
 	AdapterType        string          // which adapter to use (e.g., "openai", "elevenlabs", "whisper-cpp")
 	StreamingAdapter   string          // adapter for streaming mode (if different from AdapterType)
 	StreamingEndpoint  *EndpointConfig // endpoint for streaming mode (if different from Endpoint)
