@@ -19,6 +19,7 @@ type Config struct {
 	AddPunctuation    bool
 	FixGrammar        bool
 	RemoveFillerWords bool
+	SystemPrompt      string
 	CustomPrompt      string
 	Keywords          []string
 }

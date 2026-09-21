@@ -34,6 +34,7 @@ type LLMConfig struct {
 	Provider       string                  `toml:"provider"`
 	Model          string                  `toml:"model"`
 	PostProcessing LLMPostProcessingConfig `toml:"post_processing"`
+	SystemPrompt   LLMSystemPromptConfig   `toml:"system_prompt"`
 	CustomPrompt   LLMCustomPromptConfig   `toml:"custom_prompt"`
 }
 
@@ -43,6 +44,12 @@ type LLMPostProcessingConfig struct {
 	AddPunctuation    bool `toml:"add_punctuation"`
 	FixGrammar        bool `toml:"fix_grammar"`
 	RemoveFillerWords bool `toml:"remove_filler_words"`
+}
+
+// LLMSystemPromptConfig overrides the built-in system prompt
+type LLMSystemPromptConfig struct {
+	Enabled bool   `toml:"enabled"`
+	Prompt  string `toml:"prompt"`
 }
 
 // LLMCustomPromptConfig allows custom prompts
@@ -137,6 +144,7 @@ type LLMAdapterConfig struct {
 	AddPunctuation    bool
 	FixGrammar        bool
 	RemoveFillerWords bool
+	SystemPrompt      string
 	CustomPrompt      string
 	Keywords          []string
 }

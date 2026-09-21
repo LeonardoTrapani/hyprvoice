@@ -258,6 +258,7 @@ func TestModel_AllFields(t *testing.T) {
 		SupportsBatch:      true,
 		SupportsStreaming:  true,
 		Local:              true,
+		RestrictedSampling: true,
 		AdapterType:        "test-adapter",
 		StreamingAdapter:   "test-streaming-adapter",
 		SupportedLanguages: []string{"en", "es"},
@@ -297,6 +298,9 @@ func TestModel_AllFields(t *testing.T) {
 	}
 	if !model.Local {
 		t.Error("Local should be true")
+	}
+	if !model.RestrictedSampling {
+		t.Error("RestrictedSampling should be true")
 	}
 	if model.AdapterType != "test-adapter" {
 		t.Errorf("AdapterType = %q, want 'test-adapter'", model.AdapterType)

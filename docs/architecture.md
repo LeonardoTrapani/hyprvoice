@@ -62,6 +62,10 @@ The default implementation wraps `pw-record` and emits `AudioFrame` chunks on a 
 Adapters (OpenAI, Groq) use a shared prompt builder in `internal/llm/prompt.go`.
 The pipeline invokes LLM processing only if enabled in config.
 
+The system prompt is normally assembled from the `[llm.post_processing]`
+toggles, but `[llm.system_prompt]` can override the built-in body entirely
+(keywords are always appended). See [config.md](config.md#system-prompt-override).
+
 ## Injection
 `internal/injection/injection.go` defines `Injector` and an ordered list of backends.
 `internal/injection/backend.go` defines the `Backend` interface (`Name/Available/Inject`).

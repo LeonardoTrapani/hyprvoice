@@ -108,8 +108,14 @@ Used for post-processing transcriptions (formatting, summarization, etc.)
 
 | Provider | Models | Quality | Cost |
 |----------|--------|---------|------|
-| **OpenAI** | gpt-4o, gpt-4o-mini | Excellent | Pay per token |
+| **OpenAI** | gpt-4o, gpt-4o-mini, gpt-5, gpt-5-mini, gpt-5.4, gpt-5.4-mini, gpt-5.4-nano | Excellent | Pay per token |
 | **Groq** | llama-3.3-70b, llama-3.1-8b, mixtral-8x7b | Good-Excellent | Free tier |
+
+GPT-5 family models reject sampling parameters (`temperature`, `top_p`,
+`presence_penalty`, `frequency_penalty`). The OpenAI adapter automatically
+omits those fields for GPT-5 models, so the `temperature = 0.3` cleanup
+tuning does not apply. Output style for GPT-5 models is shaped by the
+system prompt only.
 
 ---
 

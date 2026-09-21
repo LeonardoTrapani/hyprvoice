@@ -181,9 +181,41 @@ func TestModelsOfType(t *testing.T) {
 	if len(trans) != 4 {
 		t.Errorf("ModelsOfType(Transcription) = %d, want 4", len(trans))
 	}
-	// OpenAI has 2 LLM models: gpt-4o-mini, gpt-4o
-	if len(llm) != 2 {
-		t.Errorf("ModelsOfType(LLM) = %d, want 2", len(llm))
+	// OpenAI has 7 LLM models: gpt-4o-mini, gpt-4o, gpt-5, gpt-5-mini, gpt-5.4, gpt-5.4-mini, gpt-5.4-nano
+	if len(llm) != 7 {
+		t.Errorf("ModelsOfType(LLM) = %d, want 7", len(llm))
+	}
+}
+
+func TestOpenAIRestrictedSampling(t *testing.T) {
+	// GPT-5 family must declare RestrictedSampling so the OpenAI adapter
+	// drops Temperature/top_p/etc. (the API rejects them).
+	restricted := []string{"gpt-5", "gpt-5-mini", "gpt-5.4", "gpt-5.4-mini", "gpt-5.4-nano"}
+	for _, id := range restricted {
+		m, err := GetModel("openai", id)
+		if err != nil {
+			t.Errorf("GetModel(%q): %v", id, err)
+			continue
+		}
+		if !m.RestrictedSampling {
+			t.Errorf("%s: RestrictedSampling = false, want true", id)
+		}
+		if m.Type != LLM {
+			t.Errorf("%s: Type = %v, want LLM", id, m.Type)
+		}
+	}
+
+	// Pre-existing GPT-4o LLM models accept sampling params and must NOT be flagged.
+	unrestricted := []string{"gpt-4o", "gpt-4o-mini"}
+	for _, id := range unrestricted {
+		m, err := GetModel("openai", id)
+		if err != nil {
+			t.Errorf("GetModel(%q): %v", id, err)
+			continue
+		}
+		if m.RestrictedSampling {
+			t.Errorf("%s: RestrictedSampling = true, want false", id)
+		}
 	}
 }
 
