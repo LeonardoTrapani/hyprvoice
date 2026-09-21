@@ -14,7 +14,6 @@ import (
 	"github.com/leonardotrapani/hyprvoice/internal/bus"
 	"github.com/leonardotrapani/hyprvoice/internal/config"
 	"github.com/leonardotrapani/hyprvoice/internal/daemon"
-	"github.com/leonardotrapani/hyprvoice/internal/models/whisper"
 	"github.com/leonardotrapani/hyprvoice/internal/provider"
 	"github.com/leonardotrapani/hyprvoice/internal/tui"
 	"github.com/spf13/cobra"
@@ -351,7 +350,7 @@ func runModelList(providerFilter, typeFilter string) error {
 		fmt.Printf("\n%s:\n", providerName)
 
 		for _, m := range models {
-			printModelLine(m)
+			printModelLine(&m)
 		}
 	}
 
@@ -359,11 +358,11 @@ func runModelList(providerFilter, typeFilter string) error {
 	return nil
 }
 
-func printModelLine(m provider.Model) {
+func printModelLine(m *provider.Model) {
 	// build prefix: checkmark for installed local models
 	prefix := "  "
 	if m.Local {
-		if whisper.IsInstalled(m.ID) {
+		if localModelInstalled(m) {
 			prefix = "  [x]"
 		} else {
 			prefix = "  [ ]"
@@ -427,8 +426,8 @@ func runModelDownload(ctx context.Context, modelName string) error {
 	}
 
 	// check if already installed
-	if whisper.IsInstalled(modelName) {
-		path := whisper.GetModelPath(modelName)
+	if localModelInstalled(model) {
+		path := localModelPath(model)
 		fmt.Printf("model '%s' is already installed at %s\n", modelName, path)
 		return nil
 	}
@@ -441,7 +440,7 @@ func runModelDownload(ctx context.Context, modelName string) error {
 	fmt.Println("...")
 
 	var lastPercent int
-	err = whisper.Download(ctx, modelName, func(downloaded, total int64) {
+	err = localModelDownload(ctx, model, func(downloaded, total int64) {
 		if total > 0 {
 			percent := int(downloaded * 100 / total)
 			if percent >= lastPercent+10 {
@@ -454,7 +453,7 @@ func runModelDownload(ctx context.Context, modelName string) error {
 		return fmt.Errorf("download failed: %w", err)
 	}
 
-	path := whisper.GetModelPath(modelName)
+	path := localModelPath(model)
 	fmt.Printf("\ndownload complete: %s\n", path)
 	return nil
 }
@@ -484,12 +483,12 @@ func runModelRemove(modelName string) error {
 	}
 
 	// check if installed
-	if !whisper.IsInstalled(modelName) {
+	if !localModelInstalled(model) {
 		return fmt.Errorf("model '%s' is not installed", modelName)
 	}
 
 	// remove the model
-	if err := whisper.Remove(modelName); err != nil {
+	if err := localModelRemove(model); err != nil {
 		return fmt.Errorf("failed to remove model: %w", err)
 	}
 
