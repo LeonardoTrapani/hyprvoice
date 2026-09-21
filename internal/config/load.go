@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"time"
 
 	"github.com/BurntSushi/toml"
 )
@@ -70,6 +71,7 @@ func LoadOrLegacy() (*Config, bool, error) {
 
 	config.applyLLMDefaults()
 	config.applyThreadsDefault()
+	config.applyInjectionDefaults(meta)
 
 	log.Printf("Config: configuration loaded successfully")
 	return &config, false, nil
@@ -110,5 +112,35 @@ func (c *Config) applyLLMDefaults() {
 		pp.AddPunctuation = true
 		pp.FixGrammar = true
 		pp.RemoveFillerWords = true
+	}
+}
+
+// applyInjectionDefaults applies defaults only for missing fields (not explicitly set in TOML)
+func (c *Config) applyInjectionDefaults(meta toml.MetaData) {
+	const (
+		defaultTimeout = 5000 * time.Millisecond
+		defaultClipboardTimeout = 3000 * time.Millisecond
+		defaultTypedelay = 1 * time.Millisecond
+		defaultTypehold = 2 * time.Millisecond
+	)
+
+	// Only apply defaults if field was not explicitly defined in TOML
+	if !meta.IsDefined("injection", "ydotool_timeout") && c.Injection.YdotoolTimeout == 0 {
+		c.Injection.YdotoolTimeout = defaultTimeout
+	}
+	if !meta.IsDefined("injection", "wtype_timeout") && c.Injection.WtypeTimeout == 0 {
+		c.Injection.WtypeTimeout = defaultTimeout
+	}
+	if !meta.IsDefined("injection", "clipboard_timeout") && c.Injection.ClipboardTimeout == 0 {
+		c.Injection.ClipboardTimeout = defaultClipboardTimeout
+	}
+	if !meta.IsDefined("injection", "dotool_timeout") && c.Injection.DotoolTimeout == 0 {
+		c.Injection.DotoolTimeout = defaultTimeout
+	}
+	if !meta.IsDefined("injection", "dotool_typedelay") && c.Injection.DotoolTypedelay == 0 {
+		c.Injection.DotoolTypedelay = defaultTypedelay
+	}
+	if !meta.IsDefined("injection", "dotool_typehold") && c.Injection.DotoolTypehold == 0 {
+		c.Injection.DotoolTypehold = defaultTypehold
 	}
 }

@@ -151,10 +151,10 @@ func (c *Config) Validate() error {
 	if len(c.Injection.Backends) == 0 {
 		return fmt.Errorf("invalid injection.backends: empty (must have at least one backend)")
 	}
-	validBackends := map[string]bool{"ydotool": true, "wtype": true, "clipboard": true}
+	validBackends := map[string]bool{"dotool": true, "ydotool": true, "wtype": true, "clipboard": true}
 	for _, backend := range c.Injection.Backends {
 		if !validBackends[backend] {
-			return fmt.Errorf("invalid injection.backends: unknown backend %q (must be ydotool, wtype, or clipboard)", backend)
+			return fmt.Errorf("invalid injection.backends: unknown backend %q (must be dotool, ydotool, wtype, or clipboard)", backend)
 		}
 	}
 	if c.Injection.YdotoolTimeout <= 0 {
@@ -165,6 +165,15 @@ func (c *Config) Validate() error {
 	}
 	if c.Injection.ClipboardTimeout <= 0 {
 		return fmt.Errorf("invalid injection.clipboard_timeout: %v", c.Injection.ClipboardTimeout)
+	}
+	if c.Injection.DotoolTimeout <= 0 {
+		return fmt.Errorf("invalid injection.dotool_timeout: %v", c.Injection.DotoolTimeout)
+	}
+	if c.Injection.DotoolTypedelay < 0 {
+		return fmt.Errorf("invalid injection.dotool_typedelay: %v (must be >= 0; default: 1ms)", c.Injection.DotoolTypedelay)
+	}
+	if c.Injection.DotoolTypehold < 0 {
+		return fmt.Errorf("invalid injection.dotool_typehold: %v (must be >= 0; default: 2ms)", c.Injection.DotoolTypehold)
 	}
 
 	validTypes := map[string]bool{"desktop": true, "log": true, "none": true}

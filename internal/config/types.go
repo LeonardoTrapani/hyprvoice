@@ -74,6 +74,9 @@ type InjectionConfig struct {
 	YdotoolTimeout   time.Duration `toml:"ydotool_timeout"`
 	WtypeTimeout     time.Duration `toml:"wtype_timeout"`
 	ClipboardTimeout time.Duration `toml:"clipboard_timeout"`
+	DotoolTimeout    time.Duration `toml:"dotool_timeout"`
+	DotoolTypedelay  time.Duration `toml:"dotool_typedelay"`
+	DotoolTypehold   time.Duration `toml:"dotool_typehold"`
 }
 
 type NotificationsConfig struct {

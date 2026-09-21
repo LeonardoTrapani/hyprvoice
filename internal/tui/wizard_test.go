@@ -30,3 +30,40 @@ func TestWizardMenuTransitionAppliesSize(t *testing.T) {
 		t.Fatalf("expected list size to be set, got width=%d height=%d", listScreen.list.Width(), listScreen.list.Height())
 	}
 }
+
+func TestInjectionScreenPreservesConfiguredBackendOrder(t *testing.T) {
+	cfg := &config.Config{
+		Injection: config.InjectionConfig{
+			Backends: []string{"dotool", "wtype", "clipboard"},
+		},
+	}
+	state := &wizardState{cfg: cfg}
+
+	next := newInjectionScreen(state, func() screen { return nil })
+	screen, ok := next.(*multiSelectScreen)
+	if !ok {
+		t.Fatalf("expected multi select screen, got %T", next)
+	}
+	items := listToToggleItems(screen.list.Items())
+
+	wantOrder := []string{"dotool", "wtype", "clipboard", "ydotool"}
+	if len(items) != len(wantOrder) {
+		t.Fatalf("items length = %d, want %d", len(items), len(wantOrder))
+	}
+	for i, want := range wantOrder {
+		if items[i].value != want {
+			t.Fatalf("item %d value = %q, want %q", i, items[i].value, want)
+		}
+	}
+
+	screen.onSubmit(items)
+	wantSaved := []string{"dotool", "wtype", "clipboard"}
+	if len(cfg.Injection.Backends) != len(wantSaved) {
+		t.Fatalf("saved backends length = %d, want %d", len(cfg.Injection.Backends), len(wantSaved))
+	}
+	for i, want := range wantSaved {
+		if cfg.Injection.Backends[i] != want {
+			t.Fatalf("saved backend %d = %q, want %q", i, cfg.Injection.Backends[i], want)
+		}
+	}
+}

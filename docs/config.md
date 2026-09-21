@@ -455,9 +455,12 @@ Configurable text injection with multiple backends:
 
 ```toml
 [injection]
-backends = ["ydotool", "wtype", "clipboard"]  # Ordered fallback chain
+backends = ["ydotool", "wtype", "dotool", "clipboard"]  # Ordered fallback chain
 ydotool_timeout = "5s"
 wtype_timeout = "5s"
+dotool_timeout = "5s"
+dotool_typedelay = "1ms"
+dotool_typehold = "2ms"
 clipboard_timeout = "3s"
 ```
 
@@ -465,6 +468,7 @@ clipboard_timeout = "3s"
 
 - **`ydotool`**: Uses ydotool (requires `ydotoold` daemon for ydotool v1.0.0+). Most compatible with Chromium/Electron apps.
 - **`wtype`**: Uses wtype for Wayland. May have issues with some Chromium-based apps (known upstream bug).
+- **`dotool`**: Uses dotoold/dotoolc when the daemon is running, otherwise falls back to direct `dotool`.
 - **`clipboard`**: Copies text to clipboard only. Most reliable, but requires manual paste.
 
 ### Fallback Chain
@@ -479,7 +483,7 @@ backends = ["clipboard"]
 backends = ["wtype", "clipboard"]
 
 # Full fallback chain (default) - best compatibility
-backends = ["ydotool", "wtype", "clipboard"]
+backends = ["ydotool", "wtype", "dotool", "clipboard"]
 
 # ydotool only (if you have it set up)
 backends = ["ydotool"]
@@ -502,6 +506,38 @@ sudo usermod -aG input $USER
 #     kb_layout = us
 # }
 ```
+
+### dotool Setup
+
+dotool requires access to `/dev/uinput`. It uses dotoold/dotoolc automatically when dotoold is already running, and falls back to direct `dotool` when it is not.
+
+```bash
+sudo usermod -aG input $USER
+# Then logout/login
+```
+
+dotoold is optional but recommended for minimal latency. When dotoold is used, `dotoolc` queues commands and may return before typing has fully finished. You can start dotoold manually, or write a small user-level systemd service, like this:
+
+```ini
+[Unit]
+Description=dotool daemon
+Documentation=https://sr.ht/~geb/dotool/
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/dotoold
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=hyprvoice.service
+```
+
+```bash
+systemctl --user enable --now dotoold.service
+```
+
+The default configuration for dotool typing is 1ms between keys and 2ms hold, you can try decreasing them further, but at some point it breaks (the contributor who added this backend uses 0ms and 1ms respectively).
 
 ## Notifications
 

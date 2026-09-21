@@ -29,7 +29,7 @@ provider = "openai"
 model = "whisper-1"
 
 [injection]
-backends = ["ydotool", "wtype", "clipboard"]
+backends = ["ydotool", "wtype", "dotool", "clipboard"]
 ydotool_timeout = "5s"
 wtype_timeout = "5s"
 clipboard_timeout = "3s"
