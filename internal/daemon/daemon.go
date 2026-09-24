@@ -26,6 +26,7 @@ type Daemon struct {
 	cancel context.CancelFunc
 
 	pipeline pipeline.Pipeline
+	hub      *streamHub
 
 	wg sync.WaitGroup
 }
@@ -48,9 +49,11 @@ func New() (*Daemon, error) {
 	d := &Daemon{
 		notifier:  notify.NewNotifier(notifType, conf.Notifications.Messages.Resolve()),
 		configMgr: configMgr,
+		hub:       newStreamHub(),
 		ctx:       ctx,
 		cancel:    cancel,
 	}
+	d.hub.setOnCount(d.setLevelsWanted)
 
 	return d, nil
 }
@@ -172,6 +175,8 @@ func (d *Daemon) handle(c net.Conn) {
 	case 's':
 		status := d.status()
 		fmt.Fprintf(c, "STATUS status=%s\n", status)
+	case 'w':
+		d.streamStatus(c)
 	case 'v':
 		fmt.Fprintf(c, "STATUS proto=%s\n", bus.ProtoVer)
 	case 'q':
@@ -192,11 +197,16 @@ func (d *Daemon) toggle() {
 	switch d.status() {
 	case pipeline.Idle:
 		p := pipeline.New(conf)
-		p.Run(d.ctx)
+		p.SetLevelsWanted(d.hub.count() > 0)
 
 		d.mu.Lock()
 		d.pipeline = p
 		d.mu.Unlock()
+
+		// Subscribed before Run so the opening transitions cannot be missed.
+		go d.monitorPipelineEvents(p)
+
+		p.Run(d.ctx)
 
 		go d.notifier.Send(notify.MsgRecordingStarted)
 		go d.monitorPipelineErrors(p)

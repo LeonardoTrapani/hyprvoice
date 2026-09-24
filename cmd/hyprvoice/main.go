@@ -1,20 +1,28 @@
 package main
 
 import (
+	"bufio"
+	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"log"
+	"net"
+	"os"
 	"os/exec"
+	"os/signal"
 	"path/filepath"
 	"sort"
 	"strings"
+	"syscall"
 
 	"github.com/leonardotrapani/hyprvoice/internal/bus"
 	"github.com/leonardotrapani/hyprvoice/internal/config"
 	"github.com/leonardotrapani/hyprvoice/internal/daemon"
 	"github.com/leonardotrapani/hyprvoice/internal/models/whisper"
+	"github.com/leonardotrapani/hyprvoice/internal/pipeline"
 	"github.com/leonardotrapani/hyprvoice/internal/provider"
 	"github.com/leonardotrapani/hyprvoice/internal/tui"
 	"github.com/spf13/cobra"
@@ -73,18 +81,105 @@ func toggleCmd() *cobra.Command {
 }
 
 func statusCmd() *cobra.Command {
-	return &cobra.Command{
+	var follow bool
+	var format string
+
+	cmd := &cobra.Command{
 		Use:   "status",
 		Short: "Get current recording status",
+		Long: "Get current recording status.\n\n" +
+			"With --follow, stream status changes as they happen, one JSON object\n" +
+			"per line, for driving a status bar or on-screen indicator. While\n" +
+			"something is following, events also carry `levels`: normalised 0..1\n" +
+			"loudness values for the audio just captured, enough to draw a live\n" +
+			"waveform. Loudness is only measured while a follower is attached.",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if format != "text" && format != "json" {
+				return fmt.Errorf("invalid --format %q: want text or json", format)
+			}
+
+			if follow {
+				return followStatus(cmd, format)
+			}
+
 			resp, err := bus.SendCommand('s')
 			if err != nil {
 				return fmt.Errorf("failed to get status: %w", err)
 			}
-			fmt.Print(resp)
+
+			if format == "json" {
+				// "STATUS status=idle\n" -> {"status":"idle"}
+				value := strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(resp), "STATUS status="))
+				out, err := json.Marshal(map[string]string{"status": value})
+				if err != nil {
+					return err
+				}
+				fmt.Fprintln(cmd.OutOrStdout(), string(out))
+				return nil
+			}
+
+			fmt.Fprint(cmd.OutOrStdout(), resp)
 			return nil
 		},
 	}
+
+	cmd.Flags().BoolVarP(&follow, "follow", "f", false, "stream status changes until interrupted")
+	cmd.Flags().StringVar(&format, "format", "text", "output format: text or json")
+	return cmd
+}
+
+// followStatus streams events from the daemon until the connection drops or
+// the process is interrupted.
+func followStatus(cmd *cobra.Command, format string) error {
+	conn, err := bus.OpenStream('w')
+	if err != nil {
+		return fmt.Errorf("failed to follow status: %w", err)
+	}
+	defer conn.Close()
+
+	// Close the connection on signal so a blocked read returns instead of
+	// leaving the daemon holding a subscriber until its next heartbeat.
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
+	defer signal.Stop(sigCh)
+	go func() {
+		<-sigCh
+		conn.Close()
+	}()
+
+	out := cmd.OutOrStdout()
+	scanner := bufio.NewScanner(conn)
+	for scanner.Scan() {
+		line := scanner.Bytes()
+		if len(bytes.TrimSpace(line)) == 0 {
+			continue
+		}
+
+		if format == "json" {
+			fmt.Fprintln(out, string(line))
+			continue
+		}
+
+		var ev pipeline.StatusEvent
+		if err := json.Unmarshal(line, &ev); err != nil {
+			continue
+		}
+		if len(ev.Levels) > 0 {
+			// Levels are for machines; a human following along wants the
+			// transitions, not four lines of numbers a second.
+			continue
+		}
+		fmt.Fprintf(out, "STATUS status=%s listening=%t\n", ev.Status, ev.Listening)
+	}
+
+	if err := scanner.Err(); err != nil {
+		// A closed connection is how this command ends, not a failure.
+		if errors.Is(err, net.ErrClosed) {
+			return nil
+		}
+		return fmt.Errorf("status stream ended: %w", err)
+	}
+	return nil
 }
 
 func versionCmd() *cobra.Command {

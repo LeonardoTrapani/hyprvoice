@@ -511,11 +511,11 @@ func TestPipeline_WithMocks_LLMProcessing(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 
 	// verify LLM was called with transcription
-	if !mockLLM.ProcessCalled {
+	if !mockLLM.WasCalled() {
 		t.Error("expected LLM.Process to be called")
 	}
-	if mockLLM.InputText != "um hello um world" {
-		t.Errorf("expected LLM input 'um hello um world', got %q", mockLLM.InputText)
+	if got := mockLLM.Input(); got != "um hello um world" {
+		t.Errorf("expected LLM input 'um hello um world', got %q", got)
 	}
 
 	// verify injection used LLM output

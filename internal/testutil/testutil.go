@@ -210,6 +210,10 @@ func (m *MockRecorder) Start(ctx context.Context) (<-chan recording.AudioFrame, 
 
 	m.mu.Lock()
 	m.stopCh = make(chan struct{})
+	// Read the channel once, here, and let the goroutine close over the local.
+	// Stop() nils the field out under the same lock, so a goroutine reading
+	// m.stopCh directly would race with it.
+	stopCh := m.stopCh
 	m.mu.Unlock()
 
 	m.recording.Store(true)
@@ -225,7 +229,7 @@ func (m *MockRecorder) Start(ctx context.Context) (<-chan recording.AudioFrame, 
 			select {
 			case <-ctx.Done():
 				return
-			case <-m.stopCh:
+			case <-stopCh:
 				return
 			case frameCh <- frame:
 			}
@@ -234,7 +238,7 @@ func (m *MockRecorder) Start(ctx context.Context) (<-chan recording.AudioFrame, 
 		// keep channel open until stopped
 		select {
 		case <-ctx.Done():
-		case <-m.stopCh:
+		case <-stopCh:
 		}
 	}()
 
@@ -363,6 +367,22 @@ func (m *MockLLMAdapter) Process(ctx context.Context, text string) (string, erro
 		return "", m.ProcessError
 	}
 	return m.ProcessedText, nil
+}
+
+// WasCalled reports whether Process has run. Process is invoked on the
+// pipeline's goroutine, so tests must read this through the lock rather than
+// touching the field.
+func (m *MockLLMAdapter) WasCalled() bool {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.ProcessCalled
+}
+
+// Input returns the text Process was last given.
+func (m *MockLLMAdapter) Input() string {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.InputText
 }
 
 // Factory helpers for pipeline testing
