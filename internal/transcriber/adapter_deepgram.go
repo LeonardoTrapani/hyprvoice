@@ -236,13 +236,29 @@ func (a *DeepgramAdapter) buildURL() (string, error) {
 		q.Set("language", lang)
 	}
 
-	// nova-3 uses "keyterm" (singular), others use "keywords" (plural)
-	if len(a.keywords) > 0 && !strings.HasPrefix(a.model, "nova-3") && !strings.HasPrefix(a.model, "flux") {
-		q.Set("keywords", strings.Join(a.keywords, ","))
-	}
+	addDeepgramKeywords(q, a.model, a.keywords)
 
 	u.RawQuery = q.Encode()
 	return u.String(), nil
+}
+
+// addDeepgramKeywords adds vocabulary boosting query parameters for the given model.
+// nova-3 and flux use "keyterm" (Keyterm Prompting), older models use "keywords".
+// Both are repeated once per term, never comma-joined; multi-word phrases are a
+// single value. Whitespace is trimmed and empty terms are skipped.
+// See https://developers.deepgram.com/docs/keyterm and /docs/keywords.
+func addDeepgramKeywords(q url.Values, model string, keywords []string) {
+	param := "keywords"
+	if strings.HasPrefix(model, "nova-3") || strings.HasPrefix(model, "flux") {
+		param = "keyterm"
+	}
+	for _, kw := range keywords {
+		kw = strings.TrimSpace(kw)
+		if kw == "" {
+			continue
+		}
+		q.Add(param, kw)
+	}
 }
 
 // readLoop reads messages from the WebSocket and sends results to the channel
