@@ -74,6 +74,28 @@ type InjectionConfig struct {
 	YdotoolTimeout   time.Duration `toml:"ydotool_timeout"`
 	WtypeTimeout     time.Duration `toml:"wtype_timeout"`
 	ClipboardTimeout time.Duration `toml:"clipboard_timeout"`
+
+	// WtypeStartDelay is how long wtype waits after creating its virtual
+	// keyboard before sending any key.
+	//
+	// wtype uploads a keymap and then immediately types against it. Chromium
+	// and Electron apply a new keymap asynchronously, so keys that arrive too
+	// soon are interpreted against the previous one -- text lands garbled, or
+	// as application shortcuts. A short pause lets the keymap settle.
+	WtypeStartDelay time.Duration `toml:"wtype_start_delay"`
+
+	// WtypeKeyDelay is the pause between individual keystrokes. Some apps drop
+	// characters typed faster than a human could.
+	WtypeKeyDelay time.Duration `toml:"wtype_key_delay"`
+
+	// ClipboardPaste makes the clipboard backend send a paste keystroke after
+	// copying, instead of leaving the text on the clipboard for the user.
+	//
+	// This is the reliable path for Electron apps: a paste chord is one
+	// well-defined keystroke rather than a stream of synthesised characters,
+	// and if the target is not a text field it does nothing rather than
+	// triggering navigation.
+	ClipboardPaste bool `toml:"clipboard_paste"`
 }
 
 type NotificationsConfig struct {

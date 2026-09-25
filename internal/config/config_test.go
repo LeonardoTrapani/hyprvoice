@@ -2009,3 +2009,29 @@ type = "log"`
 		}
 	})
 }
+
+// notifications.enabled is a separate switch from notifications.type. A user
+// who turns notifications off still has a type in their config, and before
+// NotifierType existed the type alone decided, so `enabled = false` did
+// nothing.
+func TestNotifierTypeRespectsEnabled(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		enabled bool
+		typ     string
+		want    string
+	}{
+		{"disabled with a desktop type", false, "desktop", ""},
+		{"disabled with a log type", false, "log", ""},
+		{"enabled desktop", true, "desktop", "desktop"},
+		{"enabled log", true, "log", "log"},
+		{"enabled but no type", true, "", ""},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			c := &Config{Notifications: NotificationsConfig{Enabled: tc.enabled, Type: tc.typ}}
+			if got := c.NotifierType(); got != tc.want {
+				t.Errorf("NotifierType() = %q, want %q", got, tc.want)
+			}
+		})
+	}
+}

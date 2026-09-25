@@ -5,13 +5,17 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"strconv"
 	"time"
 )
 
-type wtypeBackend struct{}
+type wtypeBackend struct {
+	startDelay time.Duration
+	keyDelay   time.Duration
+}
 
-func NewWtypeBackend() Backend {
-	return &wtypeBackend{}
+func NewWtypeBackend(startDelay, keyDelay time.Duration) Backend {
+	return &wtypeBackend{startDelay: startDelay, keyDelay: keyDelay}
 }
 
 func (w *wtypeBackend) Name() string {
@@ -42,10 +46,28 @@ func (w *wtypeBackend) Inject(ctx context.Context, text string, timeout time.Dur
 		return err
 	}
 
-	cmd := exec.CommandContext(ctx, "wtype", "--", text)
+	cmd := exec.CommandContext(ctx, "wtype", w.args(text)...)
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("wtype failed: %w", err)
 	}
 
 	return nil
+}
+
+// args builds the wtype invocation, applying the configured delays.
+//
+// -s pauses before the following options are interpreted, which is what gives
+// a Chromium or Electron target time to adopt the keymap wtype just uploaded;
+// -d spaces out the individual keystrokes.
+func (w *wtypeBackend) args(text string) []string {
+	var args []string
+
+	if ms := int(w.startDelay.Milliseconds()); ms > 0 {
+		args = append(args, "-s", strconv.Itoa(ms))
+	}
+	if ms := int(w.keyDelay.Milliseconds()); ms > 0 {
+		args = append(args, "-d", strconv.Itoa(ms))
+	}
+
+	return append(args, "--", text)
 }

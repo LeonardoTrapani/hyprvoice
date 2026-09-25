@@ -688,6 +688,36 @@ streaming = true
   model = "gpt-4o-mini"
 ```
 
+### Electron and Chromium targets
+
+Synthesised keystrokes are unreliable against Electron apps (Teams, Slack,
+VS Code). `wtype` uploads a keymap and immediately types against it, while
+Chromium adopts a new keymap asynchronously, so keys arrive interpreted against
+the previous one -- text lands garbled, or as application shortcuts. A
+dictation aimed at a Teams message can end up selecting a different chat.
+
+Two settings address it:
+
+```toml
+[injection]
+backends = ["clipboard", "wtype"]
+clipboard_paste = true       # copy, then send Shift+Insert
+wtype_start_delay = "90ms"   # let the target adopt wtype's keymap
+wtype_key_delay = "4ms"      # space out individual keystrokes
+```
+
+`clipboard_paste` makes the clipboard backend send a paste keystroke after
+copying rather than leaving the text for you to paste. It is the reliable path
+for Electron: a paste is one keystroke that either lands in a text field or
+does nothing, where synthesised characters that miss a text field become
+application shortcuts. Shift+Insert is used rather than Ctrl+V because it
+pastes in terminals as well as GUI apps.
+
+The two `wtype_*` delays apply when typing is used, whether as the primary
+backend or as a fallback. Both default to zero, which preserves the previous
+behaviour.
+
+
 ## Legacy Configs
 
 Older config formats are no longer supported. If your config uses any of these fields, rerun onboarding to regenerate a supported config:

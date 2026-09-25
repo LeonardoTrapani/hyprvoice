@@ -16,6 +16,10 @@ type Config struct {
 	YdotoolTimeout   time.Duration // Timeout for ydotool commands
 	WtypeTimeout     time.Duration // Timeout for wtype commands
 	ClipboardTimeout time.Duration // Timeout for clipboard operations
+
+	WtypeStartDelay time.Duration // Pause before wtype's first keystroke
+	WtypeKeyDelay   time.Duration // Pause between wtype keystrokes
+	ClipboardPaste  bool          // Send a paste keystroke after copying
 }
 
 type injector struct {
@@ -31,9 +35,9 @@ func NewInjector(config Config) Injector {
 		case "ydotool":
 			backends = append(backends, NewYdotoolBackend())
 		case "wtype":
-			backends = append(backends, NewWtypeBackend())
+			backends = append(backends, NewWtypeBackend(config.WtypeStartDelay, config.WtypeKeyDelay))
 		case "clipboard":
-			backends = append(backends, NewClipboardBackend())
+			backends = append(backends, NewClipboardBackend(config.ClipboardPaste))
 		default:
 			log.Printf("Injection: unknown backend %q, skipping", name)
 		}
@@ -42,7 +46,7 @@ func NewInjector(config Config) Injector {
 	// Default to clipboard if no valid backends
 	if len(backends) == 0 {
 		log.Printf("Injection: no valid backends configured, defaulting to clipboard")
-		backends = append(backends, NewClipboardBackend())
+		backends = append(backends, NewClipboardBackend(config.ClipboardPaste))
 	}
 
 	return &injector{
