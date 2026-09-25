@@ -35,6 +35,7 @@ func init() {
 		toggleCmd(),
 		cancelCmd(),
 		statusCmd(),
+		historyCmd(),
 		versionCmd(),
 		stopCmd(),
 		onboardingCmd(),

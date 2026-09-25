@@ -21,6 +21,7 @@ type Config struct {
 	Providers     map[string]ProviderConfig `toml:"providers"`
 	Keywords      []string                  `toml:"keywords"`
 	LLM           LLMConfig                 `toml:"llm"`
+	History       HistoryConfig             `toml:"history"`
 }
 
 // ProviderConfig holds API key for a provider
@@ -74,6 +75,17 @@ type InjectionConfig struct {
 	YdotoolTimeout   time.Duration `toml:"ydotool_timeout"`
 	WtypeTimeout     time.Duration `toml:"wtype_timeout"`
 	ClipboardTimeout time.Duration `toml:"clipboard_timeout"`
+}
+
+// HistoryConfig controls the archive of past transcriptions.
+type HistoryConfig struct {
+	Enabled bool `toml:"enabled"`
+
+	// MaxEntries is how many transcriptions to keep. Zero uses the default.
+	MaxEntries int `toml:"max_entries"`
+
+	// Path overrides the store location. Empty uses the XDG state directory.
+	Path string `toml:"path"`
 }
 
 type NotificationsConfig struct {

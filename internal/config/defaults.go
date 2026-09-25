@@ -1,6 +1,10 @@
 package config
 
-import "time"
+import (
+	"time"
+
+	"github.com/leonardotrapani/hyprvoice/internal/history"
+)
 
 // DefaultConfig returns the initial configuration used for onboarding.
 func DefaultConfig() *Config {
@@ -33,6 +37,12 @@ func DefaultConfig() *Config {
 		Keywords:  nil,
 		LLM: LLMConfig{
 			Enabled: false,
+		},
+		History: HistoryConfig{
+			// On by default: the whole point is to still have the text when
+			// something went wrong, which is not a moment you can plan for.
+			Enabled:    true,
+			MaxEntries: history.DefaultMaxEntries,
 		},
 	}
 }
