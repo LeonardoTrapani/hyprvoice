@@ -172,6 +172,12 @@ func (d *Daemon) handle(c net.Conn) {
 	case 's':
 		status := d.status()
 		fmt.Fprintf(c, "STATUS status=%s\n", status)
+	case 'r':
+		d.startRecording()
+		fmt.Fprint(c, "OK recording\n")
+	case 'f':
+		d.stopRecording()
+		fmt.Fprint(c, "OK finished\n")
 	case 'v':
 		fmt.Fprintf(c, "STATUS proto=%s\n", bus.ProtoVer)
 	case 'q':
@@ -191,16 +197,8 @@ func (d *Daemon) toggle() {
 	conf := d.configMgr.GetConfig()
 	switch d.status() {
 	case pipeline.Idle:
-		p := pipeline.New(conf)
-		p.Run(d.ctx)
-
-		d.mu.Lock()
-		d.pipeline = p
-		d.mu.Unlock()
-
+		d.launchPipeline(conf)
 		go d.notifier.Send(notify.MsgRecordingStarted)
-		go d.monitorPipelineErrors(p)
-		go d.monitorPipelineNotifications(p)
 
 	case pipeline.Recording:
 		d.stopPipeline()
@@ -221,6 +219,80 @@ func (d *Daemon) toggle() {
 	case pipeline.Injecting:
 		d.stopPipeline()
 		go d.notifier.Send(notify.MsgInjectionAborted)
+	}
+}
+
+// launchPipeline builds and runs a pipeline, replacing whatever d.pipeline
+// pointed at. Callers are responsible for checking that nothing is already in
+// flight.
+func (d *Daemon) launchPipeline(conf *config.Config) {
+	p := pipeline.New(conf)
+
+	d.mu.Lock()
+	d.pipeline = p
+	d.mu.Unlock()
+
+	p.Run(d.ctx)
+
+	go d.monitorPipelineErrors(p)
+	go d.monitorPipelineNotifications(p)
+}
+
+// startRecording begins recording, and does nothing if a recording is already
+// under way.
+//
+// This is the press half of push-to-talk. Unlike toggle it is idempotent, so a
+// repeated or duplicated press cannot stop the recording the user is in the
+// middle of.
+func (d *Daemon) startRecording() {
+	if d.configMgr.IsLegacy() {
+		d.notifier.Error("Legacy config detected. Run: hyprvoice onboarding")
+		return
+	}
+
+	if d.status() != pipeline.Idle {
+		log.Printf("Daemon: Start requested but a recording is already in progress, ignoring")
+		return
+	}
+
+	d.launchPipeline(d.configMgr.GetConfig())
+	go d.notifier.Send(notify.MsgRecordingStarted)
+}
+
+// stopRecording finishes the recording in progress and transcribes it, and
+// does nothing if there is nothing to finish.
+//
+// This is the release half of push-to-talk. Being idempotent is what makes a
+// lost release recoverable: with `toggle` on both edges a missed release
+// inverts the meaning of every subsequent press, whereas here the next press
+// and release simply work.
+func (d *Daemon) stopRecording() {
+	switch d.status() {
+	case pipeline.Recording, pipeline.Transcribing:
+		d.mu.RLock()
+		p := d.pipeline
+		d.mu.RUnlock()
+
+		if p == nil {
+			return
+		}
+
+		// Recording is a brief state the pipeline passes through before it
+		// begins streaming, and a quick tap can land inside it. The action
+		// channel is buffered, so an inject sent during that window is picked
+		// up as soon as the pipeline reaches its action loop -- by which point
+		// it is in Transcribing and will honour it.
+		select {
+		case p.GetActionCh() <- pipeline.Inject:
+			log.Printf("Daemon: Sending inject action to pipeline")
+		default:
+			log.Printf("Daemon: Action already pending, ignoring stop")
+		}
+
+		go d.notifier.Send(notify.MsgTranscribing)
+
+	default:
+		log.Printf("Daemon: Stop requested but nothing is recording, ignoring")
 	}
 }
 

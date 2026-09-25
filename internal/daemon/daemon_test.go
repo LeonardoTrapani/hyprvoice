@@ -357,15 +357,28 @@ func TestDaemon_Handle_Commands(t *testing.T) {
 }
 
 // MockPipeline implements pipeline.Pipeline for testing
-type MockPipeline struct{}
+type MockPipeline struct {
+	status   pipeline.Status
+	actionCh chan pipeline.Action
+}
 
 func (m *MockPipeline) Run(ctx context.Context) {}
 func (m *MockPipeline) Stop()                   {}
-func (m *MockPipeline) Status() pipeline.Status { return pipeline.Idle }
+func (m *MockPipeline) Status() pipeline.Status {
+	if m.status == "" {
+		return pipeline.Idle
+	}
+	return m.status
+}
 func (m *MockPipeline) GetErrorCh() <-chan pipeline.PipelineError {
 	return make(chan pipeline.PipelineError)
 }
-func (m *MockPipeline) GetActionCh() chan<- pipeline.Action { return make(chan pipeline.Action) }
+func (m *MockPipeline) GetActionCh() chan<- pipeline.Action {
+	if m.actionCh == nil {
+		m.actionCh = make(chan pipeline.Action, 1)
+	}
+	return m.actionCh
+}
 func (m *MockPipeline) GetNotifyCh() <-chan notify.MessageType {
 	return make(chan notify.MessageType)
 }
