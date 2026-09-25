@@ -7,6 +7,13 @@ This repo is a Go CLI + daemon for voice-powered typing on Wayland/Hyprland.
 - go build -o hyprvoice ./cmd/hyprvoice
 - go run ./cmd/hyprvoice
 
+## Tests
+- go test ./... -short
+- A few tests are not hermetic: they type into the focused window, raise
+  desktop notifications, and open the microphone. They skip unless
+  HYPRVOICE_TEST_INTEGRATION is set, so a plain `go test ./...` is safe to run
+  on a machine you are using.
+
 ## Main structure (short)
 - cmd/hyprvoice: CLI entrypoint and commands
 - internal/daemon: daemon lifecycle + IPC command handling
